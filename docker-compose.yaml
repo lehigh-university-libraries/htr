@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   promptfoo_container:
-    image: ghcr.io/promptfoo/promptfoo:latest
+    image: ghcr.io/promptfoo/promptfoo:latest@sha256:19428c20a38db8e07f03f93d8ab16f15e77c11d7bd856c81f0e8907e5e864eae
     ports:
       - 3000:3000
     volumes:
