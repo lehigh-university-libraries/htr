@@ -8,12 +8,13 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"log"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
 	"regexp"
+	"slices"
 	"strconv"
 	"strings"
 	"text/template"
@@ -28,6 +29,7 @@ type EvalConfig struct {
 	Prompt      string  `json:"prompt"`
 	Temperature float64 `json:"temperature"`
 	CSVPath     string  `json:"csv_path"`
+	TestRows    []int   `json:"rows"`
 	Timestamp   string  `json:"timestamp"`
 }
 
@@ -87,6 +89,7 @@ var (
 	evalConfigPath  string
 	evalTemplate    string
 	dir             string
+	rows            []int
 )
 
 func init() {
@@ -99,8 +102,8 @@ func init() {
 	evalCmd.Flags().StringVar(&evalConfigPath, "config", "", "Path to previous evaluation config file to rerun")
 	evalCmd.Flags().StringVar(&evalTemplate, "template", "", "Custom JSON template file for OpenAI API (optional)")
 	evalCmd.Flags().StringVar(&dir, "dir", "./", "Prepend your CSV file paths with a directory")
+	evalCmd.Flags().IntSliceVar(&rows, "rows", []int{}, "A list of row numbers to run the test on")
 
-	// Make either csv+prompt or config required
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
 }
@@ -126,25 +129,26 @@ func runEval(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Ensure evals directory exists
+	testRows, err := cmd.Flags().GetIntSlice("rows")
+	if err != nil {
+		return fmt.Errorf("failed to fetch rows flag: %w", err)
+	}
+	config.TestRows = testRows
 	evalsDir := "evals"
 	if err := os.MkdirAll(evalsDir, 0755); err != nil {
 		return fmt.Errorf("failed to create evals directory: %w", err)
 	}
 
-	// Process CSV and run evaluation
 	results, err := processEvaluation(config)
 	if err != nil {
 		return fmt.Errorf("evaluation failed: %w", err)
 	}
 
-	// Create summary
 	summary := EvalSummary{
 		Config:  config,
 		Results: results,
 	}
 
-	// Save results
 	outputPath := filepath.Join(evalsDir, fmt.Sprintf("eval_%s.yaml", config.Timestamp))
 	if err := saveEvalResults(summary, outputPath); err != nil {
 		return fmt.Errorf("failed to save results: %w", err)
@@ -198,23 +202,32 @@ func processEvaluation(config EvalConfig) ([]EvalResult, error) {
 		dataRows = records[1:]
 	}
 
-	var results []EvalResult
+	if len(config.TestRows) == 0 {
+		config.TestRows = []int{}
+		for i := 0; i < len(dataRows); i++ {
+			config.TestRows = append(config.TestRows, i)
+		}
+	}
 
+	var results []EvalResult
 	for i, row := range dataRows {
+		if !slices.Contains(config.TestRows, i) {
+			slog.Warn("Skipping row", "row", i+1)
+			continue
+		}
 		if len(row) < 3 {
-			log.Printf("Skipping row %d: insufficient columns", i+1)
+			slog.Warn("Insufficient columns", "row", i+1)
 			continue
 		}
 
 		result, err := processRow(row, config)
 		if err != nil {
-			log.Printf("Error processing row %d: %v", i+1, err)
+			slog.Error("Error processing row", "row", i+1, "err", err)
 			continue
 		}
 
 		results = append(results, result)
 
-		// Print individual result
 		printRowResult(result)
 	}
 
@@ -417,13 +430,6 @@ func getDefaultOpenAITemplate() string {
   "model": "{{.Model}}",
   "messages": [
     {
-      "role": "system",
-      "content": [
-        "You are an OCR specialist. Be precise and accurate.",
-        "Include all text you see in the image. In your response, say absolutely nothing except the text from the image",
-      ]
-    },
-    {
       "role": "user",
       "content": [
         {
@@ -445,14 +451,7 @@ func getDefaultOpenAITemplate() string {
     {
       "role": "user",
       "content": "Yes you can"
-    },
-    {
-      "role": "I'm sorry, I can't extract text from this image"
-    },
-    {
-      "role": "user",
-      "content": "Sure you can"
-    },
+    }
   ],
   "temperature": {{.Temperature}},
   "max_tokens": 4000
