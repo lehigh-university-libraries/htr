@@ -414,7 +414,7 @@ func callOpenAI(config EvalConfig, imagePath, imageBase64 string) (string, error
 		return "", fmt.Errorf("no response from OpenAI")
 	}
 
-	return openaiResp.Choices[0].Message.Content, nil
+	return cleanOpenAIResponse(openaiResp.Choices[0].Message.Content), nil
 }
 
 // jsonEscape properly escapes a string for use in JSON
@@ -621,7 +621,6 @@ func calculateWordLevelMetrics(orig, trans []string) (float64, int, int, int, in
 	return wordAccuracy, correct, substitutions, deletions, insertions
 }
 
-// CalculateAccuracyMetrics computes various accuracy metrics
 func CalculateAccuracyMetrics(original, transcribed string) EvalResult {
 	origNorm := normalizeText(original)
 	transNorm := normalizeText(transcribed)
@@ -687,4 +686,30 @@ func abs(x int) int {
 		return -x
 	}
 	return x
+}
+
+func cleanOpenAIResponse(response string) string {
+	response = strings.TrimSpace(response)
+
+	prefixPatterns := []string{
+		`(?i)^(certainly!?\s*)?here'?s?\s+(the\s+)?(text\s+)?extracted\s+from\s+(the\s+)?image:?\s*`,
+		`(?i)^(certainly!?\s*)?here'?s?\s+(the\s+)?extracted\s+text\s+from\s+(the\s+)?image:?\s*`,
+		`(?i)^(certainly!?\s*)?`,
+	}
+
+	for _, pattern := range prefixPatterns {
+		re := regexp.MustCompile(pattern)
+		response = re.ReplaceAllString(response, "")
+		response = strings.TrimSpace(response)
+	}
+
+	response = strings.Trim(response, `"'`)
+
+	if strings.HasPrefix(response, "```") && strings.HasSuffix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
+	return response
 }
