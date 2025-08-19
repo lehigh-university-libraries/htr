@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -395,29 +397,70 @@ func parseHOCRWordLine(line string) HOCRWord {
 }
 
 func getOCRForImage(imagePath string) (string, error) {
-	// Modified to request hOCR format from OpenAI
+	// First run tesseract to get hOCR with bounding boxes
+	tesseractHOCR, err := runTesseractHOCR(imagePath)
+	if err != nil {
+		slog.Error("Tesseract failed, using fallback", "error", err)
+		tesseractHOCR = generateBasicHOCR("Tesseract failed")
+	}
+
+	// Use tesseract hOCR as example in OpenAI prompt
 	config := EvalConfig{
-		Model:       evalModel,
-		Prompt:      "Extract all text from this image and return it in hOCR format with bounding boxes and confidence scores. Use proper hOCR XML structure with ocrx_word elements containing bbox and x_wconf attributes.",
+		Model: evalModel,
+		Prompt: fmt.Sprintf(`Extract all text from this image and return it in hOCR format with bounding boxes and confidence scores. 
+
+Here is an example hOCR structure from tesseract for reference (the text may be wrong but bounding boxes are likely correct):
+
+%s
+
+Please provide corrected text content while maintaining the same hOCR structure and bounding box coordinates. Focus on getting the text content right while preserving the spatial layout.`, tesseractHOCR),
 		Temperature: 0.0,
 	}
 
+	slog.Info("Prompting", "prompt", config.Prompt)
+
 	imageBase64, err := getImageAsBase64(imagePath)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to encode image: %w", err)
 	}
 
 	response, err := callOpenAI(config, imagePath, imageBase64)
 	if err != nil {
-		return "", err
+		// Fallback to tesseract hOCR if OpenAI fails
+		slog.Warn("OpenAI failed, using tesseract hOCR", "error", err)
+		return validateAndFixHOCR(tesseractHOCR), nil
 	}
 
-	// If response doesn't look like hOCR, generate a basic hOCR structure
-	if !strings.Contains(response, "ocrx_word") {
-		return generateBasicHOCR(response), nil
+	// Clean the response and check if it contains hOCR
+	cleanResponse := cleanOpenAIResponse(response)
+
+	// If response doesn't look like hOCR, fall back to tesseract
+	if !strings.Contains(cleanResponse, "ocrx_word") && !strings.Contains(cleanResponse, "ocr_word") {
+		slog.Info("Response is not hOCR format, using tesseract hOCR")
+		return validateAndFixHOCR(tesseractHOCR), nil
 	}
 
-	return response, nil
+	// Validate and potentially fix the hOCR
+	return validateAndFixHOCR(cleanResponse), nil
+}
+
+func runTesseractHOCR(imagePath string) (string, error) {
+	// Run tesseract with hocr output
+	cmd := exec.Command("tesseract", imagePath, "stdout", "-l", "eng", "hocr")
+
+	output, err := cmd.Output()
+	if err != nil {
+		return "", fmt.Errorf("tesseract failed: %w", err)
+	}
+
+	hocrOutput := string(output)
+
+	// Basic validation
+	if len(hocrOutput) < 100 || !strings.Contains(hocrOutput, "ocrx_word") {
+		return "", fmt.Errorf("tesseract produced invalid hOCR output")
+	}
+
+	return hocrOutput, nil
 }
 
 func generateBasicHOCR(text string) string {
@@ -450,4 +493,109 @@ func generateBasicHOCR(text string) string {
 </html>`
 
 	return hocr
+}
+func validateAndFixHOCR(hocr string) string {
+	// Basic validation and fixing of hOCR structure
+	hocr = strings.TrimSpace(hocr)
+
+	// Add XML declaration if missing
+	if !strings.Contains(hocr, "<?xml") {
+		hocr = `<?xml version="1.0" encoding="UTF-8"?>` + "\n" + hocr
+	}
+
+	// Add DOCTYPE if missing
+	if !strings.Contains(hocr, "<!DOCTYPE") {
+		xmlDecl := `<?xml version="1.0" encoding="UTF-8"?>`
+		doctype := `<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">`
+
+		if strings.Contains(hocr, xmlDecl) {
+			hocr = strings.Replace(hocr, xmlDecl, xmlDecl+"\n"+doctype, 1)
+		} else {
+			hocr = xmlDecl + "\n" + doctype + "\n" + hocr
+		}
+	}
+
+	// Wrap in basic HTML structure if missing
+	if !strings.Contains(hocr, "<html") {
+		// Find the main content (usually starts with <div class="ocr_page")
+		contentStart := strings.Index(hocr, "<div")
+		if contentStart == -1 {
+			// If no div found, wrap everything after XML/DOCTYPE
+			lines := strings.Split(hocr, "\n")
+			var contentLines []string
+			foundContent := false
+
+			for _, line := range lines {
+				if strings.Contains(line, "<?xml") || strings.Contains(line, "<!DOCTYPE") {
+					continue
+				}
+				foundContent = true
+				contentLines = append(contentLines, line)
+			}
+
+			if foundContent {
+				content := strings.Join(contentLines, "\n")
+				hocr = strings.Split(hocr, content)[0] +
+					`<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">` + "\n" +
+					`<head><title></title></head>` + "\n" +
+					`<body>` + "\n" +
+					content + "\n" +
+					`</body>` + "\n" +
+					`</html>`
+			}
+		} else {
+			// Wrap the content part
+			prefix := hocr[:contentStart]
+			content := hocr[contentStart:]
+
+			hocr = prefix +
+				`<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">` + "\n" +
+				`<head><title></title></head>` + "\n" +
+				`<body>` + "\n" +
+				content + "\n" +
+				`</body>` + "\n" +
+				`</html>`
+		}
+	}
+
+	// Ensure proper closing tags
+	if strings.Contains(hocr, "<body>") && !strings.Contains(hocr, "</body>") {
+		hocr += "\n</body>"
+	}
+
+	if strings.Contains(hocr, "<html") && !strings.Contains(hocr, "</html>") {
+		hocr += "\n</html>"
+	}
+
+	// Fix common class name variations
+	hocr = strings.ReplaceAll(hocr, `class="ocr_word"`, `class="ocrx_word"`)
+	hocr = strings.ReplaceAll(hocr, `class='ocr_word'`, `class='ocrx_word'`)
+
+	// Ensure word IDs are unique if missing
+	if strings.Contains(hocr, "ocrx_word") {
+		hocr = ensureUniqueWordIDs(hocr)
+	}
+
+	return hocr
+}
+
+func ensureUniqueWordIDs(hocr string) string {
+	// Simple regex to find and fix duplicate or missing word IDs
+	re := regexp.MustCompile(`<span class=['"]ocrx_word['"]([^>]*?)>`)
+	wordCount := 0
+
+	result := re.ReplaceAllStringFunc(hocr, func(match string) string {
+		wordCount++
+
+		// Check if ID already exists
+		if strings.Contains(match, `id=`) {
+			return match // Keep existing ID
+		}
+
+		// Add missing ID
+		idAttr := fmt.Sprintf(` id="word_1_1_%d"`, wordCount)
+		return strings.Replace(match, `>`, idAttr+`>`, 1)
+	})
+
+	return result
 }

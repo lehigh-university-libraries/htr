@@ -95,7 +95,7 @@ var (
 func init() {
 	RootCmd.AddCommand(evalCmd)
 
-	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "OpenAI model to use")
+	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-5-mini", "OpenAI model to use")
 	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to OpenAI")
 	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for OpenAI API")
 	evalCmd.Flags().StringVarP(&evalCSVPath, "csv", "c", "", "Path to CSV file with evaluation data")
