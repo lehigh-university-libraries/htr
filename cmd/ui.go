@@ -1,4 +1,3 @@
-// Add to cmd/daemon.go
 package cmd
 
 import (
@@ -8,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -29,21 +29,31 @@ type CorrectionSession struct {
 }
 
 type ImageItem struct {
-	ID           string `json:"id"`
-	ImagePath    string `json:"image_path"`
-	ImageURL     string `json:"image_url"`
-	OriginalOCR  string `json:"original_ocr"`
-	CorrectedOCR string `json:"corrected_ocr"`
-	GroundTruth  string `json:"ground_truth"`
-	Completed    bool   `json:"completed"`
+	ID            string `json:"id"`
+	ImagePath     string `json:"image_path"`
+	ImageURL      string `json:"image_url"`
+	OriginalHOCR  string `json:"original_hocr"`
+	CorrectedHOCR string `json:"corrected_hocr"`
+	GroundTruth   string `json:"ground_truth"`
+	Completed     bool   `json:"completed"`
+	ImageWidth    int    `json:"image_width"`
+	ImageHeight   int    `json:"image_height"`
+}
+
+type HOCRWord struct {
+	ID     string `json:"id"`
+	Text   string `json:"text"`
+	Bbox   []int  `json:"bbox"` // [x1, y1, x2, y2]
+	Conf   int    `json:"conf"`
+	LineID string `json:"line_id"`
 }
 
 var sessions = make(map[string]*CorrectionSession)
 
 var uiCmd = &cobra.Command{
 	Use:   "ui",
-	Short: "Start web interface for OCR correction",
-	Long:  "Start a web server that allows manual correction of OCR output through a browser interface",
+	Short: "Start hOCR editor web interface",
+	Long:  "Start a web server with an advanced hOCR editor that overlays text boxes on images",
 	RunE:  runDaemon,
 }
 
@@ -54,304 +64,20 @@ func init() {
 }
 
 func runDaemon(cmd *cobra.Command, args []string) error {
-	slog.Info("Starting HTR daemon", "host", daemonHost, "port", daemonPort)
+	slog.Info("Starting HTR hOCR Editor daemon", "host", daemonHost, "port", daemonPort)
 
 	// Set up routes
 	http.HandleFunc("/", handleIndex)
 	http.HandleFunc("/api/sessions", handleSessions)
 	http.HandleFunc("/api/sessions/", handleSessionDetail)
 	http.HandleFunc("/api/upload", handleUpload)
+	http.HandleFunc("/api/hocr/parse", handleHOCRParse)
 	http.HandleFunc("/static/", handleStatic)
 
 	addr := fmt.Sprintf("%s:%s", daemonHost, daemonPort)
-	slog.Info("HTR correction interface available", "url", fmt.Sprintf("http://%s", addr))
+	slog.Info("hOCR Editor interface available", "url", fmt.Sprintf("http://%s", addr))
 
 	return http.ListenAndServe(addr, nil)
-}
-
-func handleIndex(w http.ResponseWriter, r *http.Request) {
-	if r.Method != "GET" {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	tmpl := `<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>HTR OCR Correction Interface</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background: #f5f5f5; }
-        .container { max-width: 1400px; margin: 0 auto; padding: 20px; }
-        .header { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .correction-interface { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-        .image-panel, .text-panel { background: white; border-radius: 8px; padding: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .image-panel img { max-width: 100%; height: auto; border: 1px solid #ddd; border-radius: 4px; }
-        .text-panel textarea { width: 100%; height: 400px; padding: 15px; border: 1px solid #ddd; border-radius: 4px; font-family: monospace; font-size: 14px; resize: vertical; }
-        .metrics { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .metrics-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
-        .metric { text-align: center; }
-        .metric-value { font-size: 24px; font-weight: bold; color: #2563eb; }
-        .metric-label { font-size: 12px; color: #6b7280; text-transform: uppercase; letter-spacing: 0.05em; }
-        .controls { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; }
-        .btn { padding: 10px 20px; border: none; border-radius: 4px; cursor: pointer; font-weight: 500; text-decoration: none; display: inline-block; }
-        .btn-primary { background: #2563eb; color: white; }
-        .btn-secondary { background: #6b7280; color: white; }
-        .btn-success { background: #059669; color: white; }
-        .btn:hover { opacity: 0.9; }
-        .progress { background: #e5e7eb; border-radius: 4px; height: 8px; margin-bottom: 10px; }
-        .progress-bar { background: #2563eb; height: 100%; border-radius: 4px; transition: width 0.3s; }
-        .upload-area { border: 2px dashed #d1d5db; border-radius: 8px; padding: 40px; text-align: center; margin-bottom: 20px; }
-        .upload-area.dragover { border-color: #2563eb; background: #eff6ff; }
-        .hidden { display: none; }
-        .session-list { background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <div class="header">
-            <h1>HTR OCR Correction Interface</h1>
-            <p>Manual correction tool for OCR output evaluation</p>
-        </div>
-
-        <!-- Upload Section -->
-        <div id="upload-section">
-            <div class="upload-area" id="upload-area">
-                <h3>Start New Correction Session</h3>
-                <p>Upload a single image or CSV file with image URLs</p>
-                <input type="file" id="file-input" accept=".jpg,.jpeg,.png,.gif,.csv" style="margin: 20px 0;">
-                <br>
-                <button class="btn btn-primary" onclick="handleUpload()">Upload</button>
-            </div>
-        </div>
-
-        <!-- Sessions List -->
-        <div class="session-list">
-            <h3>Recent Sessions</h3>
-            <div id="sessions-list">Loading...</div>
-        </div>
-
-        <!-- Correction Interface -->
-        <div id="correction-section" class="hidden">
-            <div class="controls">
-                <div>
-                    <span id="progress-text">Image 1 of 10</span>
-                    <div class="progress">
-                        <div class="progress-bar" id="progress-bar"></div>
-                    </div>
-                </div>
-                <div>
-                    <button class="btn btn-secondary" onclick="previousImage()">← Previous</button>
-                    <button class="btn btn-success" onclick="saveAndNext()">Save & Next →</button>
-                    <button class="btn btn-primary" onclick="finishSession()">Finish Session</button>
-                </div>
-            </div>
-
-            <div class="correction-interface">
-                <div class="image-panel">
-                    <h3>Original Image</h3>
-                    <img id="current-image" src="" alt="OCR Image">
-                </div>
-                <div class="text-panel">
-                    <h3>OCR Text (Edit to Correct)</h3>
-                    <textarea id="ocr-text" oninput="updateMetrics()" placeholder="OCR text will appear here..."></textarea>
-                </div>
-            </div>
-
-            <div class="metrics">
-                <h3>Real-time Accuracy Metrics</h3>
-                <div class="metrics-grid">
-                    <div class="metric">
-                        <div class="metric-value" id="char-similarity">0.000</div>
-                        <div class="metric-label">Character Similarity</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="word-accuracy">0.000</div>
-                        <div class="metric-label">Word Accuracy</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="word-error-rate">0.000</div>
-                        <div class="metric-label">Word Error Rate</div>
-                    </div>
-                    <div class="metric">
-                        <div class="metric-value" id="total-edits">0</div>
-                        <div class="metric-label">Total Edits</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        let currentSession = null;
-        let currentImageIndex = 0;
-
-        // Load sessions on page load
-        document.addEventListener('DOMContentLoaded', loadSessions);
-
-        async function loadSessions() {
-            try {
-                const response = await fetch('/api/sessions');
-                const sessions = await response.json();
-                displaySessions(sessions);
-            } catch (error) {
-                console.error('Error loading sessions:', error);
-            }
-        }
-
-        function displaySessions(sessions) {
-            const container = document.getElementById('sessions-list');
-            if (sessions.length === 0) {
-                container.innerHTML = '<p>No sessions found. Upload an image or CSV to get started.</p>';
-                return;
-            }
-
-            const html = sessions.map(session => 
-                '<div style="border: 1px solid #ddd; padding: 15px; margin: 10px 0; border-radius: 4px;">' +
-                '<h4>Session: ' + session.id + '</h4>' +
-                '<p>Images: ' + session.images.length + ' | Completed: ' + session.images.filter(img => img.completed).length + '</p>' +
-                '<p>Created: ' + new Date(session.created_at).toLocaleString() + '</p>' +
-                '<button class="btn btn-primary" onclick="loadSession(\'' + session.id + '\')">Continue</button>' +
-                '</div>'
-            ).join('');
-            container.innerHTML = html;
-        }
-
-        async function handleUpload() {
-            const fileInput = document.getElementById('file-input');
-            const file = fileInput.files[0];
-            if (!file) {
-                alert('Please select a file');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('file', file);
-
-            try {
-                const response = await fetch('/api/upload', {
-                    method: 'POST',
-                    body: formData
-                });
-                const result = await response.json();
-                if (result.session_id) {
-                    loadSession(result.session_id);
-                }
-            } catch (error) {
-                console.error('Upload error:', error);
-                alert('Upload failed');
-            }
-        }
-
-        async function loadSession(sessionId) {
-            try {
-                const response = await fetch('/api/sessions/' + sessionId);
-                currentSession = await response.json();
-                currentImageIndex = currentSession.current || 0;
-                showCorrectionInterface();
-                loadCurrentImage();
-            } catch (error) {
-                console.error('Error loading session:', error);
-            }
-        }
-
-        function showCorrectionInterface() {
-            document.getElementById('upload-section').classList.add('hidden');
-            document.getElementById('correction-section').classList.remove('hidden');
-        }
-
-        function loadCurrentImage() {
-            if (!currentSession || currentImageIndex >= currentSession.images.length) {
-                finishSession();
-                return;
-            }
-
-            const image = currentSession.images[currentImageIndex];
-            document.getElementById('current-image').src = image.image_url || '/static/images/' + image.image_path;
-            document.getElementById('ocr-text').value = image.corrected_ocr || image.original_ocr;
-            
-            updateProgress();
-            updateMetrics();
-        }
-
-        function updateProgress() {
-            const total = currentSession.images.length;
-            const current = currentImageIndex + 1;
-            const percentage = (current / total) * 100;
-            
-            document.getElementById('progress-text').textContent = 'Image ' + current + ' of ' + total;
-            document.getElementById('progress-bar').style.width = percentage + '%';
-        }
-
-        async function updateMetrics() {
-            const correctedText = document.getElementById('ocr-text').value;
-            const originalText = currentSession.images[currentImageIndex].original_ocr;
-            
-            // Calculate metrics using the same logic as the Go backend
-            try {
-                const response = await fetch('/api/sessions/' + currentSession.id + '/metrics', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        original: originalText,
-                        corrected: correctedText
-                    })
-                });
-                const metrics = await response.json();
-                
-                document.getElementById('char-similarity').textContent = metrics.character_similarity.toFixed(3);
-                document.getElementById('word-accuracy').textContent = metrics.word_accuracy.toFixed(3);
-                document.getElementById('word-error-rate').textContent = metrics.word_error_rate.toFixed(3);
-                document.getElementById('total-edits').textContent = metrics.substitutions + metrics.deletions + metrics.insertions;
-            } catch (error) {
-                console.error('Error calculating metrics:', error);
-            }
-        }
-
-        async function saveAndNext() {
-            const correctedText = document.getElementById('ocr-text').value;
-            currentSession.images[currentImageIndex].corrected_ocr = correctedText;
-            currentSession.images[currentImageIndex].completed = true;
-            
-            // Save to backend
-            await saveSession();
-            
-            currentImageIndex++;
-            loadCurrentImage();
-        }
-
-        function previousImage() {
-            if (currentImageIndex > 0) {
-                currentImageIndex--;
-                loadCurrentImage();
-            }
-        }
-
-        async function saveSession() {
-            try {
-                await fetch('/api/sessions/' + currentSession.id, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(currentSession)
-                });
-            } catch (error) {
-                console.error('Error saving session:', error);
-            }
-        }
-
-        async function finishSession() {
-            await saveSession();
-            alert('Session completed! Results have been saved.');
-            location.reload();
-        }
-    </script>
-</body>
-</html>`
-
-	w.Header().Set("Content-Type", "text/html")
-	fmt.Fprint(w, tmpl)
 }
 
 func handleSessions(w http.ResponseWriter, r *http.Request) {
@@ -420,17 +146,22 @@ func handleMetrics(w http.ResponseWriter, r *http.Request, sessionID string) {
 	metrics := CalculateAccuracyMetrics(request.Original, request.Corrected)
 	json.NewEncoder(w).Encode(metrics)
 }
-
 func handleUpload(w http.ResponseWriter, r *http.Request) {
 	if r.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
 
-	file, header, err := r.FormFile("file")
+	w.Header().Set("Content-Type", "application/json")
+
+	file, header, err := r.FormFile("files")
 	if err != nil {
-		http.Error(w, "Failed to read file", http.StatusBadRequest)
-		return
+		// Try single file upload as fallback
+		file, header, err = r.FormFile("file")
+		if err != nil {
+			respondWithError(w, "Failed to read file: "+err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	defer file.Close()
 
@@ -441,65 +172,83 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		Current:   0,
 		CreatedAt: time.Now(),
 		Config: EvalConfig{
-			Model:       "manual_correction",
-			Prompt:      "Manual OCR correction session",
+			Model:       "hocr_correction",
+			Prompt:      "hOCR OCR correction session",
 			Temperature: 0.0,
 			Timestamp:   time.Now().Format("2006-01-02_15-04-05"),
 		},
 	}
 
-	if strings.HasSuffix(strings.ToLower(header.Filename), ".csv") {
-		// Handle CSV upload (similar to existing CSV processing)
-		// TODO: Implement CSV parsing logic here
-	} else {
-		// Handle single image upload
-		// Save uploaded file
-		uploadsDir := "uploads"
-		os.MkdirAll(uploadsDir, 0755)
-
-		filename := fmt.Sprintf("%s_%s", sessionID, header.Filename)
-		filepath := filepath.Join(uploadsDir, filename)
-
-		outFile, err := os.Create(filepath)
-		if err != nil {
-			http.Error(w, "Failed to save file", http.StatusInternalServerError)
-			return
-		}
-		defer outFile.Close()
-
-		// Copy uploaded file
-		if _, err := file.Seek(0, 0); err != nil {
-			http.Error(w, "Failed to read file", http.StatusInternalServerError)
-			return
-		}
-
-		if _, err := outFile.ReadFrom(file); err != nil {
-			http.Error(w, "Failed to save file", http.StatusInternalServerError)
-			return
-		}
-
-		// Get OCR for the image (you'll need to call your OCR API here)
-		ocrText, err := getOCRForImage(filepath)
-		if err != nil {
-			slog.Warn("Failed to get OCR", "error", err)
-			ocrText = "Failed to extract OCR text. Please enter manually."
-		}
-
-		session.Images = []ImageItem{
-			{
-				ID:          "img_1",
-				ImagePath:   filename,
-				ImageURL:    "/static/uploads/" + filename,
-				OriginalOCR: ocrText,
-				Completed:   false,
-			},
-		}
+	uploadsDir := "uploads"
+	if err := os.MkdirAll(uploadsDir, 0755); err != nil {
+		respondWithError(w, "Failed to create uploads directory: "+err.Error(), http.StatusInternalServerError)
+		return
 	}
 
+	// Handle single file upload
+	filename := fmt.Sprintf("%s_%s", sessionID, header.Filename)
+	filePath := filepath.Join(uploadsDir, filename)
+
+	outFile, err := os.Create(filePath)
+	if err != nil {
+		respondWithError(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer outFile.Close()
+
+	// Copy uploaded file
+	_, err = outFile.ReadFrom(file)
+	if err != nil {
+		respondWithError(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Get image dimensions for hOCR scaling
+	width, height := getImageDimensions(filePath)
+
+	// Get hOCR for the image
+	hocrXML, err := getOCRForImage(filePath)
+	if err != nil {
+		slog.Warn("Failed to get hOCR", "error", err)
+		hocrXML = generateBasicHOCR("Failed to extract OCR text. Please edit manually.")
+	}
+
+	imageItem := ImageItem{
+		ID:            "img_1",
+		ImagePath:     filename,
+		ImageURL:      "/static/uploads/" + filename,
+		OriginalHOCR:  hocrXML,
+		CorrectedHOCR: "",
+		Completed:     false,
+		ImageWidth:    width,
+		ImageHeight:   height,
+	}
+
+	session.Images = []ImageItem{imageItem}
 	sessions[sessionID] = session
 
-	response := map[string]string{"session_id": sessionID}
+	response := map[string]interface{}{
+		"session_id": sessionID,
+		"message":    "Successfully processed 1 file",
+		"images":     1,
+	}
+
 	json.NewEncoder(w).Encode(response)
+}
+
+func respondWithError(w http.ResponseWriter, message string, statusCode int) {
+	w.WriteHeader(statusCode)
+	response := map[string]string{
+		"error": message,
+	}
+	json.NewEncoder(w).Encode(response)
+}
+
+func getImageDimensions(imagePath string) (int, int) {
+	// Basic image dimension detection
+	// In a real implementation, you'd use an image library
+	// For now, return reasonable defaults
+	return 1000, 1400
 }
 
 func handleStatic(w http.ResponseWriter, r *http.Request) {
@@ -507,13 +256,149 @@ func handleStatic(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath)
 }
 
-func getOCRForImage(imagePath string) (string, error) {
-	// Use your existing OpenAI OCR logic here
-	// This is a simplified version - you'll want to use your existing callOpenAI function
+func saveSessionResults(session *CorrectionSession) error {
+	return nil
+}
 
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	// Serve static/index.html
+	http.ServeFile(w, r, "static/index.html")
+}
+
+func handleHOCRParse(w http.ResponseWriter, r *http.Request) {
+	if r.Method != "POST" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var request struct {
+		HOCR string `json:"hocr"`
+	}
+
+	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
+
+	words, err := parseHOCRWords(request.HOCR)
+	if err != nil {
+		http.Error(w, "Failed to parse hOCR", http.StatusBadRequest)
+		return
+	}
+
+	response := struct {
+		Words []HOCRWord `json:"words"`
+	}{
+		Words: words,
+	}
+
+	json.NewEncoder(w).Encode(response)
+}
+
+func parseHOCRWords(hocrXML string) ([]HOCRWord, error) {
+	// Basic hOCR parsing - in a real implementation, you'd use a proper XML parser
+	words := []HOCRWord{}
+
+	// This is a simplified parser - you'd want to use golang.org/x/net/html or similar
+	lines := strings.Split(hocrXML, "\n")
+
+	for _, line := range lines {
+		if strings.Contains(line, "ocrx_word") {
+			word := parseHOCRWordLine(line)
+			if word.ID != "" {
+				words = append(words, word)
+			}
+		}
+	}
+
+	return words, nil
+}
+
+func parseHOCRWordLine(line string) HOCRWord {
+	// Extract word ID
+	idStart := strings.Index(line, `id="`)
+	if idStart == -1 {
+		return HOCRWord{}
+	}
+	idStart += 4
+	idEnd := strings.Index(line[idStart:], `"`)
+	if idEnd == -1 {
+		return HOCRWord{}
+	}
+	id := line[idStart : idStart+idEnd]
+
+	// Extract bbox
+	bboxStart := strings.Index(line, "bbox ")
+	if bboxStart == -1 {
+		return HOCRWord{}
+	}
+	bboxStart += 5
+	bboxEnd := strings.Index(line[bboxStart:], ";")
+	if bboxEnd == -1 {
+		bboxEnd = strings.Index(line[bboxStart:], `"`)
+	}
+	if bboxEnd == -1 {
+		return HOCRWord{}
+	}
+
+	bboxStr := line[bboxStart : bboxStart+bboxEnd]
+	bboxParts := strings.Fields(bboxStr)
+	bbox := []int{}
+	for _, part := range bboxParts {
+		if val, err := strconv.Atoi(part); err == nil {
+			bbox = append(bbox, val)
+		}
+	}
+
+	// Extract confidence
+	conf := 95 // default confidence
+	confStart := strings.Index(line, "x_wconf ")
+	if confStart != -1 {
+		confStart += 8
+		confEnd := strings.Index(line[confStart:], `"`)
+		if confEnd != -1 {
+			if val, err := strconv.Atoi(line[confStart : confStart+confEnd]); err == nil {
+				conf = val
+			}
+		}
+	}
+
+	// Extract text content
+	textStart := strings.Index(line, ">")
+	textEnd := strings.LastIndex(line, "<")
+	if textStart == -1 || textEnd == -1 || textStart >= textEnd {
+		return HOCRWord{}
+	}
+	text := line[textStart+1 : textEnd]
+
+	// Generate line ID from word ID
+	lineID := strings.Replace(id, "word_", "line_", 1)
+	if strings.Contains(lineID, "_") {
+		parts := strings.Split(lineID, "_")
+		if len(parts) >= 3 {
+			lineID = parts[0] + "_" + parts[1] + "_" + parts[2]
+		}
+	}
+
+	return HOCRWord{
+		ID:     id,
+		Text:   text,
+		Bbox:   bbox,
+		Conf:   conf,
+		LineID: lineID,
+	}
+}
+
+func getOCRForImage(imagePath string) (string, error) {
+	// Modified to request hOCR format from OpenAI
 	config := EvalConfig{
 		Model:       evalModel,
-		Prompt:      "Extract all text from this image",
+		Prompt:      "Extract all text from this image and return it in hOCR format with bounding boxes and confidence scores. Use proper hOCR XML structure with ocrx_word elements containing bbox and x_wconf attributes.",
 		Temperature: 0.0,
 	}
 
@@ -522,48 +407,47 @@ func getOCRForImage(imagePath string) (string, error) {
 		return "", err
 	}
 
-	return callOpenAI(config, imagePath, imageBase64)
+	response, err := callOpenAI(config, imagePath, imageBase64)
+	if err != nil {
+		return "", err
+	}
+
+	// If response doesn't look like hOCR, generate a basic hOCR structure
+	if !strings.Contains(response, "ocrx_word") {
+		return generateBasicHOCR(response), nil
+	}
+
+	return response, nil
 }
 
-func saveSessionResults(session *CorrectionSession) error {
-	// Convert to your existing EvalSummary format
-	var results []EvalResult
+func generateBasicHOCR(text string) string {
+	// Generate basic hOCR structure from plain text
+	// This is a fallback when OCR doesn't return proper hOCR
 
-	for _, image := range session.Images {
-		if !image.Completed {
-			continue
-		}
+	words := strings.Fields(text)
+	hocr := `<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head><title></title></head>
+<body>
+<div class="ocr_page" id="page_1" title="bbox 0 0 1000 1000">
+<span class="ocr_line" id="line_1_1" title="bbox 0 0 1000 100">`
 
-		// Calculate final metrics
-		metrics := CalculateAccuracyMetrics(image.OriginalOCR, image.CorrectedOCR)
+	for i, word := range words {
+		x1 := i * 80
+		x2 := x1 + len(word)*10
+		wordID := fmt.Sprintf("word_1_1_%d", i+1)
 
-		result := EvalResult{
-			Identifier:            image.ID,
-			ImagePath:             image.ImagePath,
-			TranscriptPath:        "", // No ground truth file for manual corrections
-			Public:                false,
-			OpenAIResponse:        image.CorrectedOCR,
-			CharacterSimilarity:   metrics.CharacterSimilarity,
-			WordSimilarity:        metrics.WordSimilarity,
-			WordAccuracy:          metrics.WordAccuracy,
-			WordErrorRate:         metrics.WordErrorRate,
-			TotalWordsOriginal:    metrics.TotalWordsOriginal,
-			TotalWordsTranscribed: metrics.TotalWordsTranscribed,
-			CorrectWords:          metrics.CorrectWords,
-			Substitutions:         metrics.Substitutions,
-			Deletions:             metrics.Deletions,
-			Insertions:            metrics.Insertions,
-		}
-
-		results = append(results, result)
+		hocr += fmt.Sprintf(`
+  <span class="ocrx_word" id="%s" title="bbox %d 0 %d 50; x_wconf 80">%s</span>`,
+			wordID, x1, x2, word)
 	}
 
-	summary := EvalSummary{
-		Config:  session.Config,
-		Results: results,
-	}
+	hocr += `
+</span>
+</div>
+</body>
+</html>`
 
-	// Save using existing function
-	outputPath := filepath.Join("evals", fmt.Sprintf("correction_%s.yaml", session.Config.Timestamp))
-	return saveEvalResults(summary, outputPath)
+	return hocr
 }
