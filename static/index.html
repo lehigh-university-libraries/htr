@@ -583,7 +583,10 @@
                 }
                 
                 // Scale bounding box to image display size
-                const [x1, y1, x2, y2] = word.bbox;
+                const x1 = word.bbox["x1"];
+                const y1 = word.bbox["y1"];
+                const x2 = word.bbox["x2"];
+                const y2 = word.bbox["y2"];
                 wordBox.style.left = (x1 * scaleX) + 'px';
                 wordBox.style.top = (y1 * scaleY) + 'px';
                 wordBox.style.width = ((x2 - x1) * scaleX) + 'px';
