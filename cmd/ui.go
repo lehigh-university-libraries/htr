@@ -2,10 +2,13 @@ package cmd
 
 import (
 	"context"
+	"crypto/md5"
+	"encoding/hex"
 	"encoding/json"
 	"encoding/xml"
 	"fmt"
 	"html"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -189,6 +192,29 @@ func runDaemon(cmd *cobra.Command, args []string) error {
 	return http.ListenAndServe(addr, nil)
 }
 
+// Helper function to calculate MD5 hash of file contents
+func calculateFileMD5(filePath string) (string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		return "", err
+	}
+	defer file.Close()
+
+	hash := md5.New()
+	if _, err := io.Copy(hash, file); err != nil {
+		return "", err
+	}
+
+	return hex.EncodeToString(hash.Sum(nil)), nil
+}
+
+// Helper function to calculate MD5 hash of byte data
+func calculateDataMD5(data []byte) string {
+	hash := md5.New()
+	hash.Write(data)
+	return hex.EncodeToString(hash.Sum(nil))
+}
+
 func handleSessions(w http.ResponseWriter, r *http.Request) {
 	switch r.Method {
 	case "GET":
@@ -333,38 +359,83 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Handle single file upload
-	filename := fmt.Sprintf("%s_%s", sessionID, header.Filename)
-	filePath := filepath.Join(uploadsDir, filename)
-
-	outFile, err := os.Create(filePath)
+	// Read file contents into memory to calculate MD5
+	fileData, err := io.ReadAll(file)
 	if err != nil {
+		respondWithError(w, "Failed to read file contents: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// Calculate MD5 hash of file contents
+	md5Hash := calculateDataMD5(fileData)
+
+	// Get file extension from original filename
+	ext := filepath.Ext(header.Filename)
+
+	// Create filenames based on MD5 hash
+	imageFilename := md5Hash + ext
+	hocrFilename := md5Hash + ".xml"
+
+	// Full paths
+	imageFilePath := filepath.Join(uploadsDir, imageFilename)
+	hocrFilePath := filepath.Join(uploadsDir, hocrFilename)
+
+	// Save the image file (overwrite if exists)
+	if err := os.WriteFile(imageFilePath, fileData, 0644); err != nil {
 		respondWithError(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer outFile.Close()
 
-	// Copy uploaded file
-	_, err = outFile.ReadFrom(file)
-	if err != nil {
-		respondWithError(w, "Failed to save file: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
+	slog.Info("Image saved", "filename", imageFilename, "md5", md5Hash)
 
 	// Get image dimensions for hOCR scaling
-	width, height := getImageDimensions(filePath)
+	width, height := getImageDimensions(imageFilePath)
 
-	// Get hOCR for the image using Google Cloud Vision
-	hocrXML, err := getOCRForImageGCV(filePath)
-	if err != nil {
-		slog.Warn("Failed to get hOCR from Google Cloud Vision", "error", err)
-		http.Error(w, "Failed dependency", http.StatusInternalServerError)
+	var hocrXML string
+
+	// Check if hOCR file already exists
+	if _, err := os.Stat(hocrFilePath); err == nil {
+		// hOCR file exists, read it instead of calling Vision API
+		hocrData, err := os.ReadFile(hocrFilePath)
+		if err != nil {
+			slog.Warn("Failed to read existing hOCR file", "error", err, "path", hocrFilePath)
+			// Fall back to generating new hOCR
+			hocrXML, err = getOCRForImageGCV(imageFilePath)
+			if err != nil {
+				slog.Warn("Failed to get hOCR from Google Cloud Vision", "error", err)
+				respondWithError(w, "Failed to process image", http.StatusInternalServerError)
+				return
+			}
+			// Save the newly generated hOCR
+			if err := os.WriteFile(hocrFilePath, []byte(hocrXML), 0644); err != nil {
+				slog.Warn("Failed to save hOCR file", "error", err)
+			}
+		} else {
+			hocrXML = string(hocrData)
+			slog.Info("Using cached hOCR", "filename", hocrFilename)
+		}
+	} else {
+		// hOCR file doesn't exist, generate new one
+		slog.Info("Generating new hOCR via Google Cloud Vision", "filename", imageFilename)
+		hocrXML, err = getOCRForImageGCV(imageFilePath)
+		if err != nil {
+			slog.Warn("Failed to get hOCR from Google Cloud Vision", "error", err)
+			respondWithError(w, "Failed to process image", http.StatusInternalServerError)
+			return
+		}
+
+		// Save the generated hOCR for future use
+		if err := os.WriteFile(hocrFilePath, []byte(hocrXML), 0644); err != nil {
+			slog.Warn("Failed to save hOCR file", "error", err)
+		} else {
+			slog.Info("hOCR cached", "filename", hocrFilename)
+		}
 	}
 
 	imageItem := ImageItem{
 		ID:            "img_1",
-		ImagePath:     filename,
-		ImageURL:      "/static/uploads/" + filename,
+		ImagePath:     imageFilename,
+		ImageURL:      "/static/uploads/" + imageFilename,
 		OriginalHOCR:  hocrXML,
 		CorrectedHOCR: "",
 		Completed:     false,
@@ -375,10 +446,16 @@ func handleUpload(w http.ResponseWriter, r *http.Request) {
 	session.Images = []ImageItem{imageItem}
 	sessions[sessionID] = session
 
+	// Check if cache was used for response
+	_, cacheErr := os.Stat(hocrFilePath)
+	cacheUsed := cacheErr == nil
+
 	response := map[string]interface{}{
 		"session_id": sessionID,
 		"message":    "Successfully processed 1 file",
 		"images":     1,
+		"cache_used": cacheUsed, // Indicate if cache was used
+		"md5_hash":   md5Hash,
 	}
 
 	json.NewEncoder(w).Encode(response)
@@ -391,6 +468,7 @@ func getOCRForImageGCV(imagePath string) (string, error) {
 	if err != nil {
 		return "", err
 	}
+	defer client.Close()
 
 	f, err := os.Open(imagePath)
 	if err != nil {
@@ -945,25 +1023,4 @@ func parseTitleAttribute(title string, word *HOCRWord) error {
 	}
 
 	return nil
-}
-
-func ensureUniqueWordIDs(hocr string) string {
-	// Simple regex to find and fix duplicate or missing word IDs
-	re := regexp.MustCompile(`<span class=['"]ocrx_word['"]([^>]*?)>`)
-	wordCount := 0
-
-	result := re.ReplaceAllStringFunc(hocr, func(match string) string {
-		wordCount++
-
-		// Check if ID already exists
-		if strings.Contains(match, `id=`) {
-			return match // Keep existing ID
-		}
-
-		// Add missing ID
-		idAttr := fmt.Sprintf(` id="word_1_1_%d"`, wordCount)
-		return strings.Replace(match, `>`, idAttr+`>`, 1)
-	})
-
-	return result
 }
