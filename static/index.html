@@ -89,6 +89,16 @@
             border-color: #f59e0b; 
             background: rgba(245, 158, 11, 0.1);
         }
+        .hocr-word-box.nav-highlight {
+            border-color: #ec4899;
+            background: rgba(236, 72, 153, 0.2);
+            box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
+            animation: pulse 1s ease-in-out;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.7; }
+        }
         .text-panel { 
             background: #1e1e1e; 
             border-radius: 12px; 
@@ -295,6 +305,19 @@
             margin-bottom: 10px;
             font-size: 16px;
         }
+        .navigation-help {
+            background: #2a2a2a;
+            padding: 10px;
+            border-radius: 6px;
+            margin-bottom: 10px;
+            font-size: 12px;
+            color: #9ca3af;
+        }
+        .word-counter {
+            color: #6b7280;
+            font-size: 12px;
+            margin-top: 5px;
+        }
     </style>
 </head>
 <body>
@@ -352,6 +375,20 @@
                 
                 <div class="text-panel">
                     <div class="sidebar-section">
+                        <h3>Navigation Controls</h3>
+                        <div class="navigation-help">
+                            <strong>Keyboard Shortcuts:</strong><br>
+                            • <kbd>Tab</kbd> - Next word<br>
+                            • <kbd>Shift+Tab</kbd> - Previous word<br>
+                            • <kbd>Enter</kbd> - Apply changes<br>
+                            • <kbd>Delete</kbd> - Delete selected word
+                        </div>
+                        <div class="word-counter" id="word-counter">
+                            Word 0 of 0
+                        </div>
+                    </div>
+
+                    <div class="sidebar-section">
                         <h3>Selected Word</h3>
                         <div class="word-editor" id="word-editor" style="display: none;">
                             <h4 id="word-id">No word selected</h4>
@@ -362,7 +399,7 @@
                             </div>
                         </div>
                         <div id="no-selection" style="color: #6b7280; font-style: italic;">
-                            Click on a word in the image to edit it
+                            Click on a word in the image to edit it, or use Tab to navigate
                         </div>
                     </div>
 
@@ -420,11 +457,137 @@
         let currentImageIndex = 0;
         let hocrData = null;
         let selectedWordId = null;
+        let currentWordIndex = -1;
+        let wordNavigationOrder = [];
         let imageScale = 1;
         let showLowConfidence = false;
 
         // Load sessions on page load
         document.addEventListener('DOMContentLoaded', loadSessions);
+
+        // Global keyboard event listener for tab navigation
+        document.addEventListener('keydown', function(e) {
+            // Only handle navigation when correction interface is visible
+            if (document.getElementById('correction-section').classList.contains('hidden')) {
+                return;
+            }
+
+            switch(e.key) {
+                case 'Tab':
+                    e.preventDefault();
+                    if (e.shiftKey) {
+                        navigateToPreviousWord();
+                    } else {
+                        navigateToNextWord();
+                    }
+                    break;
+                case 'Enter':
+                    e.preventDefault();
+                    if (selectedWordId && document.getElementById('word-text') === document.activeElement) {
+                        applyWordChanges();
+                    }
+                    break;
+                case 'Delete':
+                    if (selectedWordId && document.activeElement !== document.getElementById('word-text')) {
+                        e.preventDefault();
+                        deleteSelectedWord();
+                    }
+                    break;
+                case 'Escape':
+                    e.preventDefault();
+                    clearSelection();
+                    break;
+            }
+        });
+
+        function navigateToNextWord() {
+            if (!hocrData || !hocrData.words || hocrData.words.length === 0) return;
+            
+            currentWordIndex = (currentWordIndex + 1) % hocrData.words.length;
+            selectWordByIndex(currentWordIndex);
+            scrollWordIntoView();
+        }
+
+        function navigateToPreviousWord() {
+            if (!hocrData || !hocrData.words || hocrData.words.length === 0) return;
+            
+            currentWordIndex = currentWordIndex <= 0 ? hocrData.words.length - 1 : currentWordIndex - 1;
+            selectWordByIndex(currentWordIndex);
+            scrollWordIntoView();
+        }
+
+        function selectWordByIndex(index) {
+            if (!hocrData || !hocrData.words[index]) return;
+            
+            const word = hocrData.words[index];
+            selectWord(word.id);
+            updateWordCounter();
+            
+            // Focus the word input for immediate editing
+            setTimeout(() => {
+                const wordInput = document.getElementById('word-text');
+                if (wordInput) {
+                    wordInput.focus();
+                    wordInput.select();
+                }
+            }, 100);
+        }
+
+        function scrollWordIntoView() {
+            if (!selectedWordId) return;
+            
+            const wordBox = document.getElementById('box-' + selectedWordId);
+            if (wordBox) {
+                const imageContainer = document.getElementById('image-container');
+                const containerRect = imageContainer.getBoundingClientRect();
+                const wordRect = wordBox.getBoundingClientRect();
+                
+                // Check if word is outside visible area
+                if (wordRect.top < containerRect.top || wordRect.bottom > containerRect.bottom ||
+                    wordRect.left < containerRect.left || wordRect.right > containerRect.right) {
+                    
+                    // Calculate scroll position to center the word
+                    const scrollTop = imageContainer.scrollTop + wordRect.top - containerRect.top - (containerRect.height / 2);
+                    const scrollLeft = imageContainer.scrollLeft + wordRect.left - containerRect.left - (containerRect.width / 2);
+                    
+                    imageContainer.scrollTo({
+                        top: Math.max(0, scrollTop),
+                        left: Math.max(0, scrollLeft),
+                        behavior: 'smooth'
+                    });
+                }
+            }
+        }
+
+        function updateWordCounter() {
+            const counter = document.getElementById('word-counter');
+            if (hocrData && hocrData.words) {
+                counter.textContent = `Word ${currentWordIndex + 1} of ${hocrData.words.length}`;
+            } else {
+                counter.textContent = 'Word 0 of 0';
+            }
+        }
+
+        function clearSelection() {
+            selectedWordId = null;
+            currentWordIndex = -1;
+            
+            document.querySelectorAll('.hocr-word-box').forEach(box => {
+                box.classList.remove('selected');
+            });
+            
+            document.getElementById('word-editor').style.display = 'none';
+            document.getElementById('no-selection').style.display = 'block';
+            updateWordCounter();
+        }
+
+        function applyWordChanges() {
+            if (selectedWordId) {
+                updateSelectedWord();
+                // Auto-advance to next word after applying changes
+                setTimeout(() => navigateToNextWord(), 100);
+            }
+        }
 
         async function loadSessions() {
             try {
@@ -535,6 +698,11 @@
                 parseAndDisplayHOCR(image.corrected_hocr || image.original_hocr);
                 updateProgress();
                 updateMetrics();
+                
+                // Reset navigation state for new image
+                currentWordIndex = -1;
+                selectedWordId = null;
+                clearSelection();
             };
             
             img.src = image.image_url || '/static/uploads/' + image.image_path;
@@ -549,7 +717,22 @@
                     body: JSON.stringify({ hocr: hocrXML })
                 });
                 hocrData = await response.json();
+                
+                // Sort words by reading order (top to bottom, left to right)
+                if (hocrData && hocrData.words) {
+                    hocrData.words.sort((a, b) => {
+                        // Sort by Y position first (top to bottom)
+                        const yDiff = a.bbox[1] - b.bbox[1];
+                        if (Math.abs(yDiff) > 10) { // Allow some tolerance for same line
+                            return yDiff;
+                        }
+                        // If roughly same Y, sort by X position (left to right)
+                        return a.bbox[0] - b.bbox[0];
+                    });
+                }
+                
                 renderHOCROverlay();
+                updateWordCounter();
             } catch (error) {
                 console.error('Error parsing hOCR:', error);
             }
@@ -572,10 +755,11 @@
             const scaleX = img.clientWidth / img.naturalWidth;
             const scaleY = img.clientHeight / img.naturalHeight;
 
-            hocrData.words.forEach(word => {
+            hocrData.words.forEach((word, index) => {
                 const wordBox = document.createElement('div');
                 wordBox.className = 'hocr-word-box';
                 wordBox.id = 'box-' + word.id;
+                wordBox.setAttribute('data-word-index', index);
                 
                 // Apply confidence-based styling
                 if (word.conf < 60) {
@@ -593,7 +777,10 @@
                 wordBox.style.height = ((y2 - y1) * scaleY) + 'px';
                 
                 wordBox.title = word.text + ' (conf: ' + word.conf + ')';
-                wordBox.onclick = () => selectWord(word.id);
+                wordBox.onclick = () => {
+                    currentWordIndex = index;
+                    selectWord(word.id);
+                };
                 
                 overlay.appendChild(wordBox);
             });
@@ -611,10 +798,18 @@
                 wordBox.classList.add('selected');
                 selectedWordId = wordId;
                 
+                // Update currentWordIndex based on selected word
+                const wordIndex = parseInt(wordBox.getAttribute('data-word-index'));
+                if (!isNaN(wordIndex)) {
+                    currentWordIndex = wordIndex;
+                }
+                
                 const word = hocrData.words.find(w => w.id === wordId);
                 if (word) {
                     showWordEditor(word);
                 }
+                
+                updateWordCounter();
             }
         }
 
@@ -653,7 +848,14 @@
             if (!selectedWordId || !hocrData) return;
             
             if (confirm('Delete this word?')) {
+                const wordIndex = hocrData.words.findIndex(w => w.id === selectedWordId);
                 hocrData.words = hocrData.words.filter(w => w.id !== selectedWordId);
+                
+                // Adjust currentWordIndex if necessary
+                if (wordIndex <= currentWordIndex && currentWordIndex > 0) {
+                    currentWordIndex--;
+                }
+                
                 selectedWordId = null;
                 
                 document.getElementById('word-editor').style.display = 'none';
@@ -662,6 +864,7 @@
                 updateHOCRSource();
                 renderHOCROverlay();
                 updateMetrics();
+                updateWordCounter();
             }
         }
 
@@ -690,12 +893,12 @@
 
         function generateHOCRXML(data) {
             // Basic hOCR XML generation
-            let xml = '<?xml version="1.0" encoding="UTF-8"?>\\n';
-            xml += '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\\n';
-            xml += '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">\\n';
-            xml += '<head>\\n<title></title>\\n</head>\\n<body>\\n';
+            let xml = '<?xml version="1.0" encoding="UTF-8"?>\n';
+            xml += '<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">\n';
+            xml += '<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">\n';
+            xml += '<head>\n<title></title>\n</head>\n<body>\n';
             
-            xml += '<div class="ocr_page" id="page_1" title="bbox 0 0 ' + (currentSession.images[currentImageIndex].image_width || 1000) + ' ' + (currentSession.images[currentImageIndex].image_height || 1000) + '">\\n';
+            xml += '<div class="ocr_page" id="page_1" title="bbox 0 0 ' + (currentSession.images[currentImageIndex].image_width || 1000) + ' ' + (currentSession.images[currentImageIndex].image_height || 1000) + '">\n';
             
             // Group words by line
             const lineGroups = {};
@@ -721,16 +924,16 @@
                     ];
                 }, [Infinity, Infinity, -Infinity, -Infinity]);
                 
-                xml += '  <span class="ocr_line" id="' + lineId + '" title="bbox ' + lineBbox.join(' ') + '">\\n';
+                xml += '  <span class="ocr_line" id="' + lineId + '" title="bbox ' + lineBbox.join(' ') + '">\n';
                 
                 words.forEach(word => {
-                    xml += '    <span class="ocrx_word" id="' + word.id + '" title="bbox ' + word.bbox.join(' ') + '; x_wconf ' + word.conf + '">' + escapeXML(word.text) + '</span>\\n';
+                    xml += '    <span class="ocrx_word" id="' + word.id + '" title="bbox ' + word.bbox.join(' ') + '; x_wconf ' + word.conf + '">' + escapeXML(word.text) + '</span>\n';
                 });
                 
-                xml += '  </span>\\n';
+                xml += '  </span>\n';
             });
             
-            xml += '</div>\\n</body>\\n</html>';
+            xml += '</div>\n</body>\n</html>';
             return xml;
         }
 
@@ -846,6 +1049,7 @@
             
             currentImageIndex++;
             selectedWordId = null;
+            currentWordIndex = -1;
             document.getElementById('word-editor').style.display = 'none';
             document.getElementById('no-selection').style.display = 'block';
             
@@ -856,6 +1060,7 @@
             if (currentImageIndex > 0) {
                 currentImageIndex--;
                 selectedWordId = null;
+                currentWordIndex = -1;
                 document.getElementById('word-editor').style.display = 'none';
                 document.getElementById('no-selection').style.display = 'block';
                 loadCurrentImage();
