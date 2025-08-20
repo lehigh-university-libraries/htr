@@ -762,7 +762,7 @@
                 wordBox.setAttribute('data-word-index', index);
                 
                 // Apply confidence-based styling
-                if (word.conf < 60) {
+                if (word.confidence < 60) {
                     wordBox.classList.add('low-confidence');
                 }
                 
@@ -776,7 +776,7 @@
                 wordBox.style.width = ((x2 - x1) * scaleX) + 'px';
                 wordBox.style.height = ((y2 - y1) * scaleY) + 'px';
                 
-                wordBox.title = word.text + ' (conf: ' + word.conf + ')';
+                wordBox.title = word.text + ' (conf: ' + word.confidence + ')';
                 wordBox.onclick = () => {
                     currentWordIndex = index;
                     selectWord(word.id);
@@ -819,7 +819,7 @@
             
             document.getElementById('word-id').textContent = word.id;
             document.getElementById('word-text').value = word.text;
-            document.getElementById('word-confidence').innerHTML = getConfidenceHTML(word.conf);
+            document.getElementById('word-confidence').innerHTML = getConfidenceHTML(word.confidence);
             document.getElementById('word-bbox').textContent = word.bbox.join(', ');
         }
 
@@ -927,7 +927,7 @@
                 xml += '  <span class="ocr_line" id="' + lineId + '" title="bbox ' + lineBbox.join(' ') + '">\n';
                 
                 words.forEach(word => {
-                    xml += '    <span class="ocrx_word" id="' + word.id + '" title="bbox ' + word.bbox.join(' ') + '; x_wconf ' + word.conf + '">' + escapeXML(word.text) + '</span>\n';
+                    xml += '    <span class="ocrx_word" id="' + word.id + '" title="bbox ' + word.bbox.join(' ') + '; x_wconf ' + word.confidence + '">' + escapeXML(word.text) + '</span>\n';
                 });
                 
                 xml += '  </span>\n';
@@ -988,7 +988,7 @@
                 document.getElementById('total-words').textContent = hocrData.words.length;
                 
                 // Calculate confidence metrics
-                const confidences = hocrData.words.map(w => w.conf);
+                const confidences = hocrData.words.map(w => w.confidence);
                 const avgConf = confidences.reduce((a, b) => a + b, 0) / confidences.length;
                 const lowConfCount = confidences.filter(c => c < 60).length;
                 
