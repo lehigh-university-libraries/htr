@@ -280,7 +280,6 @@
             background: rgba(59, 130, 246, 0.1);
             box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
         }
-        .hidden { display: none !important; }
         .session-list { 
             background: #1e1e1e; 
             padding: 20px; 
@@ -379,7 +378,9 @@
             gap: 10px;
             justify-content: flex-end;
         }
-    </style>
+        .hidden { display: none; }
+
+</style>
 </head>
 <body>
     <div class="container">
@@ -640,6 +641,10 @@
         function startDrawing(e) {
             if (!drawingMode) return;
             
+            // Prevent scrolling and other default behaviors
+            e.preventDefault();
+            e.stopPropagation();
+            
             isDrawing = true;
             const rect = e.currentTarget.getBoundingClientRect();
             const img = document.getElementById('current-image');
@@ -664,6 +669,10 @@
 
         function updateDrawing(e) {
             if (!drawingMode || !isDrawing || !currentDrawingBox) return;
+            
+            // Prevent scrolling and other default behaviors
+            e.preventDefault();
+            e.stopPropagation();
             
             const img = document.getElementById('current-image');
             const imgRect = img.getBoundingClientRect();
@@ -795,21 +804,22 @@
             }
             hocrData.words.push(newWord);
             
-            // Convert drawing box to regular word box
-            const drawingBox = pendingAnnotation.element;
-            drawingBox.className = 'hocr-word-box new-word-box';
-            drawingBox.id = 'box-' + newWordId;
-            drawingBox.setAttribute('data-word-index', hocrData.words.length - 1);
-            drawingBox.title = text + ' (conf: 95)';
-            drawingBox.onclick = () => {
-                if (!drawingMode) {
-                    currentWordIndex = hocrData.words.length - 1;
-                    selectWord(newWordId);
+            // Sort words by reading order to maintain proper indexing
+            hocrData.words.sort((a, b) => {
+                const yDiff = a.bbox[1] - b.bbox[1];
+                if (Math.abs(yDiff) > 10) {
+                    return yDiff;
                 }
-            };
+                return a.bbox[0] - b.bbox[0];
+            });
             
-            // Re-enable pointer events
-            drawingBox.style.pointerEvents = 'all';
+            // Remove the drawing box since we'll recreate it properly
+            if (pendingAnnotation.element) {
+                pendingAnnotation.element.remove();
+            }
+            
+            // Re-render the entire overlay to ensure proper indexing and event handlers
+            renderHOCROverlay();
             
             // Update hOCR source and metrics
             updateHOCRSource();
@@ -819,10 +829,13 @@
             // Close modal and reset
             closeAnnotationModal();
             
-            // Auto-select the new word
+            // Find the index of the newly added word and select it
             setTimeout(() => {
-                currentWordIndex = hocrData.words.length - 1;
-                selectWord(newWordId);
+                const newWordIndex = hocrData.words.findIndex(w => w.id === newWordId);
+                if (newWordIndex !== -1) {
+                    currentWordIndex = newWordIndex;
+                    selectWord(newWordId);
+                }
             }, 100);
         }
 
