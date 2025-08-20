@@ -95,6 +95,23 @@
             box-shadow: 0 0 20px rgba(236, 72, 153, 0.4);
             animation: pulse 1s ease-in-out;
         }
+        .new-word-box {
+            border: 2px solid #10b981 !important;
+            background: rgba(16, 185, 129, 0.15) !important;
+        }
+        .drawing-box {
+            position: absolute;
+            border: 2px dashed #ec4899;
+            background: rgba(236, 72, 153, 0.1);
+            pointer-events: none;
+            z-index: 4;
+        }
+        .drawing-mode {
+            cursor: crosshair !important;
+        }
+        .drawing-mode .hocr-word-box {
+            pointer-events: none;
+        }
         @keyframes pulse {
             0%, 100% { opacity: 1; }
             50% { opacity: 0.7; }
@@ -263,7 +280,7 @@
             background: rgba(59, 130, 246, 0.1);
             box-shadow: 0 0 30px rgba(59, 130, 246, 0.2);
         }
-        .hidden { display: none; }
+        .hidden { display: none !important; }
         .session-list { 
             background: #1e1e1e; 
             padding: 20px; 
@@ -317,6 +334,50 @@
             color: #6b7280;
             font-size: 12px;
             margin-top: 5px;
+        }
+        .annotation-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.7);
+            z-index: 1000;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+        .annotation-dialog {
+            background: #1e1e1e;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 30px;
+            width: 400px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+        }
+        .annotation-dialog h3 {
+            color: #3b82f6;
+            margin-bottom: 20px;
+            font-size: 18px;
+        }
+        .annotation-input {
+            width: 100%;
+            padding: 12px;
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 8px;
+            color: #e5e5e5;
+            font-size: 16px;
+            margin-bottom: 20px;
+        }
+        .annotation-input:focus {
+            outline: none;
+            border-color: #3b82f6;
+        }
+        .dialog-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: flex-end;
         }
     </style>
 </head>
@@ -381,7 +442,9 @@
                             • <kbd>Tab</kbd> - Next word<br>
                             • <kbd>Shift+Tab</kbd> - Previous word<br>
                             • <kbd>Enter</kbd> - Apply changes<br>
-                            • <kbd>Delete</kbd> - Delete selected word
+                            • <kbd>Delete</kbd> - Delete selected word<br>
+                            • <kbd>D</kbd> - Toggle drawing mode<br>
+                            • <kbd>Esc</kbd> - Clear selection/Exit drawing
                         </div>
                         <div class="word-counter" id="word-counter">
                             Word 0 of 0
@@ -410,6 +473,9 @@
 
                     <div class="sidebar-section">
                         <h3>Actions</h3>
+                        <button class="btn btn-primary" id="drawing-mode-btn" onclick="toggleDrawingMode()" style="width: 100%; margin-bottom: 10px;">
+                            ✏️ Draw New Word
+                        </button>
                         <button class="btn btn-secondary" onclick="toggleLowConfidence()" style="width: 100%; margin-bottom: 10px;">
                             Highlight Low Confidence
                         </button>
@@ -450,6 +516,18 @@
                 </div>
             </div>
         </div>
+
+        <!-- Annotation Modal -->
+        <div id="annotation-modal" class="annotation-modal hidden">
+            <div class="annotation-dialog">
+                <h3>Add New Word Annotation</h3>
+                <input type="text" id="annotation-text" class="annotation-input" placeholder="Enter the word text..." autocomplete="off">
+                <div class="dialog-buttons">
+                    <button class="btn btn-secondary" onclick="cancelAnnotation()">Cancel</button>
+                    <button class="btn btn-success" onclick="saveAnnotation()">Save</button>
+                </div>
+            </div>
+        </div>
     </div>
 
     <script>
@@ -461,6 +539,13 @@
         let wordNavigationOrder = [];
         let imageScale = 1;
         let showLowConfidence = false;
+        
+        // Drawing mode variables
+        let drawingMode = false;
+        let isDrawing = false;
+        let drawingStart = null;
+        let currentDrawingBox = null;
+        let pendingAnnotation = null;
 
         // Load sessions on page load
         document.addEventListener('DOMContentLoaded', loadSessions);
@@ -495,10 +580,265 @@
                     break;
                 case 'Escape':
                     e.preventDefault();
-                    clearSelection();
+                    if (drawingMode) {
+                        toggleDrawingMode();
+                    } else {
+                        clearSelection();
+                    }
+                    break;
+                case 'd':
+                case 'D':
+                    if (document.activeElement === document.body || 
+                        document.activeElement === document.getElementById('image-container') ||
+                        document.activeElement.tagName === 'BUTTON') {
+                        e.preventDefault();
+                        toggleDrawingMode();
+                    }
                     break;
             }
         });
+
+        // Drawing mode functions
+        function toggleDrawingMode() {
+            drawingMode = !drawingMode;
+            const btn = document.getElementById('drawing-mode-btn');
+            const imageContainer = document.getElementById('image-container');
+            
+            if (drawingMode) {
+                btn.textContent = '❌ Exit Drawing';
+                btn.classList.remove('btn-primary');
+                btn.classList.add('btn-danger');
+                imageContainer.classList.add('drawing-mode');
+                clearSelection();
+                setupDrawingEvents();
+            } else {
+                btn.textContent = '✏️ Draw New Word';
+                btn.classList.remove('btn-danger');
+                btn.classList.add('btn-primary');
+                imageContainer.classList.remove('drawing-mode');
+                removeDrawingEvents();
+                cancelAnnotation();
+            }
+        }
+
+        function setupDrawingEvents() {
+            const imageContainer = document.getElementById('image-container');
+            imageContainer.addEventListener('mousedown', startDrawing);
+            imageContainer.addEventListener('mousemove', updateDrawing);
+            imageContainer.addEventListener('mouseup', endDrawing);
+            imageContainer.addEventListener('mouseleave', cancelDrawing);
+        }
+
+        function removeDrawingEvents() {
+            const imageContainer = document.getElementById('image-container');
+            imageContainer.removeEventListener('mousedown', startDrawing);
+            imageContainer.removeEventListener('mousemove', updateDrawing);
+            imageContainer.removeEventListener('mouseup', endDrawing);
+            imageContainer.removeEventListener('mouseleave', cancelDrawing);
+        }
+
+        function startDrawing(e) {
+            if (!drawingMode) return;
+            
+            isDrawing = true;
+            const rect = e.currentTarget.getBoundingClientRect();
+            const img = document.getElementById('current-image');
+            const imgRect = img.getBoundingClientRect();
+            
+            // Calculate position relative to image
+            drawingStart = {
+                x: e.clientX - imgRect.left,
+                y: e.clientY - imgRect.top
+            };
+            
+            // Create drawing box
+            currentDrawingBox = document.createElement('div');
+            currentDrawingBox.className = 'drawing-box';
+            currentDrawingBox.style.left = drawingStart.x + 'px';
+            currentDrawingBox.style.top = drawingStart.y + 'px';
+            currentDrawingBox.style.width = '0px';
+            currentDrawingBox.style.height = '0px';
+            
+            document.getElementById('hocr-overlay').appendChild(currentDrawingBox);
+        }
+
+        function updateDrawing(e) {
+            if (!drawingMode || !isDrawing || !currentDrawingBox) return;
+            
+            const img = document.getElementById('current-image');
+            const imgRect = img.getBoundingClientRect();
+            
+            const currentX = e.clientX - imgRect.left;
+            const currentY = e.clientY - imgRect.top;
+            
+            const left = Math.min(drawingStart.x, currentX);
+            const top = Math.min(drawingStart.y, currentY);
+            const width = Math.abs(currentX - drawingStart.x);
+            const height = Math.abs(currentY - drawingStart.y);
+            
+            currentDrawingBox.style.left = left + 'px';
+            currentDrawingBox.style.top = top + 'px';
+            currentDrawingBox.style.width = width + 'px';
+            currentDrawingBox.style.height = height + 'px';
+        }
+
+        function endDrawing(e) {
+            if (!drawingMode || !isDrawing || !currentDrawingBox) return;
+            
+            isDrawing = false;
+            
+            // Check if the drawn box is large enough
+            const width = parseFloat(currentDrawingBox.style.width);
+            const height = parseFloat(currentDrawingBox.style.height);
+            
+            if (width < 10 || height < 10) {
+                // Too small, cancel
+                cancelDrawing();
+                return;
+            }
+            
+            // Store the bounding box coordinates
+            const img = document.getElementById('current-image');
+            const scaleX = img.naturalWidth / img.clientWidth;
+            const scaleY = img.naturalHeight / img.clientHeight;
+            
+            const left = parseFloat(currentDrawingBox.style.left);
+            const top = parseFloat(currentDrawingBox.style.top);
+            
+            pendingAnnotation = {
+                bbox: [
+                    Math.round(left * scaleX),
+                    Math.round(top * scaleY),
+                    Math.round((left + width) * scaleX),
+                    Math.round((top + height) * scaleY)
+                ],
+                element: currentDrawingBox
+            };
+            
+            // Show annotation modal
+            showAnnotationModal();
+        }
+
+        function cancelDrawing() {
+            if (currentDrawingBox) {
+                currentDrawingBox.remove();
+                currentDrawingBox = null;
+            }
+            isDrawing = false;
+            drawingStart = null;
+        }
+
+        function showAnnotationModal() {
+            document.getElementById('annotation-modal').classList.remove('hidden');
+            const input = document.getElementById('annotation-text');
+            input.value = '';
+            input.focus();
+            
+            // Handle Enter key in modal
+            input.onkeydown = function(e) {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    saveAnnotation();
+                } else if (e.key === 'Escape') {
+                    e.preventDefault();
+                    cancelAnnotation();
+                }
+            };
+        }
+
+        function saveAnnotation() {
+            const text = document.getElementById('annotation-text').value.trim();
+            if (!text || !pendingAnnotation) {
+                cancelAnnotation();
+                return;
+            }
+            
+            // Generate new word ID
+            const newWordId = 'word_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+            
+            // Determine line ID (find the closest existing line or create new one)
+            let lineId = 'line_new_' + Date.now();
+            if (hocrData && hocrData.words.length > 0) {
+                // Find the closest line based on Y coordinate
+                const bbox = pendingAnnotation.bbox;
+                const centerY = (bbox[1] + bbox[3]) / 2;
+                
+                let closestLine = null;
+                let minDistance = Infinity;
+                
+                hocrData.words.forEach(word => {
+                    const wordCenterY = (word.bbox[1] + word.bbox[3]) / 2;
+                    const distance = Math.abs(centerY - wordCenterY);
+                    if (distance < minDistance && distance < 50) { // Within 50 pixels
+                        minDistance = distance;
+                        closestLine = word.line_id;
+                    }
+                });
+                
+                if (closestLine) {
+                    lineId = closestLine;
+                }
+            }
+            
+            // Create new word object
+            const newWord = {
+                id: newWordId,
+                text: text,
+                bbox: pendingAnnotation.bbox,
+                confidence: 95, // High confidence for manually added words
+                line_id: lineId
+            };
+            
+            // Add to hocrData
+            if (!hocrData) {
+                hocrData = { words: [] };
+            }
+            hocrData.words.push(newWord);
+            
+            // Convert drawing box to regular word box
+            const drawingBox = pendingAnnotation.element;
+            drawingBox.className = 'hocr-word-box new-word-box';
+            drawingBox.id = 'box-' + newWordId;
+            drawingBox.setAttribute('data-word-index', hocrData.words.length - 1);
+            drawingBox.title = text + ' (conf: 95)';
+            drawingBox.onclick = () => {
+                if (!drawingMode) {
+                    currentWordIndex = hocrData.words.length - 1;
+                    selectWord(newWordId);
+                }
+            };
+            
+            // Re-enable pointer events
+            drawingBox.style.pointerEvents = 'all';
+            
+            // Update hOCR source and metrics
+            updateHOCRSource();
+            updateMetrics();
+            updateWordCounter();
+            
+            // Close modal and reset
+            closeAnnotationModal();
+            
+            // Auto-select the new word
+            setTimeout(() => {
+                currentWordIndex = hocrData.words.length - 1;
+                selectWord(newWordId);
+            }, 100);
+        }
+
+        function cancelAnnotation() {
+            if (pendingAnnotation && pendingAnnotation.element) {
+                pendingAnnotation.element.remove();
+            }
+            pendingAnnotation = null;
+            closeAnnotationModal();
+            cancelDrawing();
+        }
+
+        function closeAnnotationModal() {
+            document.getElementById('annotation-modal').classList.add('hidden');
+            document.getElementById('annotation-text').onkeydown = null;
+        }
 
         function navigateToNextWord() {
             if (!hocrData || !hocrData.words || hocrData.words.length === 0) return;
@@ -690,6 +1030,11 @@
                 return;
             }
 
+            // Disable drawing mode when switching images
+            if (drawingMode) {
+                toggleDrawingMode();
+            }
+
             const image = currentSession.images[currentImageIndex];
             const img = document.getElementById('current-image');
             
@@ -729,6 +1074,15 @@
                         // If roughly same Y, sort by X position (left to right)
                         return a.bbox[0] - b.bbox[0];
                     });
+                    
+                    // Ensure all words have proper array-format bboxes
+                    hocrData.words.forEach(word => {
+                        if (word.bbox && typeof word.bbox === 'object' && !Array.isArray(word.bbox)) {
+                            // Convert object format {x1, y1, x2, y2} to array format [x1, y1, x2, y2]
+                            word.bbox = [word.bbox.x1 || word.bbox[0], word.bbox.y1 || word.bbox[1], 
+                                        word.bbox.x2 || word.bbox[2], word.bbox.y2 || word.bbox[3]];
+                        }
+                    });
                 }
                 
                 renderHOCROverlay();
@@ -757,20 +1111,31 @@
 
             hocrData.words.forEach((word, index) => {
                 const wordBox = document.createElement('div');
-                wordBox.className = 'hocr-word-box';
+                
+                // Check if this is a manually added word (preserve existing element if it exists)
+                const existingBox = document.getElementById('box-' + word.id);
+                if (existingBox && existingBox.classList.contains('new-word-box')) {
+                    // Update the existing manually added word box
+                    wordBox.className = existingBox.className;
+                    existingBox.remove();
+                } else {
+                    // Regular OCR detected word
+                    wordBox.className = 'hocr-word-box';
+                }
+                
                 wordBox.id = 'box-' + word.id;
                 wordBox.setAttribute('data-word-index', index);
                 
-                // Apply confidence-based styling
-                if (word.confidence < 60) {
+                // Apply confidence-based styling for OCR words
+                if (word.confidence < 60 && !wordBox.classList.contains('new-word-box')) {
                     wordBox.classList.add('low-confidence');
                 }
                 
                 // Scale bounding box to image display size
-                const x1 = word.bbox["x1"];
-                const y1 = word.bbox["y1"];
-                const x2 = word.bbox["x2"];
-                const y2 = word.bbox["y2"];
+                const x1 = word.bbox[0];
+                const y1 = word.bbox[1];
+                const x2 = word.bbox[2];
+                const y2 = word.bbox[3];
                 wordBox.style.left = (x1 * scaleX) + 'px';
                 wordBox.style.top = (y1 * scaleY) + 'px';
                 wordBox.style.width = ((x2 - x1) * scaleX) + 'px';
@@ -778,8 +1143,10 @@
                 
                 wordBox.title = word.text + ' (conf: ' + word.confidence + ')';
                 wordBox.onclick = () => {
-                    currentWordIndex = index;
-                    selectWord(word.id);
+                    if (!drawingMode) {
+                        currentWordIndex = index;
+                        selectWord(word.id);
+                    }
                 };
                 
                 overlay.appendChild(wordBox);
@@ -900,9 +1267,19 @@
             
             xml += '<div class="ocr_page" id="page_1" title="bbox 0 0 ' + (currentSession.images[currentImageIndex].image_width || 1000) + ' ' + (currentSession.images[currentImageIndex].image_height || 1000) + '">\n';
             
-            // Group words by line
+            // Group words by line, sorting them first
+            const sortedWords = [...data.words].sort((a, b) => {
+                // Sort by Y position first (top to bottom)
+                const yDiff = a.bbox[1] - b.bbox[1];
+                if (Math.abs(yDiff) > 10) { // Allow some tolerance for same line
+                    return yDiff;
+                }
+                // If roughly same Y, sort by X position (left to right)
+                return a.bbox[0] - b.bbox[0];
+            });
+            
             const lineGroups = {};
-            data.words.forEach(word => {
+            sortedWords.forEach(word => {
                 if (!lineGroups[word.line_id]) {
                     lineGroups[word.line_id] = [];
                 }
@@ -913,6 +1290,9 @@
             Object.keys(lineGroups).forEach(lineId => {
                 const words = lineGroups[lineId];
                 if (words.length === 0) return;
+                
+                // Sort words within line by X position
+                words.sort((a, b) => a.bbox[0] - b.bbox[0]);
                 
                 // Calculate line bbox
                 const lineBbox = words.reduce((bbox, word) => {
