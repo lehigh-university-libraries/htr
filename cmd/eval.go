@@ -25,6 +25,7 @@ import (
 )
 
 type EvalConfig struct {
+	Provider    string  `json:"provider"`
 	Model       string  `json:"model"`
 	Prompt      string  `json:"prompt"`
 	Temperature float64 `json:"temperature"`
@@ -38,7 +39,7 @@ type EvalResult struct {
 	ImagePath             string  `json:"image_path"`
 	TranscriptPath        string  `json:"transcript_path"`
 	Public                bool    `json:"public"`
-	OpenAIResponse        string  `json:"openai_response"`
+	ProviderResponse      string  `json:"provider_response"`
 	CharacterSimilarity   float64 `json:"character_similarity"`
 	WordSimilarity        float64 `json:"word_similarity"`
 	WordAccuracy          float64 `json:"word_accuracy"`
@@ -82,6 +83,7 @@ You can either provide individual flags or use a previous evaluation config file
 }
 
 var (
+	evalProvider    string
 	evalModel       string
 	evalPrompt      string
 	evalTemperature float64
@@ -95,12 +97,13 @@ var (
 func init() {
 	RootCmd.AddCommand(evalCmd)
 
-	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "OpenAI model to use")
-	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to OpenAI")
-	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for OpenAI API")
+	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, gemini, ollama")
+	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
+	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to the provider")
+	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for API")
 	evalCmd.Flags().StringVarP(&evalCSVPath, "csv", "c", "", "Path to CSV file with evaluation data")
 	evalCmd.Flags().StringVar(&evalConfigPath, "config", "", "Path to previous evaluation config file to rerun")
-	evalCmd.Flags().StringVar(&evalTemplate, "template", "", "Custom JSON template file for OpenAI API (optional)")
+	evalCmd.Flags().StringVar(&evalTemplate, "template", "", "Custom JSON template file for API (optional)")
 	evalCmd.Flags().StringVar(&dir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalCmd.Flags().IntSliceVar(&rows, "rows", []int{}, "A list of row numbers to run the test on")
 
@@ -121,6 +124,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Loaded configuration from %s\n", evalConfigPath)
 	} else {
 		config = EvalConfig{
+			Provider:    evalProvider,
 			Model:       evalModel,
 			Prompt:      evalPrompt,
 			Temperature: evalTemperature,
@@ -257,19 +261,19 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		return EvalResult{}, fmt.Errorf("failed to process image: %w", err)
 	}
 
-	openaiResponse, err := callOpenAI(config, imagePath, imageBase64)
+	providerResponse, err := callProvider(config, imagePath, imageBase64)
 	if err != nil {
-		return EvalResult{}, fmt.Errorf("OpenAI API call failed: %w", err)
+		return EvalResult{}, fmt.Errorf("provider API call failed: %w", err)
 	}
 
-	metrics := CalculateAccuracyMetrics(groundTruth, openaiResponse)
+	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(imagePath),
 		ImagePath:             imagePath,
 		TranscriptPath:        transcriptPath,
 		Public:                public,
-		OpenAIResponse:        openaiResponse,
+		ProviderResponse:      providerResponse,
 		CharacterSimilarity:   metrics.CharacterSimilarity,
 		WordSimilarity:        metrics.WordSimilarity,
 		WordAccuracy:          metrics.WordAccuracy,
@@ -334,6 +338,22 @@ func getImageAsBase64(imagePath string) (string, error) {
 	}
 
 	return base64.StdEncoding.EncodeToString(imageData), nil
+}
+
+// callProvider routes to the appropriate provider based on config
+func callProvider(config EvalConfig, imagePath, imageBase64 string) (string, error) {
+	switch config.Provider {
+	case "openai":
+		return callOpenAI(config, imagePath, imageBase64)
+	case "azure":
+		return callAzureOCR(config, imagePath, imageBase64)
+	case "gemini":
+		return callGemini(config, imagePath, imageBase64)
+	case "ollama":
+		return callOllama(config, imagePath, imageBase64)
+	default:
+		return "", fmt.Errorf("unsupported provider: %s", config.Provider)
+	}
 }
 
 func callOpenAI(config EvalConfig, imagePath, imageBase64 string) (string, error) {
@@ -415,6 +435,368 @@ func callOpenAI(config EvalConfig, imagePath, imageBase64 string) (string, error
 	}
 
 	return cleanOpenAIResponse(openaiResp.Choices[0].Message.Content), nil
+}
+
+// Azure OCR service implementation
+func callAzureOCR(config EvalConfig, imagePath, imageBase64 string) (string, error) {
+	endpoint := os.Getenv("AZURE_OCR_ENDPOINT")
+	apiKey := os.Getenv("AZURE_OCR_API_KEY")
+
+	if endpoint == "" || apiKey == "" {
+		return "", fmt.Errorf("AZURE_OCR_ENDPOINT and AZURE_OCR_API_KEY environment variables must be set")
+	}
+
+	// Decode base64 image data
+	imageData, err := base64.StdEncoding.DecodeString(imageBase64)
+	if err != nil {
+		return "", fmt.Errorf("failed to decode base64 image: %w", err)
+	}
+
+	// Azure Computer Vision Read API 4.0 URL
+	readURL := fmt.Sprintf("%s/vision/v4.0/read/analyze", strings.TrimSuffix(endpoint, "/"))
+
+	// Create request
+	req, err := http.NewRequestWithContext(context.Background(), "POST", readURL, bytes.NewReader(imageData))
+	if err != nil {
+		return "", err
+	}
+
+	// Set headers
+	req.Header.Set("Ocp-Apim-Subscription-Key", apiKey)
+	req.Header.Set("Content-Type", "application/octet-stream")
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusAccepted {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("azure OCR API error: %d - %s", resp.StatusCode, string(body))
+	}
+
+	// Get the operation URL from the Operation-Location header
+	operationURL := resp.Header.Get("Operation-Location")
+	if operationURL == "" {
+		return "", fmt.Errorf("no operation location returned from Azure OCR")
+	}
+
+	// Poll for results
+	for attempts := 0; attempts < 30; attempts++ {
+		time.Sleep(1 * time.Second)
+
+		req, err := http.NewRequestWithContext(context.Background(), "GET", operationURL, nil)
+		if err != nil {
+			return "", err
+		}
+		req.Header.Set("Ocp-Apim-Subscription-Key", apiKey)
+
+		resp, err := client.Do(req)
+		if err != nil {
+			return "", err
+		}
+
+		if resp.StatusCode != http.StatusOK {
+			resp.Body.Close()
+			continue
+		}
+
+		var result map[string]interface{}
+		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+			resp.Body.Close()
+			return "", err
+		}
+		resp.Body.Close()
+
+		status, ok := result["status"].(string)
+		if !ok {
+			return "", fmt.Errorf("invalid response format from Azure OCR")
+		}
+
+		switch status {
+		case "succeeded":
+			return extractAzureOCRText(result), nil
+		case "failed":
+			return "", fmt.Errorf("azure OCR analysis failed")
+		}
+		// Continue polling if status is "running" or "notStarted"
+	}
+
+	return "", fmt.Errorf("azure OCR operation timed out")
+}
+
+// extractAzureOCRText extracts text from Azure OCR response
+func extractAzureOCRText(result map[string]interface{}) string {
+	var texts []string
+
+	analyzeResult, ok := result["analyzeResult"].(map[string]interface{})
+	if !ok {
+		return ""
+	}
+
+	readResults, ok := analyzeResult["readResults"].([]interface{})
+	if !ok {
+		return ""
+	}
+
+	for _, readResult := range readResults {
+		readResultMap, ok := readResult.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		lines, ok := readResultMap["lines"].([]interface{})
+		if !ok {
+			continue
+		}
+
+		for _, line := range lines {
+			lineMap, ok := line.(map[string]interface{})
+			if !ok {
+				continue
+			}
+
+			text, ok := lineMap["text"].(string)
+			if ok {
+				texts = append(texts, text)
+			}
+		}
+	}
+
+	return strings.Join(texts, "\n")
+}
+
+// Google Gemini Vision API implementation
+func callGemini(config EvalConfig, imagePath, imageBase64 string) (string, error) {
+	apiKey := os.Getenv("GEMINI_API_KEY")
+	if apiKey == "" {
+		return "", fmt.Errorf("GEMINI_API_KEY environment variable not set")
+	}
+
+	// Determine MIME type
+	mimeType := mime.TypeByExtension(filepath.Ext(imagePath))
+	if mimeType == "" {
+		mimeType = "image/jpeg"
+	}
+
+	// Prepare request body for Gemini API
+	requestBody := map[string]interface{}{
+		"contents": []map[string]interface{}{
+			{
+				"parts": []map[string]interface{}{
+					{
+						"text": config.Prompt,
+					},
+					{
+						"inline_data": map[string]interface{}{
+							"mime_type": mimeType,
+							"data":      imageBase64,
+						},
+					},
+				},
+			},
+		},
+		"generationConfig": map[string]interface{}{
+			"temperature": config.Temperature,
+		},
+	}
+
+	// Use the specified model, default to gemini-pro-vision if not specified
+	model := config.Model
+	if model == "gpt-4o" || model == "" {
+		model = "gemini-pro-vision"
+	}
+
+	requestJSON, err := json.Marshal(requestBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Make API request
+	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(requestJSON))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 60 * time.Second}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("gemini API error: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var geminiResp map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
+		return "", err
+	}
+
+	// Extract text from Gemini response
+	candidates, ok := geminiResp["candidates"].([]interface{})
+	if !ok || len(candidates) == 0 {
+		return "", fmt.Errorf("no response from Gemini")
+	}
+
+	candidate, ok := candidates[0].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid response format from Gemini")
+	}
+
+	content, ok := candidate["content"].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid content format from Gemini")
+	}
+
+	parts, ok := content["parts"].([]interface{})
+	if !ok || len(parts) == 0 {
+		return "", fmt.Errorf("no parts in Gemini response")
+	}
+
+	part, ok := parts[0].(map[string]interface{})
+	if !ok {
+		return "", fmt.Errorf("invalid part format from Gemini")
+	}
+
+	text, ok := part["text"].(string)
+	if !ok {
+		return "", fmt.Errorf("no text in Gemini response")
+	}
+
+	return cleanGeminiResponse(text), nil
+}
+
+// cleanGeminiResponse cleans up Gemini API responses
+func cleanGeminiResponse(response string) string {
+	response = strings.TrimSpace(response)
+
+	// Remove common prefixes from Gemini responses
+	prefixPatterns := []string{
+		`(?i)^(the\s+)?text\s+in\s+(the\s+)?image\s+(is|says|reads):?\s*`,
+		`(?i)^(the\s+)?image\s+contains\s+(the\s+following\s+)?text:?\s*`,
+		`(?i)^here'?s?\s+(the\s+)?text\s+from\s+(the\s+)?image:?\s*`,
+	}
+
+	for _, pattern := range prefixPatterns {
+		re := regexp.MustCompile(pattern)
+		response = re.ReplaceAllString(response, "")
+		response = strings.TrimSpace(response)
+	}
+
+	// Remove surrounding quotes
+	response = strings.Trim(response, `"'`)
+
+	// Remove markdown code blocks if present
+	if strings.HasPrefix(response, "```") && strings.HasSuffix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
+	return response
+}
+
+// Ollama local API implementation
+func callOllama(config EvalConfig, imagePath, imageBase64 string) (string, error) {
+	ollamaURL := os.Getenv("OLLAMA_URL")
+	if ollamaURL == "" {
+		ollamaURL = "http://localhost:11434" // Default Ollama URL
+	}
+
+	// Use the specified model, default to llava if not specified
+	model := config.Model
+	if model == "gpt-4o" || model == "" {
+		model = "llava"
+	}
+
+	// Prepare request body for Ollama API
+	requestBody := map[string]interface{}{
+		"model":  model,
+		"prompt": config.Prompt,
+		"images": []string{imageBase64},
+		"stream": false,
+		"options": map[string]interface{}{
+			"temperature": config.Temperature,
+		},
+	}
+
+	requestJSON, err := json.Marshal(requestBody)
+	if err != nil {
+		return "", fmt.Errorf("failed to marshal request: %w", err)
+	}
+
+	// Make API request
+	url := fmt.Sprintf("%s/api/generate", strings.TrimSuffix(ollamaURL, "/"))
+	req, err := http.NewRequestWithContext(context.Background(), "POST", url, bytes.NewBuffer(requestJSON))
+	if err != nil {
+		return "", err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	client := &http.Client{Timeout: 300 * time.Second} // Longer timeout for local inference
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("ollama API error: %d - %s", resp.StatusCode, string(body))
+	}
+
+	var ollamaResp map[string]interface{}
+	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
+		return "", err
+	}
+
+	// Extract response from Ollama
+	response, ok := ollamaResp["response"].(string)
+	if !ok {
+		return "", fmt.Errorf("no response from Ollama")
+	}
+
+	return cleanOllamaResponse(response), nil
+}
+
+// cleanOllamaResponse cleans up Ollama API responses
+func cleanOllamaResponse(response string) string {
+	response = strings.TrimSpace(response)
+
+	// Remove common prefixes from Ollama responses
+	prefixPatterns := []string{
+		`(?i)^(the\s+)?text\s+in\s+(the\s+)?image\s+(is|says|reads):?\s*`,
+		`(?i)^(the\s+)?image\s+contains\s+(the\s+following\s+)?text:?\s*`,
+		`(?i)^here'?s?\s+(the\s+)?text\s+from\s+(the\s+)?image:?\s*`,
+		`(?i)^(i\s+can\s+see\s+)?text\s+(that\s+says|reading):?\s*`,
+	}
+
+	for _, pattern := range prefixPatterns {
+		re := regexp.MustCompile(pattern)
+		response = re.ReplaceAllString(response, "")
+		response = strings.TrimSpace(response)
+	}
+
+	// Remove surrounding quotes
+	response = strings.Trim(response, `"'`)
+
+	// Remove markdown code blocks if present
+	if strings.HasPrefix(response, "```") && strings.HasSuffix(response, "```") {
+		response = strings.TrimPrefix(response, "```")
+		response = strings.TrimSuffix(response, "```")
+		response = strings.TrimSpace(response)
+	}
+
+	return response
 }
 
 // jsonEscape properly escapes a string for use in JSON
