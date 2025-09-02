@@ -108,6 +108,7 @@ func cleanResponse(response string) string {
 		`(?i)^(the\s+)?image\s+contains\s+(the\s+following\s+)?text:?\s*`,
 		`(?i)^here'?s?\s+(the\s+)?text\s+from\s+(the\s+)?image:?\s*`,
 		`(?i)^(i\s+can\s+see\s+)?text\s+(that\s+says|reading):?\s*`,
+		`(?i)^i\s+can\s+see\s+text\s+reading:\s*`,
 	}
 
 	for _, pattern := range prefixPatterns {
