@@ -20,17 +20,99 @@ Then put the binary in a directory that is in your `$PATH`
 
 ## Usage
 
-Set an environment variables `OPENAI_API_KEY` or create it in a `.env` file
+The HTR tool supports multiple providers for text extraction from images. Set the appropriate environment variables for your chosen provider or create them in a `.env` file.
+
+### Supported Providers
+
+#### OpenAI (default)
+- Provider: `openai`
+- Environment variable: `OPENAI_API_KEY`
+- Models: `gpt-4o`, `gpt-4o-mini`, `gpt-4-vision-preview`
+
+#### Azure OCR
+- Provider: `azure`
+- Environment variables: `AZURE_OCR_ENDPOINT`, `AZURE_OCR_API_KEY`
+- Models: Uses Azure Computer Vision Read API 4.0
+
+#### Google Gemini
+- Provider: `gemini`
+- Environment variable: `GEMINI_API_KEY`
+- Models: `gemini-pro-vision`, `gemini-1.5-pro`, `gemini-1.5-flash`
+
+#### Ollama (local)
+- Provider: `ollama`
+- Environment variable: `OLLAMA_URL` (optional, defaults to `http://localhost:11434`)
+- Models: `llava`, `llava:13b`, `llava:34b`, `moondream`, etc.
 
 ### Eval
 
-```
+#### OpenAI Example
+```bash
 htr eval \
+  --provider openai \
   --model gpt-4o \
   --prompt "Extract all text from this image" \
   --temperature 0.0 \
   --csv fixtures/images.csv \
   --dir /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents
+```
+
+#### Azure OCR Example
+```bash
+htr eval \
+  --provider azure \
+  --prompt "Extract all text from this image" \
+  --csv fixtures/images.csv \
+  --dir /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents
+```
+
+#### Gemini Example
+```bash
+htr eval \
+  --provider gemini \
+  --model gemini-pro-vision \
+  --prompt "Extract all text from this image" \
+  --temperature 0.0 \
+  --csv fixtures/images.csv \
+  --dir /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents
+```
+
+#### Ollama Example
+```bash
+htr eval \
+  --provider ollama \
+  --model llava \
+  --prompt "Extract all text from this image" \
+  --temperature 0.0 \
+  --csv fixtures/images.csv \
+  --dir /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents
+```
+
+### Summary
+
+View summary statistics from existing evaluation results:
+
+```bash
+# List all available evaluation files
+htr summary
+
+# View summary for a specific evaluation
+htr summary eval_2025-07-24_07-44-38.yaml
+
+# Or just use the filename without extension
+htr summary eval_2025-07-24_07-44-38
+```
+
+## Testing Individual Items
+
+You can test individual rows from your CSV to quickly evaluate a single provider:
+
+```bash
+# Test just the first row (index 0)
+htr eval --provider azure --prompt "Extract all text from this image" --csv fixtures/images.csv --rows 0 --dir /path/to/images
+
+# Test multiple specific rows
+htr eval --provider gemini --model gemini-pro-vision --prompt "Extract all text from this image" --csv fixtures/images.csv --rows 0,5,10 --dir /path/to/images
 ```
 
 

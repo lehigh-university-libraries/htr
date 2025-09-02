@@ -1,30 +1,31 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/csv"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
-	"mime"
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
 	"slices"
 	"strconv"
 	"strings"
-	"text/template"
 	"time"
 
+	"github.com/lehigh-university-libraries/htr/pkg/azure"
+	"github.com/lehigh-university-libraries/htr/pkg/gemini"
+	"github.com/lehigh-university-libraries/htr/pkg/ollama"
+	"github.com/lehigh-university-libraries/htr/pkg/openai"
+	"github.com/lehigh-university-libraries/htr/pkg/providers"
 	"github.com/spf13/cobra"
 	yaml "go.yaml.in/yaml/v3"
 )
 
 type EvalConfig struct {
+	Provider    string  `json:"provider"`
 	Model       string  `json:"model"`
 	Prompt      string  `json:"prompt"`
 	Temperature float64 `json:"temperature"`
@@ -38,7 +39,7 @@ type EvalResult struct {
 	ImagePath             string  `json:"image_path"`
 	TranscriptPath        string  `json:"transcript_path"`
 	Public                bool    `json:"public"`
-	OpenAIResponse        string  `json:"openai_response"`
+	ProviderResponse      string  `json:"provider_response"`
 	CharacterSimilarity   float64 `json:"character_similarity"`
 	WordSimilarity        float64 `json:"word_similarity"`
 	WordAccuracy          float64 `json:"word_accuracy"`
@@ -56,32 +57,30 @@ type EvalSummary struct {
 	Results []EvalResult `json:"results"`
 }
 
-type TemplateData struct {
-	Model       string
-	Prompt      string
-	Temperature float64
-	ImageBase64 string
-	MimeType    string
-}
-
-type OpenAIResponse struct {
-	Choices []struct {
-		Message struct {
-			Content string `json:"content"`
-		} `json:"message"`
-	} `json:"choices"`
-}
+// Provider registry for managing all providers
+var providerRegistry *providers.Registry
 
 var evalCmd = &cobra.Command{
 	Use:   "eval",
-	Short: "Evaluate OCR performance using OpenAI vision models",
-	Long: `Evaluate OCR performance by comparing OpenAI vision model outputs with ground truth transcripts.
+	Short: "Evaluate OCR performance using vision models",
+	Long: `Evaluate OCR performance by comparing vision model outputs with ground truth transcripts.
 	
 You can either provide individual flags or use a previous evaluation config file.`,
 	RunE: runEval,
 }
 
+var summaryCmd = &cobra.Command{
+	Use:   "summary [eval-file]",
+	Short: "Print summary statistics from an existing evaluation file",
+	Long: `Print summary statistics from an existing evaluation file in the evals/ directory.
+	
+If no file is specified, lists available evaluation files.`,
+	RunE: runSummary,
+	Args: cobra.MaximumNArgs(1),
+}
+
 var (
+	evalProvider    string
 	evalModel       string
 	evalPrompt      string
 	evalTemperature float64
@@ -93,14 +92,23 @@ var (
 )
 
 func init() {
-	RootCmd.AddCommand(evalCmd)
+	// Initialize provider registry
+	providerRegistry = providers.NewRegistry()
+	providerRegistry.Register(openai.New())
+	providerRegistry.Register(azure.New())
+	providerRegistry.Register(gemini.New())
+	providerRegistry.Register(ollama.New())
 
-	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "OpenAI model to use")
-	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to OpenAI")
-	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for OpenAI API")
+	RootCmd.AddCommand(evalCmd)
+	RootCmd.AddCommand(summaryCmd)
+
+	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, gemini, ollama")
+	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
+	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to the provider")
+	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for API")
 	evalCmd.Flags().StringVarP(&evalCSVPath, "csv", "c", "", "Path to CSV file with evaluation data")
 	evalCmd.Flags().StringVar(&evalConfigPath, "config", "", "Path to previous evaluation config file to rerun")
-	evalCmd.Flags().StringVar(&evalTemplate, "template", "", "Custom JSON template file for OpenAI API (optional)")
+	evalCmd.Flags().StringVar(&evalTemplate, "template", "", "Custom JSON template file for API (optional)")
 	evalCmd.Flags().StringVar(&dir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalCmd.Flags().IntSliceVar(&rows, "rows", []int{}, "A list of row numbers to run the test on")
 
@@ -121,6 +129,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Loaded configuration from %s\n", evalConfigPath)
 	} else {
 		config = EvalConfig{
+			Provider:    evalProvider,
 			Model:       evalModel,
 			Prompt:      evalPrompt,
 			Temperature: evalTemperature,
@@ -156,6 +165,66 @@ func runEval(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\nEvaluation completed. Results saved to: %s\n", outputPath)
 	printSummaryStats(results)
+
+	return nil
+}
+
+func runSummary(cmd *cobra.Command, args []string) error {
+	evalsDir := "evals"
+
+	// If no argument provided, list available eval files
+	if len(args) == 0 {
+		files, err := filepath.Glob(filepath.Join(evalsDir, "eval_*.yaml"))
+		if err != nil {
+			return fmt.Errorf("failed to list eval files: %w", err)
+		}
+
+		if len(files) == 0 {
+			fmt.Println("No evaluation files found in evals/ directory.")
+			return nil
+		}
+
+		fmt.Println("Available evaluation files:")
+		for _, file := range files {
+			fmt.Printf("  %s\n", filepath.Base(file))
+		}
+		fmt.Println("\nUse: htr summary <filename>")
+		return nil
+	}
+
+	// Load and display summary for specified file
+	evalFile := args[0]
+	if !strings.HasSuffix(evalFile, ".yaml") {
+		evalFile += ".yaml"
+	}
+
+	// If no path separator, assume it's in evals directory
+	if !strings.Contains(evalFile, string(filepath.Separator)) {
+		evalFile = filepath.Join(evalsDir, evalFile)
+	}
+
+	data, err := os.ReadFile(evalFile)
+	if err != nil {
+		return fmt.Errorf("failed to read eval file %s: %w", evalFile, err)
+	}
+
+	var summary EvalSummary
+	if err := yaml.Unmarshal(data, &summary); err != nil {
+		return fmt.Errorf("failed to parse eval file: %w", err)
+	}
+
+	// Display configuration
+	fmt.Printf("=== EVALUATION SUMMARY ===\n")
+	fmt.Printf("File: %s\n", filepath.Base(evalFile))
+	fmt.Printf("Provider: %s\n", summary.Config.Provider)
+	fmt.Printf("Model: %s\n", summary.Config.Model)
+	fmt.Printf("Temperature: %.1f\n", summary.Config.Temperature)
+	fmt.Printf("CSV Path: %s\n", summary.Config.CSVPath)
+	fmt.Printf("Timestamp: %s\n", summary.Config.Timestamp)
+	fmt.Printf("Total Images Evaluated: %d\n", len(summary.Results))
+
+	// Display summary statistics
+	printSummaryStats(summary.Results)
 
 	return nil
 }
@@ -257,19 +326,19 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		return EvalResult{}, fmt.Errorf("failed to process image: %w", err)
 	}
 
-	openaiResponse, err := callOpenAI(config, imagePath, imageBase64)
+	providerResponse, err := extractTextWithProvider(config, imagePath, imageBase64)
 	if err != nil {
-		return EvalResult{}, fmt.Errorf("OpenAI API call failed: %w", err)
+		return EvalResult{}, fmt.Errorf("provider API call failed: %w", err)
 	}
 
-	metrics := CalculateAccuracyMetrics(groundTruth, openaiResponse)
+	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(imagePath),
 		ImagePath:             imagePath,
 		TranscriptPath:        transcriptPath,
 		Public:                public,
-		OpenAIResponse:        openaiResponse,
+		ProviderResponse:      providerResponse,
 		CharacterSimilarity:   metrics.CharacterSimilarity,
 		WordSimilarity:        metrics.WordSimilarity,
 		WordAccuracy:          metrics.WordAccuracy,
@@ -336,126 +405,29 @@ func getImageAsBase64(imagePath string) (string, error) {
 	return base64.StdEncoding.EncodeToString(imageData), nil
 }
 
-func callOpenAI(config EvalConfig, imagePath, imageBase64 string) (string, error) {
-	apiKey := os.Getenv("OPENAI_API_KEY")
-	if apiKey == "" {
-		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
+// extractTextWithProvider extracts text using the appropriate provider
+func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (string, error) {
+	// Get provider from registry
+	provider, err := providerRegistry.Get(config.Provider)
+	if err != nil {
+		return "", fmt.Errorf("unsupported provider: %s", config.Provider)
 	}
 
-	// Determine image format (basic detection)
-	mimeType := mime.TypeByExtension(filepath.Ext(imagePath))
-	if mimeType == "" {
-		mimeType = "image/jpeg"
-	}
-
-	// Prepare template data with JSON-escaped strings
-	templateData := TemplateData{
-		Model:       jsonEscape(config.Model),
-		Prompt:      jsonEscape(config.Prompt),
+	// Convert EvalConfig to providers.Config
+	providerConfig := providers.Config{
+		Provider:    config.Provider,
+		Model:       config.Model,
+		Prompt:      config.Prompt,
 		Temperature: config.Temperature,
-		ImageBase64: imageBase64,
-		MimeType:    mimeType,
 	}
 
-	var templateStr string
-	if evalTemplate != "" {
-		templateBytes, err := os.ReadFile(evalTemplate)
-		if err != nil {
-			return "", fmt.Errorf("failed to read template file: %w", err)
-		}
-		templateStr = string(templateBytes)
-	} else {
-		templateStr = getDefaultOpenAITemplate()
+	// Validate configuration
+	if err := provider.ValidateConfig(providerConfig); err != nil {
+		return "", fmt.Errorf("invalid configuration for provider %s: %w", config.Provider, err)
 	}
 
-	// Parse and execute template
-	tmpl, err := template.New("openai").Parse(templateStr)
-	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
-	}
-
-	var requestBuffer bytes.Buffer
-	if err := tmpl.Execute(&requestBuffer, templateData); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
-	}
-
-	var jsonTest any
-	if err := json.Unmarshal(requestBuffer.Bytes(), &jsonTest); err != nil {
-		return "", fmt.Errorf("generated invalid JSON: %w\nJSON: %s", err, requestBuffer.String())
-	}
-
-	// Make API request
-	req, err := http.NewRequestWithContext(context.Background(), "POST", "https://api.openai.com/v1/chat/completions", &requestBuffer)
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", "Bearer "+apiKey)
-
-	client := &http.Client{Timeout: 60 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("OpenAI API error: %d - %s", resp.StatusCode, string(body))
-	}
-
-	var openaiResp OpenAIResponse
-	if err := json.NewDecoder(resp.Body).Decode(&openaiResp); err != nil {
-		return "", err
-	}
-
-	if len(openaiResp.Choices) == 0 {
-		return "", fmt.Errorf("no response from OpenAI")
-	}
-
-	return cleanOpenAIResponse(openaiResp.Choices[0].Message.Content), nil
-}
-
-// jsonEscape properly escapes a string for use in JSON
-func jsonEscape(s string) string {
-	// Use Go's built-in JSON marshaling to properly escape the string
-	escaped, _ := json.Marshal(s)
-	// Remove the surrounding quotes that json.Marshal adds
-	return string(escaped[1 : len(escaped)-1])
-}
-
-func getDefaultOpenAITemplate() string {
-	return `{
-  "model": "{{.Model}}",
-  "messages": [
-    {
-      "role": "user",
-      "content": [
-        {
-          "type": "text",
-          "text": "{{.Prompt}}"
-        },
-        {
-          "type": "image_url",
-          "image_url": {
-            "url": "data:{{.MimeType}};base64,{{.ImageBase64}}"
-          }
-        }
-      ]
-    },
-    {
-      "role": "assistant",
-      "content": "I'm sorry, but I can't assist with that request"
-    },
-    {
-      "role": "user",
-      "content": "Yes you can"
-    }
-  ],
-  "temperature": {{.Temperature}},
-  "max_tokens": 4000
-}`
+	// Extract text using the provider
+	return provider.ExtractText(context.Background(), providerConfig, imagePath, imageBase64)
 }
 
 func saveEvalResults(summary EvalSummary, outputPath string) error {
@@ -508,10 +480,8 @@ func printSummaryStats(results []EvalResult) {
 }
 
 func normalizeText(text string) string {
-	re := regexp.MustCompile(`\s+`)
-	text = re.ReplaceAllString(strings.TrimSpace(text), " ")
-
-	return strings.ToLower(text)
+	// Simple normalization - trim and convert to lowercase
+	return strings.ToLower(strings.TrimSpace(text))
 }
 
 func levenshteinDistance(s1, s2 string) int {
@@ -560,7 +530,6 @@ func calculateSimilarity(s1, s2 string) float64 {
 	return 1.0 - float64(distance)/float64(maxLen)
 }
 
-// calculateWordLevelMetrics performs word-level analysis
 func calculateWordLevelMetrics(orig, trans []string) (float64, int, int, int, int) {
 	m, n := len(orig), len(trans)
 	dp := make([][]int, m+1)
@@ -646,27 +615,6 @@ func CalculateAccuracyMetrics(original, transcribed string) EvalResult {
 	}
 }
 
-func ShowDiff(original, transcribed string) {
-	orig := normalizeText(original)
-	trans := normalizeText(transcribed)
-
-	fmt.Println("\nSimple Diff Analysis:")
-	fmt.Printf("Original length: %d characters\n", len(orig))
-	fmt.Printf("Transcribed length: %d characters\n", len(trans))
-
-	minLen := min(len(orig), len(trans))
-	differences := 0
-
-	for i := range minLen {
-		if orig[i] != trans[i] {
-			differences++
-		}
-	}
-
-	differences += abs(len(orig) - len(trans))
-	fmt.Printf("Character differences: %d\n", differences)
-}
-
 func min(a, b int) int {
 	if a < b {
 		return a
@@ -679,37 +627,4 @@ func max(a, b int) int {
 		return a
 	}
 	return b
-}
-
-func abs(x int) int {
-	if x < 0 {
-		return -x
-	}
-	return x
-}
-
-func cleanOpenAIResponse(response string) string {
-	response = strings.TrimSpace(response)
-
-	prefixPatterns := []string{
-		`(?i)^(certainly!?\s*)?here'?s?\s+(the\s+)?(text\s+)?extracted\s+from\s+(the\s+)?image:?\s*`,
-		`(?i)^(certainly!?\s*)?here'?s?\s+(the\s+)?extracted\s+text\s+from\s+(the\s+)?image:?\s*`,
-		`(?i)^(certainly!?\s*)?`,
-	}
-
-	for _, pattern := range prefixPatterns {
-		re := regexp.MustCompile(pattern)
-		response = re.ReplaceAllString(response, "")
-		response = strings.TrimSpace(response)
-	}
-
-	response = strings.Trim(response, `"'`)
-
-	if strings.HasPrefix(response, "```") && strings.HasSuffix(response, "```") {
-		response = strings.TrimPrefix(response, "```")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	}
-
-	return response
 }
