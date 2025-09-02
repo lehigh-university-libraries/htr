@@ -452,8 +452,8 @@ func callAzureOCR(config EvalConfig, imagePath, imageBase64 string) (string, err
 		return "", fmt.Errorf("failed to decode base64 image: %w", err)
 	}
 
-	// Azure Computer Vision Read API 4.0 URL
-	readURL := fmt.Sprintf("%s/vision/v4.0/read/analyze", strings.TrimSuffix(endpoint, "/"))
+	// Azure Computer Vision Read API 3.2 URL (more widely supported)
+	readURL := fmt.Sprintf("%s/vision/v3.2/read/analyze", strings.TrimSuffix(endpoint, "/"))
 
 	// Create request
 	req, err := http.NewRequestWithContext(context.Background(), "POST", readURL, bytes.NewReader(imageData))
