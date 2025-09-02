@@ -88,6 +88,33 @@ htr eval \
   --dir /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents
 ```
 
+### Summary
+
+View summary statistics from existing evaluation results:
+
+```bash
+# List all available evaluation files
+htr summary
+
+# View summary for a specific evaluation
+htr summary eval_2025-07-24_07-44-38.yaml
+
+# Or just use the filename without extension
+htr summary eval_2025-07-24_07-44-38
+```
+
+## Testing Individual Items
+
+You can test individual rows from your CSV to quickly evaluate a single provider:
+
+```bash
+# Test just the first row (index 0)
+htr eval --provider azure --prompt "Extract all text from this image" --csv fixtures/images.csv --rows 0 --dir /path/to/images
+
+# Test multiple specific rows
+htr eval --provider gemini --model gemini-pro-vision --prompt "Extract all text from this image" --csv fixtures/images.csv --rows 0,5,10 --dir /path/to/images
+```
+
 
 ## Updating
 
