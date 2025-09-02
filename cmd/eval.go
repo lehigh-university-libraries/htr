@@ -75,11 +75,21 @@ type OpenAIResponse struct {
 
 var evalCmd = &cobra.Command{
 	Use:   "eval",
-	Short: "Evaluate OCR performance using OpenAI vision models",
-	Long: `Evaluate OCR performance by comparing OpenAI vision model outputs with ground truth transcripts.
+	Short: "Evaluate OCR performance using vision models",
+	Long: `Evaluate OCR performance by comparing vision model outputs with ground truth transcripts.
 	
 You can either provide individual flags or use a previous evaluation config file.`,
 	RunE: runEval,
+}
+
+var summaryCmd = &cobra.Command{
+	Use:   "summary [eval-file]",
+	Short: "Print summary statistics from an existing evaluation file",
+	Long: `Print summary statistics from an existing evaluation file in the evals/ directory.
+	
+If no file is specified, lists available evaluation files.`,
+	RunE: runSummary,
+	Args: cobra.MaximumNArgs(1),
 }
 
 var (
@@ -96,6 +106,7 @@ var (
 
 func init() {
 	RootCmd.AddCommand(evalCmd)
+	RootCmd.AddCommand(summaryCmd)
 
 	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, gemini, ollama")
 	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
@@ -160,6 +171,66 @@ func runEval(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\nEvaluation completed. Results saved to: %s\n", outputPath)
 	printSummaryStats(results)
+
+	return nil
+}
+
+func runSummary(cmd *cobra.Command, args []string) error {
+	evalsDir := "evals"
+
+	// If no argument provided, list available eval files
+	if len(args) == 0 {
+		files, err := filepath.Glob(filepath.Join(evalsDir, "eval_*.yaml"))
+		if err != nil {
+			return fmt.Errorf("failed to list eval files: %w", err)
+		}
+
+		if len(files) == 0 {
+			fmt.Println("No evaluation files found in evals/ directory.")
+			return nil
+		}
+
+		fmt.Println("Available evaluation files:")
+		for _, file := range files {
+			fmt.Printf("  %s\n", filepath.Base(file))
+		}
+		fmt.Println("\nUse: htr summary <filename>")
+		return nil
+	}
+
+	// Load and display summary for specified file
+	evalFile := args[0]
+	if !strings.HasSuffix(evalFile, ".yaml") {
+		evalFile += ".yaml"
+	}
+
+	// If no path separator, assume it's in evals directory
+	if !strings.Contains(evalFile, string(filepath.Separator)) {
+		evalFile = filepath.Join(evalsDir, evalFile)
+	}
+
+	data, err := os.ReadFile(evalFile)
+	if err != nil {
+		return fmt.Errorf("failed to read eval file %s: %w", evalFile, err)
+	}
+
+	var summary EvalSummary
+	if err := yaml.Unmarshal(data, &summary); err != nil {
+		return fmt.Errorf("failed to parse eval file: %w", err)
+	}
+
+	// Display configuration
+	fmt.Printf("=== EVALUATION SUMMARY ===\n")
+	fmt.Printf("File: %s\n", filepath.Base(evalFile))
+	fmt.Printf("Provider: %s\n", summary.Config.Provider)
+	fmt.Printf("Model: %s\n", summary.Config.Model)
+	fmt.Printf("Temperature: %.1f\n", summary.Config.Temperature)
+	fmt.Printf("CSV Path: %s\n", summary.Config.CSVPath)
+	fmt.Printf("Timestamp: %s\n", summary.Config.Timestamp)
+	fmt.Printf("Total Images Evaluated: %d\n", len(summary.Results))
+
+	// Display summary statistics
+	printSummaryStats(summary.Results)
 
 	return nil
 }
