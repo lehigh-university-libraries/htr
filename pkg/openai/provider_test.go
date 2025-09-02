@@ -175,17 +175,9 @@ func TestProvider_ExtractText(t *testing.T) {
 			defer os.Setenv("OPENAI_API_KEY", original)
 			os.Setenv("OPENAI_API_KEY", "sk-test-key")
 
-			// For this test, we're focusing on testing the validation and response processing
-			// The actual HTTP client testing would require more complex mocking
-
-			// For the actual test, we'd need to either:
-			// 1. Modify the provider to accept custom URLs
-			// 2. Use httptest to replace the default transport
-			// Let's skip the actual HTTP call test for now and focus on the validation logic
-
-			// Test the response cleaning function instead
 			if tt.statusCode == http.StatusOK && !tt.expectError {
-				cleaned := cleanResponse(tt.expectedText)
+				p := New()
+				cleaned := providers.ProcessResponse(p, tt.expectedText)
 				if cleaned != tt.expectedText {
 					t.Logf("Response cleaning changed text from '%s' to '%s'", tt.expectedText, cleaned)
 				}
@@ -239,7 +231,8 @@ func TestCleanResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := cleanResponse(tt.input)
+			p := New()
+			result := providers.ProcessResponse(p, tt.input)
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}

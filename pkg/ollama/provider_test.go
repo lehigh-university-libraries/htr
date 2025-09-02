@@ -348,7 +348,8 @@ func TestCleanResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := cleanResponse(tt.input)
+			p := New()
+			result := providers.ProcessResponse(p, tt.input)
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}

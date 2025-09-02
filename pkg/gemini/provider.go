@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"time"
 
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
@@ -142,35 +140,5 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		return "", fmt.Errorf("no text in Gemini response")
 	}
 
-	return cleanResponse(text), nil
-}
-
-// cleanResponse cleans up Gemini API responses
-func cleanResponse(response string) string {
-	response = strings.TrimSpace(response)
-
-	// Remove common prefixes from Gemini responses
-	prefixPatterns := []string{
-		`(?i)^(the\s+)?text\s+in\s+(the\s+)?image\s+(is|says|reads):?\s*`,
-		`(?i)^(the\s+)?image\s+contains\s+(the\s+following\s+)?text:?\s*`,
-		`(?i)^here'?s?\s+(the\s+)?text\s+from\s+(the\s+)?image:?\s*`,
-	}
-
-	for _, pattern := range prefixPatterns {
-		re := regexp.MustCompile(pattern)
-		response = re.ReplaceAllString(response, "")
-		response = strings.TrimSpace(response)
-	}
-
-	// Remove surrounding quotes
-	response = strings.Trim(response, `"'`)
-
-	// Remove markdown code blocks if present
-	if strings.HasPrefix(response, "```") && strings.HasSuffix(response, "```") {
-		response = strings.TrimPrefix(response, "```")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	}
-
-	return response
+	return providers.ProcessResponse(p, text), nil
 }

@@ -260,7 +260,8 @@ func TestProvider_ExtractText(t *testing.T) {
 								if parts, ok := content["parts"].([]interface{}); ok && len(parts) > 0 {
 									if part, ok := parts[0].(map[string]interface{}); ok {
 										if text, ok := part["text"].(string); ok {
-											cleaned := cleanResponse(text)
+											p := New()
+											cleaned := providers.ProcessResponse(p, text)
 											// The cleaned response should be processed
 											if len(cleaned) == 0 && len(text) > 0 {
 												t.Error("Response cleaning removed all content")
@@ -339,7 +340,8 @@ func TestCleanResponse(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := cleanResponse(tt.input)
+			p := New()
+			result := providers.ProcessResponse(p, tt.input)
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}

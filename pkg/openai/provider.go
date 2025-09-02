@@ -10,8 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"regexp"
-	"strings"
 	"text/template"
 	"time"
 
@@ -130,7 +128,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		return "", fmt.Errorf("no response from OpenAI")
 	}
 
-	return cleanResponse(openaiResp.Choices[0].Message.Content), nil
+	return providers.ProcessResponse(p, openaiResp.Choices[0].Message.Content), nil
 }
 
 // jsonEscape properly escapes a string for use in JSON
@@ -172,31 +170,4 @@ func getDefaultTemplate() string {
   "temperature": {{.Temperature}},
   "max_tokens": 4000
 }`
-}
-
-// cleanResponse cleans up OpenAI API responses
-func cleanResponse(response string) string {
-	response = strings.TrimSpace(response)
-
-	prefixPatterns := []string{
-		`(?i)^(certainly!?\s*)?here'?s?\s+(the\s+)?(text\s+)?extracted\s+from\s+(the\s+)?image:?\s*`,
-		`(?i)^(certainly!?\s*)?here'?s?\s+(the\s+)?extracted\s+text\s+from\s+(the\s+)?image:?\s*`,
-		`(?i)^(certainly!?\s*)?`,
-	}
-
-	for _, pattern := range prefixPatterns {
-		re := regexp.MustCompile(pattern)
-		response = re.ReplaceAllString(response, "")
-		response = strings.TrimSpace(response)
-	}
-
-	response = strings.Trim(response, `"'`)
-
-	if strings.HasPrefix(response, "```") && strings.HasSuffix(response, "```") {
-		response = strings.TrimPrefix(response, "```")
-		response = strings.TrimSuffix(response, "```")
-		response = strings.TrimSpace(response)
-	}
-
-	return response
 }
