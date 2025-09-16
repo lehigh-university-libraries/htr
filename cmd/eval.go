@@ -180,7 +180,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 		Results: results,
 	}
 
-	outputPath := filepath.Join(evalsDir, fmt.Sprintf("eval_%s.yaml", config.Timestamp))
+	outputPath := filepath.Join(evalsDir, fmt.Sprintf("%s.yaml", config.Model))
 	if err := saveEvalResults(summary, outputPath); err != nil {
 		return fmt.Errorf("failed to save results: %w", err)
 	}
@@ -196,7 +196,7 @@ func runSummary(cmd *cobra.Command, args []string) error {
 
 	// If no argument provided, list available eval files
 	if len(args) == 0 {
-		files, err := filepath.Glob(filepath.Join(evalsDir, "eval_*.yaml"))
+		files, err := filepath.Glob(filepath.Join(evalsDir, "*.yaml"))
 		if err != nil {
 			return fmt.Errorf("failed to list eval files: %w", err)
 		}
@@ -254,8 +254,8 @@ func runSummary(cmd *cobra.Command, args []string) error {
 func runCSV(cmd *cobra.Command, args []string) error {
 	evalsDir := "evals"
 
-	// Find all eval YAML files
-	files, err := filepath.Glob(filepath.Join(evalsDir, "eval_*.yaml"))
+	// Find all YAML files
+	files, err := filepath.Glob(filepath.Join(evalsDir, "*.yaml"))
 	if err != nil {
 		return fmt.Errorf("failed to list eval files: %w", err)
 	}
@@ -314,12 +314,12 @@ func runCSV(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Sort by word accuracy (best to worst)
+	// Sort by word similarity (best to worst)
 	slices.SortFunc(modelSummaries, func(a, b ModelSummary) int {
-		if a.AvgWordAccuracy > b.AvgWordAccuracy {
+		if a.AvgWordSimilarity > b.AvgWordSimilarity {
 			return -1
 		}
-		if a.AvgWordAccuracy < b.AvgWordAccuracy {
+		if a.AvgWordSimilarity < b.AvgWordSimilarity {
 			return 1
 		}
 		return 0
