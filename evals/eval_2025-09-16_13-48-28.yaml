@@ -1,0 +1,622 @@
+config:
+    provider: ollama
+    model: gemma3:27b
+    prompt: Extract all text from this image
+    temperature: 0
+    csvpath: fixtures/images.csv
+    testrows: []
+    timestamp: 2025-09-16_13-48-28
+results:
+    - identifier: i-remain_1030_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_001.txt
+      public: false
+      providerresponse: |-
+        Here is the text extracted from the image:
+
+        **Transcription:**
+
+        "Copy
+
+        Trenton Jan 28. 1815
+
+        Nathanael Cutting Esq.
+
+        Sir I have read a very extraordinary letter of one Mr. Holle supposed to be of Boston of Assembly in this city the whole of which is false and malicious & evidently done and with much rashness and dare to injure me and gratify Mr. John C. Harrod and Co. If my numerous enemies are not able positively the Candidates for Congress & the new machine and I say it to you as boldly my own they is nothing I always informed you the little Calfons had made such a machine to introduce you to him by letter would a proper way to remove his fault have done so I had one from him early last summer altering the terms of license perceive the patents to my satisfaction. Remembering you never to give me something for it. I am sorry to give you so much news from here. I received but little from you to do so to employ if this transaction why will do it to me written the last to years? You say I received from Charm bad Mr. Fitch & Reed and had them in several months and that you can not still believe it because
+      charactersimilarity: 0.592328278322926
+      wordsimilarity: 0.6310592459605027
+      wordaccuracy: 0.42639593908629436
+      worderrorrate: 0.5736040609137056
+      totalwordsoriginal: 197
+      totalwordstranscribed: 216
+      correctwords: 103
+      substitutions: 94
+      deletions: 0
+      insertions: 19
+    - identifier: i-remain_1030_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_002.txt
+      public: false
+      providerresponse: "if pirates are concerned, why not state and let us\nwords use which is contained in the letter that no one\nbeing could detect the plagiarism. They is malignant to the\nhighest degree and of course as it is base. I am drawn in\nto the plan of Mr. Hatch, in truth I saw his plot at the\noffice of Washington in 1797 but it did not occur to me\nto suspect till he was charged with his specific actions and\ndrawings such as I have never seen in the possession of any\nMan till they could boast in notoriety. Mr. Hatch knows\nwell that he was in Norfolk who advised or was aware of\nhave been seen the colors and under the flag of Gordon\nManfax, Montez, and Delany and to work as it destroys\nme. I have seen my name scrawled with your sentence\nwith craft and to eternally to sue your worship,\nthe evidence of Hatch, perhaps my own caution and carefullness\nhe was mad, has no service to one can be a scientific idea\nof tampering and acknowledge his plot before that if he\ncan disperse your efforts and that if not miserable. \nIf he could turn either away and not totally urge on to\nattack me. What course induce you to be totally the rank\nof my foe. If I can not certainly I have allowed to you\nwith friendship and certainly I have allowed to you\nyour pressing rewards but I have stepped forward and unmasked\n(writes) to my my foe. Your graceful gift was, I offer\nyou or any lovely being to stain my character with."
+      charactersimilarity: 0.5866666666666667
+      wordsimilarity: 0.6078571428571429
+      wordaccuracy: 0.3665338645418327
+      worderrorrate: 0.6334661354581673
+      totalwordsoriginal: 251
+      totalwordstranscribed: 273
+      correctwords: 116
+      substitutions: 133
+      deletions: 2
+      insertions: 24
+    - identifier: i-remain_1030_003.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_003.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_003.txt
+      public: false
+      providerresponse: "Here is the text extracted from the image:\n\n\"the case, ungenerous in either of towards my friends, and as suming to myself in any way shall is not my plan and I will not lose an opportunity in declaring you answerable for a libel on my character as a man of honor. While I labor for the Government it is to be seen if I shall do it for Mr. and Post Office there he finds it convenient to me and would see in law suits to consume my time and defeat my best exertions in my county. I further have published your calumny in a pamphlet and if you should make a statement. \nRobert Patton"
+      charactersimilarity: 0.6105442176870748
+      wordsimilarity: 0.6413793103448275
+      wordaccuracy: 0.47115384615384615
+      worderrorrate: 0.5288461538461539
+      totalwordsoriginal: 104
+      totalwordstranscribed: 116
+      correctwords: 63
+      substitutions: 39
+      deletions: 2
+      insertions: 14
+    - identifier: i-remain_1082_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1082_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1082_001.txt
+      public: false
+      providerresponse: "Here is the text extracted from the image:\n\n**ALS**\n**58**\n\nMy death.\n\nI am gone to Washington tomorrow morning. \nWith some hope to get the patent laws so amended \nas to protect mental property or diminish \nlawsuits. You will much oblige me by a letter \nto letters to any of your influential friends \nwho are friendly to science and the \nimprovement of our country. I know \nMr. Legare, but to Mr. Serrier and \nLinney an introduction is necessary. \nI am well pleased not to mention \nthis proper of mine. I would have \nthe pleasure of calling on you this \nevening. Respectfully your most \nObedient. \nRobt. Fuller."
+      charactersimilarity: 0.7708674304418985
+      wordsimilarity: 0.7996632996632996
+      wordaccuracy: 0.6391752577319587
+      worderrorrate: 0.3608247422680413
+      totalwordsoriginal: 97
+      totalwordstranscribed: 106
+      correctwords: 73
+      substitutions: 22
+      deletions: 2
+      insertions: 11
+    - identifier: i-remain_1169_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1169_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1169_001.txt
+      public: false
+      providerresponse: "**Circular ALS 49**\n\n**Richmond 22 Feb. 1793.**\n\nSir,\n\nThe weighty business between their High Mightinesses the States General of the United Netherlands, and the United States of America, being settled by Congress, I have the honor of transmitting to your Excellency herewith, ten copies of the same for the use of your State. \n\nWith pleasure I congratulate your Excellency on this important event, and have the honor to be with most respect.\n\nYour most obedient,\n\nHenry Lee, Genl.\n\n[Signature:  Belvidere Rominet]\n\nTo His Excellency\nThe Governor of Virginia."
+      charactersimilarity: 0.7307692307692308
+      wordsimilarity: 0.825136612021858
+      wordaccuracy: 0.7176470588235294
+      worderrorrate: 0.2823529411764706
+      totalwordsoriginal: 85
+      totalwordstranscribed: 88
+      correctwords: 65
+      substitutions: 19
+      deletions: 1
+      insertions: 4
+    - identifier: i-remain_118_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_001.txt
+      public: false
+      providerresponse: "of the letter:\n\n**Transcription:**\n\nPhiladelphia June 17, 1789\n\nDear Mr. Bohan\n\nI received your Favour by Capt. Walker, which I shall answer fully. \nHammond was said in about ten Days. \nI think I am slightly lately by Mr. \nBecket. Pray enquire of him the \nReason that if I have been at fault \nI may amend.\n\nI left some Receipts with you \nfor Subscription Monies for Books, & \nwish you to enquire about them, particularly Stewart’s Affairs.\n\nMy Love to Mr. Bohan and your \nFamily. I am, Dear Friend,\n\nYour affectionate,\nB. Franklin\n\nWe are all well, and \nas happy as other Folks \nfor the present.\n\n**Note:** The \"ALS 654\" is likely a catalog number or identifier for the document."
+      charactersimilarity: 0.6372980910425845
+      wordsimilarity: 0.6963746223564955
+      wordaccuracy: 0.5047619047619047
+      worderrorrate: 0.49523809523809526
+      totalwordsoriginal: 105
+      totalwordstranscribed: 119
+      correctwords: 71
+      substitutions: 30
+      deletions: 4
+      insertions: 18
+    - identifier: i-remain_118_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_002.txt
+      public: false
+      providerresponse: |-
+        **Top Left Corner:**
+
+        *   Lehigh
+        *   MR 516
+
+        **Center:**
+
+        *   To
+        *   W.M. Clark
+        *   Newmarket
+        *   Suffolk
+        *   London
+
+        There are also two red wax seals on the left and right sides of the document.
+      charactersimilarity: 0.15897435897435896
+      wordsimilarity: 0.192090395480226
+      wordaccuracy: -2.7777777777777777
+      worderrorrate: 3.7777777777777777
+      totalwordsoriginal: 9
+      totalwordstranscribed: 36
+      correctwords: 2
+      substitutions: 7
+      deletions: 0
+      insertions: 27
+    - identifier: i-remain_120_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_120_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_120_001.txt
+      public: false
+      providerresponse: "**ALS 19**\n\nLiverpool\nMonday Evening Sept 11th 1848\nMy Dear Sir!\n\nI cannot remember in the multiplicity of letters I have written about these Reps whether I have sent you what is on the other side. For a handfull will not do about the state. \n\nAn immediate answer tonight!\n\nYours faithfully\nCharles Dickens"
+      charactersimilarity: 0.6801152737752161
+      wordsimilarity: 0.7707641196013288
+      wordaccuracy: 0.6538461538461539
+      worderrorrate: 0.34615384615384615
+      totalwordsoriginal: 52
+      totalwordstranscribed: 53
+      correctwords: 36
+      substitutions: 15
+      deletions: 1
+      insertions: 2
+    - identifier: i-remain_123_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_123_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_123_001.txt
+      public: false
+      providerresponse: "**ALS**\n**3**\n\nDear Sir\n\nParis June 16 – 1789. \nSince the receipt of your favor of May 21. I have been in daily expectation of receiving from you a particular state of the cost of my prefs. Mr. Parahee wrote me that it was about five guineas, but I know there voted still to be some addition. The moment you will be so good as to favor me with this information I will remit you a bill for that & the eight guineas I formerly took the liberty of drawing on you for, in addition to this I must give you and then piece of trouble. That is to desire Woodmason on my part, to send me a copyng prefs (such as the one he sent me before) all spare springs, damping books, damp-ing boxes complete. Three reams of copying paper & a cloth of ink, poor-Ser proportioned to that. This he must direct to me, & send to the care of Mr. Graney in Rouen, sending me a bill of the cost. Should I will remit immediately, unless he should prefer drawing on me, in which case his draught shall be paid on sight. \n\nIf you have any news from America it will be very acceptable. I have received no journals or papers of later date than Oct. 10. nor letter from the office for foreign affairs of later date than January. There is a violent contest arisen here between the king & parliament of Rouen because, Sir. The papers are sensible will send them to you. Believe my dear Sir\n\nCol. Smith."
+      charactersimilarity: 0.8232118758434548
+      wordsimilarity: 0.8609738884968243
+      wordaccuracy: 0.7686567164179104
+      worderrorrate: 0.23134328358208955
+      totalwordsoriginal: 268
+      totalwordstranscribed: 264
+      correctwords: 212
+      substitutions: 46
+      deletions: 10
+      insertions: 6
+    - identifier: i-remain_125_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_125_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_125_001.txt
+      public: false
+      providerresponse: |-
+        **Top of the Letter:**
+
+        THE WHITE HOUSE.
+        WASHINGTON.
+
+        Oyster Bay, N.Y.,
+        August 14, 1905.
+
+        **Body of the Letter:**
+
+        My dear Miss Beaux:
+
+        In spite of your prohibition I do answer your letter, and I return the clippings, for you must be proud of them. It was a fine thing to have a man willing to act as your brother-in-law has acted. It is the kind of thing that is particularly pleasant to me to come across, for, my dear Miss Beaux, I so often see what is mean and sordid in our life that I like to have the good deeds called to my attention too.
+
+        With all thanks,
+
+        Sincerely yours,
+
+        *Theodore Roosevelt*
+
+        **Bottom of the Letter:**
+
+        Miss Cecilia Beaux,
+        East Gloucester, Mass.
+
+        Enclosures.
+      charactersimilarity: 0.6968215158924205
+      wordsimilarity: 0.8862629246676514
+      wordaccuracy: 0.8495575221238938
+      worderrorrate: 0.1504424778761062
+      totalwordsoriginal: 113
+      totalwordstranscribed: 124
+      correctwords: 108
+      substitutions: 4
+      deletions: 1
+      insertions: 12
+    - identifier: i-remain_1254_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1254_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1254_001.txt
+      public: false
+      providerresponse: "**Transcription:**\n\nMr. Nicholson & Company\nPhiladelphia\n\nGentlemen\n\nThe Pilot is just going to sea, and will take this opportunity to repeat you my expression of my gratitude for your confidence and friendship. \n\nI will advise of everything in my power to promote your interests and shall give you every information respecting the situation of the Colony and otherwise as circumstances shall go. I shall do all if it can be any thing for the advancing our common interests.\n\nI have the honour to be\n\nGentlemen\nYour most obedient & humble servant\nJames Robertson\n\nSaturday 19th Novr. 2 oclock in the afternoon.\nFresh Breeze - N.E."
+      charactersimilarity: 0.6699029126213591
+      wordsimilarity: 0.713859910581222
+      wordaccuracy: 0.6330275229357798
+      worderrorrate: 0.3669724770642202
+      totalwordsoriginal: 109
+      totalwordstranscribed: 105
+      correctwords: 71
+      substitutions: 32
+      deletions: 6
+      insertions: 2
+    - identifier: i-remain_1257_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_001.txt
+      public: false
+      providerresponse: |-
+        **Left Side:**
+
+        *   Walter Home & Co
+        *   to Mother & Co
+        *   date 22 January 1782
+        *   Capt. Barlow
+        *   J.T. Frost
+        *   Mr. Little
+
+        **Right Side:**
+
+        *   Gent. 459
+        *   London January 22 1782
+        *   I shall be much obliged to you respecting
+        *   our next Consignment to Baltimore as soon as
+        *   the ensuing Month, which please to request
+        *   you will please forward me an exact Copy of
+        *   same as possible as we have some concerns
+        *   to settle with that Port at the close of the Month.
+        *   Capt. Barlow informs me that the number of
+        *   Men at Baltimore will be uncertain between
+        *   thirty and forty in a few days, so that they
+        *   will connect again via Quail, & the next Month
+        *   supply Mr. Frost the Commanding Officer at
+        *   that Port with one he should be glad of sharing
+        *   some fresh Meat if it can be obtained, as he had
+        *   none nothing but salt Provisions for two Months.
+        *   I know some of our Produce & 30 Caskettls Corn
+        *   but 40 Caskettls have brought the best price
+        *   we expect on a few days they shall be sold to get
+        *   some as we have a Man to look over for you.
+      charactersimilarity: 0.550711743772242
+      wordsimilarity: 0.5860771401693321
+      wordaccuracy: 0.4
+      worderrorrate: 0.6
+      totalwordsoriginal: 200
+      totalwordstranscribed: 216
+      correctwords: 98
+      substitutions: 100
+      deletions: 2
+      insertions: 18
+    - identifier: i-remain_1257_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_002.txt
+      public: false
+      providerresponse: "**Page 1:**\n\n\"cattle as will answer the purpose – I have agreed with Mr. Preston to make Enquiries as the terms of acceptance – I cannot get any one to undertake the Soap Business at present – I can purchase several hogs at a Moderate price & if it be highest which will answer for the provisions and such as thinks will come in cheap as Beef – Should be glad if you would advise me concerning Pork at that price – I should be glad to get the Contents of our corn as Public that she may return before the close of the Month as much as is at the Vendors in Provisions should at a minimum from 8 to 10 Bushels before I can finish my business – the Commoners are much in want of their pay on acct of their being obliged to raise the New Imposition – From which you will judge the Subject, and if you give a Order I shall pray them – I am Good\"\n\n**Page 2:**\n\n\"Mr. Hollands and the others some Bacon and Hogs to repairing the Outbuildings. \n\nI am respectfully\"\n\n**Note:** The handwriting is quite difficult to decipher, so there might be minor inaccuracies in the transcription."
+      charactersimilarity: 0.5528007346189164
+      wordsimilarity: 0.5872576177285318
+      wordaccuracy: 0.40760869565217395
+      worderrorrate: 0.592391304347826
+      totalwordsoriginal: 184
+      totalwordstranscribed: 207
+      correctwords: 101
+      substitutions: 80
+      deletions: 3
+      insertions: 26
+    - identifier: i-remain_1369_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_001.txt
+      public: false
+      providerresponse: |-
+        **Top of Page:**
+
+        *   Millard
+        *   ALS
+        *   330
+        *   23 June 1899
+
+        **Body of the Letter:**
+
+        Dear Sir
+
+        I have promised
+        to send any leaflets to
+        the members of the
+        Medical Corps, who are
+        collecting for funds for
+        Millard founding to
+        Mr. Eo. J. Stuka MD
+        of Savy Hospital stated
+        for it please deliver.
+      charactersimilarity: 0.45890410958904104
+      wordsimilarity: 0.5321428571428571
+      wordaccuracy: 0.2272727272727273
+      worderrorrate: 0.7727272727272727
+      totalwordsoriginal: 44
+      totalwordstranscribed: 55
+      correctwords: 23
+      substitutions: 19
+      deletions: 2
+      insertions: 13
+    - identifier: i-remain_1369_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_002.txt
+      public: false
+      providerresponse: "The Lady is his prisoner, \nand please send \nme the telle C.M. as / \nwant it badly.\n\nsorry\nValentine"
+      charactersimilarity: 0.5967741935483871
+      wordsimilarity: 0.6283185840707964
+      wordaccuracy: 0.5238095238095238
+      worderrorrate: 0.47619047619047616
+      totalwordsoriginal: 21
+      totalwordstranscribed: 19
+      correctwords: 12
+      substitutions: 6
+      deletions: 3
+      insertions: 1
+    - identifier: i-remain_2106_003.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_003.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_003.txt
+      public: false
+      providerresponse: "There's great rumors of a rebellion in the west some \nstill looks for foreign intervention but I think that we have \ngot our back to the wall. The north threatens us with \noverwhelming forces. I say they will subjugate us in 6 months \nin spite of foreign intervention but I have long since become \na gambler. There's a crashing of odds and alarms are in the air \nIt is possible for them to drive us from every point & I fully \nincrease our oppression but when they say that they will \nsubjugate us then I know not what they mean by that word. \nIn either of the possibility they may determine us but the spirit \nwill conquer and says I if you may think so. I am saying to \nmake a dry joke of our might knows. It happens well \nMy burden is to keep up the spirits of my people and I am \nwilling to do it. This thing is possible. The cells are strong \nbut when it is open, troubles will come. It is better to serve \nthem. If we fall we will be a warning to all men. Some things in \nmy broken life have been very sad. I have known heartbreak \nand despair. I have seen the best years of my life pass away \nThe last few months have been very sad. I have seen moderate season \nof my people. The north threatens us with overwhelming forces but \nI am convinced that the south will never surrender. The spirit \nwill never die. The north may conquer us but they will never break \nus. I am convinced that the south will never surrender. The spirit \nwill never die. The north may conquer us but they will never break \nus. I am convinced that the south will never surrender. The thirst \nI cannot quench. I am willing to do anything for my people. \nI am willing to sacrifice everything for my people. I am willing \nto die for my people. I am willing to do anything for my people."
+      charactersimilarity: 0.474758933635848
+      wordsimilarity: 0.4798387096774194
+      wordaccuracy: 0.2582582582582582
+      worderrorrate: 0.7417417417417418
+      totalwordsoriginal: 333
+      totalwordstranscribed: 341
+      correctwords: 101
+      substitutions: 225
+      deletions: 7
+      insertions: 15
+    - identifier: i-remain_2106_004.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_004.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_004.txt
+      public: false
+      providerresponse: "Here is the text extracted from the image:\n\n\"do not see but what every thing done just as well as we expected. \nWe came away all right for every man had to go pretty briskly \n& each man had from 5 to 8 blankets. We are all well & only \nlost 3 blankets. The men we can gather up everything \nare safe on our children & be ready to march at 15 minutes. \nMelred we are now encamped on the Rappahannock River near \nFredericks. Being the Yankees are on the east side & we are on the \nwest side & within a few pickets yard we can see them. \nVery plainly & we can see their encampments. From where \nwe are now I recon you will be able to see with their \ninteresting spectacle of course so I will bless you & give my \nlove to all the family & to Cousin. My good must \nexpect old age. Old age will settle family. I am going to be a \nseasonable lady. I have written one line to you. I am satisfied \nthat she will not forget the self of being to me to a poor \nsoldier. I would willingly do all that is in my power to \nplease excuse my bad writing. It is impossible. I believe me \nto be your constant friend. Hoping this may find him. \nthought to be so soon as it comes to hand. \nYours &c."
+      charactersimilarity: 0.5589700996677741
+      wordsimilarity: 0.5986159169550174
+      wordaccuracy: 0.3793103448275862
+      worderrorrate: 0.6206896551724138
+      totalwordsoriginal: 232
+      totalwordstranscribed: 240
+      correctwords: 106
+      substitutions: 116
+      deletions: 10
+      insertions: 18
+    - identifier: i-remain_2226_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_001.txt
+      public: false
+      providerresponse: |-
+        Here is the text extracted from the image:
+
+        **Transcription:**
+
+        Camp near Suffolk Va.
+        May 17th 1863
+
+        Dear Mother,
+
+        Yours of the 11th inst. was received yesterday and I was glad to hear from you all once more and hear that you were well. Grandmother is not well and I am afraid she is not to soon for I cannot get any medicine down here for them now. My bowels are some better but in a bad condition yet and I have that old disease in my back it is so lame that it hurts me to move and I went to the Doctor yesterday and he had nothing for me and told me to wait it will get well. Mother, I cannot rest any thing on it hope it might through me, and am going very weak.
+      charactersimilarity: 0.5054509415262636
+      wordsimilarity: 0.7435897435897436
+      wordaccuracy: 0.6744186046511628
+      worderrorrate: 0.32558139534883723
+      totalwordsoriginal: 129
+      totalwordstranscribed: 137
+      correctwords: 98
+      substitutions: 28
+      deletions: 3
+      insertions: 11
+    - identifier: i-remain_2226_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_002.txt
+      public: false
+      providerresponse: "**Transcription:**\n\nand I want you if you can spare the money to send me some extra set of sugar and I want you to send me some extra set of whiskey. I want the Marine to take to strengthen me and kill the Marine with you & sent them to me as small as high and send them to draft. S. S. Cott. Commer. We are in hell of Suffolk. Do not do not but in any thing with them well that will do well. But draft has not got back yet then were filled into the other and one man out of my. It killed but a brave man died. But then have had no right here. I had a chance if not wounded if they would have let me but then from us the boys. There are all around us. I will send you as soon as \n\n**Additional Notes:**\n\n*   The handwriting is quite difficult to decipher in places, so there may be minor inaccuracies.\n*   There are some abbreviations and colloquialisms that are common for the time period.\n*   The letter appears to be from a soldier or someone in a difficult situation, likely during wartime.\n\nLet me know if you'd like me to attempt to clarify any specific parts of the text!"
+      charactersimilarity: 0.42396313364055305
+      wordsimilarity: 0.45400843881856545
+      wordaccuracy: 0.26315789473684215
+      worderrorrate: 0.7368421052631579
+      totalwordsoriginal: 247
+      totalwordstranscribed: 216
+      correctwords: 79
+      substitutions: 123
+      deletions: 45
+      insertions: 14
+    - identifier: i-remain_228_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_228_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_228_001.txt
+      public: false
+      providerresponse: |-
+        **Top of Document:**
+
+        *   ALS
+        *   5
+        *   Department of State
+        *   June 5th 1808
+
+        **Body of Document:**
+
+        Sir,
+
+        Agreeably to an Act of Congress, entitled "An Act for the more general promulgation of the Laws of the United States" passed 28th March 1796, and an Act in addition thereto passed on the 28th March 1799, I have transmitted to the Collector of the Customs at Philadelphia, 1190 copies of the Laws of the United States, 2d Session 1st Congress, being the proportion for the State of Pennsylvania, with a request that he would forward them to your Excellency.
+
+        I have the honor to be Sir,
+        With great respect,
+        Your obt. Servt.
+        James Madison
+
+        **Bottom of Document:**
+
+        His Excellency The Governor
+        of the State of Pennsylvania.
+      charactersimilarity: 0.7513736263736264
+      wordsimilarity: 0.847124824684432
+      wordaccuracy: 0.75
+      worderrorrate: 0.25
+      totalwordsoriginal: 112
+      totalwordstranscribed: 126
+      correctwords: 99
+      substitutions: 12
+      deletions: 1
+      insertions: 15
+    - identifier: i-remain_231_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_231_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_231_001.txt
+      public: false
+      providerresponse: "**Handwritten Letter**\n\n**Date:** Quincy July 5. 1813\n\n**To:** Mathew Carey Esquire\n\n**From:** John Adams\n\n**Text:**\n\nSir, \n\nLast night Mr. Harrison gave me the inclosed six papers. The original letter from Captain Hubbard Hacker & Brown and Forman I wish to have returned, the papers are authentic.\n\nI have found no man so curious and ardent in promoting your and Mr. Clarke’s views as Mr. Harrison, who has spared no pains.\n\nThe Captain’s master mentioned in one of the papers was the first assailant of Captain John Paul Jones when he captured the Serapis gun ship which he carried into Brest in 1779. Thompson’s name might be more known in history than it is. Both Colonel Jonathan Williams, if he defends his sentiments I will dispute with him. \n\nThe Mail is at hand and I wish not to omit.\n\nJohn Adams.\n\n**Additional Notes:**\n\n*   There is a handwritten note at the top left corner: \"Burne May 19th 1933\" and \"July 5\"\n*   There is a red wax seal with an impression on the bottom left corner.\n*   The document is from the Lehigh University Digital Library."
+      charactersimilarity: 0.5567010309278351
+      wordsimilarity: 0.5912129894937919
+      wordaccuracy: 0.3405797101449275
+      worderrorrate: 0.6594202898550725
+      totalwordsoriginal: 138
+      totalwordstranscribed: 185
+      correctwords: 98
+      substitutions: 36
+      deletions: 4
+      insertions: 51
+    - identifier: i-remain_2614_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_001.txt
+      public: false
+      providerresponse: |-
+        **[Handwritten Letter]**
+
+        Mrs. Lenesta L. R. Bartlett
+
+        Chicago, Nov. 27th, 1878
+
+        Hon. John R. Bartlett.
+
+        Sir:
+
+        Your letter requesting testimonials and letters of commendation had been received.  My tribute to a valued & respected in the memory of my beloved husband have come to me, in every grade of the civilized world, and so far as recollections are concerned, they are all in your service. I had the collected, very many of them from the most distinguished residents of our County and of course, I regret that it is impossible for me to comply with that portion of your request - so many personal.
+      charactersimilarity: 0.6062015503875968
+      wordsimilarity: 0.6677852348993288
+      wordaccuracy: 0.4653465346534653
+      worderrorrate: 0.5346534653465347
+      totalwordsoriginal: 101
+      totalwordstranscribed: 104
+      correctwords: 57
+      substitutions: 37
+      deletions: 7
+      insertions: 10
+    - identifier: i-remain_2614_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_002.txt
+      public: false
+      providerresponse: |-
+        Here is the text extracted from the image:
+
+        "Who have sent us their letters
+        of condolence, it would be im-
+        possible, offensive, otherwise,
+        should we like to oblige you.
+        The papers, we would send you,
+        are so numerous, that it would
+        be impossible to copy them.
+        Besides, you will be pleased to
+        know and advise what it falls
+        to be done, with them. Awaiting
+        your reply, I remain,
+
+        Very respectfully,
+
+        Mary Lincoln
+
+        Hon. J. R. Bartlett
+        Providence
+        R.I.
+      charactersimilarity: 0.6382022471910113
+      wordsimilarity: 0.7188208616780045
+      wordaccuracy: 0.49230769230769234
+      worderrorrate: 0.5076923076923077
+      totalwordsoriginal: 65
+      totalwordstranscribed: 78
+      correctwords: 46
+      substitutions: 18
+      deletions: 1
+      insertions: 14
+    - identifier: i-remain_474_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_001.txt
+      public: false
+      providerresponse: |-
+        Here is the text extracted from the image:
+
+        **ALS**
+        **120**
+
+        Philadelphia 22 May 1777
+
+        Sir,
+
+        You will receive herewith the enclosed Copies of Revenue Bills of Congress - Ref. to the 22nd March, including a Copy of an Act of the 6th March last concerning the contraband & Congress’s by appeal in the last Respect to all Jurisdictions in deciding the legality of Duty paid on the high Seas, as also Act of the several States, which is accordingly included - and that of the 22nd May relative to the Exchange of Citizens in captivity with the Britons.
+      charactersimilarity: 0.6345454545454545
+      wordsimilarity: 0.6593406593406593
+      wordaccuracy: 0.4767441860465116
+      worderrorrate: 0.5232558139534884
+      totalwordsoriginal: 86
+      totalwordstranscribed: 98
+      correctwords: 57
+      substitutions: 25
+      deletions: 4
+      insertions: 16
+    - identifier: i-remain_474_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_002.txt
+      public: false
+      providerresponse: "**Text:**\n\nIndiana. And one of the 27th full, directing that\nwhenever any officers exchanged & not continued\nin service, be considered as supernumerary officers.\n\nI have the honor to be\nwith great respect,\nyour Excellency’s\nmost obedient servant,\n\nJohn Ray - \nProv’d\n\nHis Excellency Governor Henry."
+      charactersimilarity: 0.8079470198675497
+      wordsimilarity: 0.8383838383838383
+      wordaccuracy: 0.6590909090909092
+      worderrorrate: 0.34090909090909083
+      totalwordsoriginal: 44
+      totalwordstranscribed: 46
+      correctwords: 31
+      substitutions: 13
+      deletions: 0
+      insertions: 2
+    - identifier: i-remain_837_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_002.txt
+      public: false
+      providerresponse: 'I am glad that you are well & in good health & it is a comfort to me to learn that the pain in your legs may not be felt from the swelling of your feet, but that it will not be the pain left, but that it may admit of a more comfortable state. I should have been better pleased if you had not told me that the pain had returned, but I am content that it is not so bad as it had been. I must have got used to the news of your sufferings, for I feel but little concern for them. I am glad to find you are in a good state of health. I am sorry to hear you are still confined to your room. I should have been pleased to have heard of your being able to walk about as usual. I am sorry to hear of the death of Gideon Alley & though I believe it is not difficult to learn. He lost years of his life which might have been spared. I am sorry to hear, I had to be deprived of that source, I must still express my sympathy to the family which will be a small comfort to them. I do not wish to be deprived of any comforts, but I know I have had to be deprived of all your kindness. I hope you had a quantity of kind wood to fill your hearth. The leaves all changed, the gardens decaying & all things losing their beauty. I had no news of your being in the country, but I am afraid the business of the season is not over. I am apprehensive of rain & snow, but the season of my sufferings is not over. I believe you have been in the country, but I have not heard of it. I am afraid I did not surround myself with all the comforts of life, but I am content to be surrounded by the love of my friends & family. '
+      charactersimilarity: 0.41836173721825176
+      wordsimilarity: 0.42990110529377545
+      wordaccuracy: 0.2036474164133738
+      worderrorrate: 0.7963525835866262
+      totalwordsoriginal: 329
+      totalwordstranscribed: 340
+      correctwords: 100
+      substitutions: 207
+      deletions: 22
+      insertions: 33
+    - identifier: i-remain_94_001.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_001.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_001.txt
+      public: false
+      providerresponse: |-
+        **ALS**
+        **691**
+
+        56 Euston Sq. N.
+        27 June.
+
+        Dear Sir,
+
+        When last I consulted Mr. Trehawny about the sketch wh. you have been kind enough to the Running of Shelley’s body, he feared you are mistaken point - wh. indeed we arisen. I know not how there are 3 springs towards the for-ground, but wh. be only a – prolonging upwards of 6 feet high.
+      charactersimilarity: 0.6908077994428969
+      wordsimilarity: 0.7631578947368421
+      wordaccuracy: 0.53125
+      worderrorrate: 0.46875
+      totalwordsoriginal: 64
+      totalwordstranscribed: 65
+      correctwords: 37
+      substitutions: 25
+      deletions: 2
+      insertions: 3
+    - identifier: i-remain_94_002.jpg
+      imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_002.jpg
+      transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_002.txt
+      public: false
+      providerresponse: |-
+        Byron (middle height) he
+        naturally dislikes this. Hope
+        it can be set right &
+        any difficulty, do you let
+        me know.
+
+        Very faithfully yours,
+        W. M. Rossetti
+      charactersimilarity: 0.75
+      wordsimilarity: 0.8571428571428572
+      wordaccuracy: 0.6071428571428572
+      worderrorrate: 0.3928571428571428
+      totalwordsoriginal: 28
+      totalwordstranscribed: 27
+      correctwords: 18
+      substitutions: 8
+      deletions: 2
+      insertions: 1
