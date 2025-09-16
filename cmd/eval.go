@@ -57,6 +57,17 @@ type EvalSummary struct {
 	Results []EvalResult `json:"results"`
 }
 
+type ModelSummary struct {
+	Model             string
+	Provider          string
+	Timestamp         string
+	TotalEvaluations  int
+	AvgCharSimilarity float64
+	AvgWordSimilarity float64
+	AvgWordAccuracy   float64
+	AvgWordErrorRate  float64
+}
+
 // Provider registry for managing all providers
 var providerRegistry *providers.Registry
 
@@ -73,10 +84,20 @@ var summaryCmd = &cobra.Command{
 	Use:   "summary [eval-file]",
 	Short: "Print summary statistics from an existing evaluation file",
 	Long: `Print summary statistics from an existing evaluation file in the evals/ directory.
-	
+
 If no file is specified, lists available evaluation files.`,
 	RunE: runSummary,
 	Args: cobra.MaximumNArgs(1),
+}
+
+var csvCmd = &cobra.Command{
+	Use:   "csv",
+	Short: "Export evaluation results as CSV sorted by model performance",
+	Long: `Scan all YAML files in the evals directory and export summary statistics as CSV.
+
+Results are sorted by word accuracy (best to worst) and printed to terminal.`,
+	RunE: runCSV,
+	Args: cobra.NoArgs,
 }
 
 var (
@@ -101,6 +122,7 @@ func init() {
 
 	RootCmd.AddCommand(evalCmd)
 	RootCmd.AddCommand(summaryCmd)
+	RootCmd.AddCommand(csvCmd)
 
 	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, gemini, ollama")
 	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
@@ -158,7 +180,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 		Results: results,
 	}
 
-	outputPath := filepath.Join(evalsDir, fmt.Sprintf("eval_%s.yaml", config.Timestamp))
+	outputPath := filepath.Join(evalsDir, fmt.Sprintf("%s.yaml", config.Model))
 	if err := saveEvalResults(summary, outputPath); err != nil {
 		return fmt.Errorf("failed to save results: %w", err)
 	}
@@ -174,7 +196,7 @@ func runSummary(cmd *cobra.Command, args []string) error {
 
 	// If no argument provided, list available eval files
 	if len(args) == 0 {
-		files, err := filepath.Glob(filepath.Join(evalsDir, "eval_*.yaml"))
+		files, err := filepath.Glob(filepath.Join(evalsDir, "*.yaml"))
 		if err != nil {
 			return fmt.Errorf("failed to list eval files: %w", err)
 		}
@@ -225,6 +247,97 @@ func runSummary(cmd *cobra.Command, args []string) error {
 
 	// Display summary statistics
 	printSummaryStats(summary.Results)
+
+	return nil
+}
+
+func runCSV(cmd *cobra.Command, args []string) error {
+	evalsDir := "evals"
+
+	// Find all YAML files
+	files, err := filepath.Glob(filepath.Join(evalsDir, "*.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to list eval files: %w", err)
+	}
+
+	if len(files) == 0 {
+		fmt.Println("No evaluation files found in evals/ directory.")
+		return nil
+	}
+
+	var modelSummaries []ModelSummary
+
+	// Process each file
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			fmt.Printf("Warning: failed to read %s: %v\n", file, err)
+			continue
+		}
+
+		var summary EvalSummary
+		if err := yaml.Unmarshal(data, &summary); err != nil {
+			fmt.Printf("Warning: failed to parse %s: %v\n", file, err)
+			continue
+		}
+
+		if len(summary.Results) == 0 {
+			continue
+		}
+
+		// Calculate aggregated metrics
+		var totalCharSim, totalWordSim, totalWordAcc, totalWER float64
+		for _, result := range summary.Results {
+			totalCharSim += result.CharacterSimilarity
+			totalWordSim += result.WordSimilarity
+			totalWordAcc += result.WordAccuracy
+			totalWER += result.WordErrorRate
+		}
+
+		count := float64(len(summary.Results))
+		modelSummary := ModelSummary{
+			Model:             summary.Config.Model,
+			Provider:          summary.Config.Provider,
+			Timestamp:         summary.Config.Timestamp,
+			TotalEvaluations:  len(summary.Results),
+			AvgCharSimilarity: totalCharSim / count,
+			AvgWordSimilarity: totalWordSim / count,
+			AvgWordAccuracy:   totalWordAcc / count,
+			AvgWordErrorRate:  totalWER / count,
+		}
+
+		modelSummaries = append(modelSummaries, modelSummary)
+	}
+
+	if len(modelSummaries) == 0 {
+		fmt.Println("No valid evaluation data found.")
+		return nil
+	}
+
+	// Sort by word similarity (best to worst)
+	slices.SortFunc(modelSummaries, func(a, b ModelSummary) int {
+		if a.AvgWordSimilarity > b.AvgWordSimilarity {
+			return -1
+		}
+		if a.AvgWordSimilarity < b.AvgWordSimilarity {
+			return 1
+		}
+		return 0
+	})
+
+	// Print TSV header
+	fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate")
+
+	// Print TSV data
+	for _, ms := range modelSummaries {
+		fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\n",
+			ms.Model,
+			ms.TotalEvaluations,
+			ms.AvgCharSimilarity,
+			ms.AvgWordSimilarity,
+			ms.AvgWordAccuracy,
+			ms.AvgWordErrorRate)
+	}
 
 	return nil
 }

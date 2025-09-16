@@ -107,7 +107,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Authorization", "Bearer "+apiKey)
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", err
@@ -166,8 +166,6 @@ func getDefaultTemplate() string {
       "role": "user",
       "content": "Yes you can"
     }
-  ],
-  "temperature": {{.Temperature}},
-  "max_tokens": 4000
+  ]
 }`
 }
