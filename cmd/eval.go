@@ -180,7 +180,8 @@ func runEval(cmd *cobra.Command, args []string) error {
 		Results: results,
 	}
 
-	outputPath := filepath.Join(evalsDir, fmt.Sprintf("%s.yaml", config.Model))
+	m := strings.ReplaceAll(config.Model, ":", "_")
+	outputPath := filepath.Join(evalsDir, fmt.Sprintf("%s.yaml", m))
 	if err := saveEvalResults(summary, outputPath); err != nil {
 		return fmt.Errorf("failed to save results: %w", err)
 	}
