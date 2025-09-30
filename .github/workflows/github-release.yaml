@@ -11,6 +11,7 @@ jobs:
     uses: lehigh-university-libraries/gha/.github/workflows/bump-release.yaml@main
     with:
       workflow_file: goreleaser.yaml
+      prefix: v
     permissions:
       contents: write
       actions: write
