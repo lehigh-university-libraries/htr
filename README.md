@@ -2,6 +2,17 @@
 
 Handwritten Text Recognition
 
+## Requirements
+
+### System Dependencies
+
+- **ImageMagick** (required for `htr create` command)
+  - Used for image processing, word detection, and image manipulation
+  - Install via:
+    - macOS: `brew install imagemagick`
+    - Ubuntu/Debian: `apt-get install imagemagick`
+    - Windows: [Download from ImageMagick website](https://imagemagick.org/script/download.php)
+
 ## Install
 
 You can install `htr` using homebrew
@@ -87,6 +98,23 @@ htr eval \
   --csv fixtures/images.csv \
   --dir /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents
 ```
+
+### Create
+
+Create hOCR XML files from images using custom word detection and LLM transcription:
+
+```bash
+# Create hOCR XML from an image (prints to stdout)
+htr create --image path/to/image.jpg --provider ollama --model llava
+
+# Save output to a file
+htr create --image path/to/image.jpg --provider openai --model gpt-4o -o output.hocr
+
+# Use different providers
+htr create --image scan.png --provider gemini --model gemini-1.5-flash -o scan.hocr
+```
+
+**Note:** The `create` command requires ImageMagick to be installed on your system.
 
 ### Summary
 
