@@ -16,6 +16,7 @@ import (
 	"time"
 
 	"github.com/lehigh-university-libraries/htr/pkg/azure"
+	"github.com/lehigh-university-libraries/htr/pkg/claude"
 	"github.com/lehigh-university-libraries/htr/pkg/gemini"
 	"github.com/lehigh-university-libraries/htr/pkg/ollama"
 	"github.com/lehigh-university-libraries/htr/pkg/openai"
@@ -117,6 +118,7 @@ func init() {
 	providerRegistry = providers.NewRegistry()
 	providerRegistry.Register(openai.New())
 	providerRegistry.Register(azure.New())
+	providerRegistry.Register(claude.New())
 	providerRegistry.Register(gemini.New())
 	providerRegistry.Register(ollama.New())
 
@@ -124,7 +126,7 @@ func init() {
 	RootCmd.AddCommand(summaryCmd)
 	RootCmd.AddCommand(csvCmd)
 
-	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, gemini, ollama")
+	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, claude, gemini, ollama")
 	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
 	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to the provider")
 	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for API")
