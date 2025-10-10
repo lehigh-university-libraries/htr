@@ -135,7 +135,7 @@ func getDefaultModel(providerName string) string {
 		if model := os.Getenv("CLAUDE_MODEL"); model != "" {
 			return model
 		}
-		return "claude-sonnet-4-5-20250514"
+		return "claude-sonnet-4-5-20250929"
 	case "gemini":
 		if model := os.Getenv("GEMINI_MODEL"); model != "" {
 			return model
