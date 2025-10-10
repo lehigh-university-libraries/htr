@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/lehigh-university-libraries/htr/pkg/azure"
+	"github.com/lehigh-university-libraries/htr/pkg/claude"
 	"github.com/lehigh-university-libraries/htr/pkg/gemini"
 	"github.com/lehigh-university-libraries/htr/pkg/hocr"
 	"github.com/lehigh-university-libraries/htr/pkg/ollama"
@@ -37,7 +38,7 @@ func init() {
 	RootCmd.AddCommand(createCmd)
 
 	createCmd.Flags().StringVar(&imagePath, "image", "", "Path to input image file (required)")
-	createCmd.Flags().StringVar(&provider, "provider", "ollama", "Provider to use: openai, azure, gemini, ollama")
+	createCmd.Flags().StringVar(&provider, "provider", "ollama", "Provider to use: openai, azure, claude, gemini, ollama")
 	createCmd.Flags().StringVar(&model, "model", "", "Model to use (uses provider default if not specified)")
 	createCmd.Flags().StringVarP(&outputPath, "output", "o", "", "Output path for hOCR XML file (prints to stdout if not specified)")
 	createCmd.Flags().Float64VarP(&temperature, "temperature", "t", 0.0, "Temperature for LLM")
@@ -59,6 +60,7 @@ func runCreate(cmd *cobra.Command, args []string) error {
 	registry := providers.NewRegistry()
 	registry.Register(openai.New())
 	registry.Register(azure.New())
+	registry.Register(claude.New())
 	registry.Register(gemini.New())
 	registry.Register(ollama.New())
 
@@ -129,6 +131,11 @@ func getDefaultModel(providerName string) string {
 			return model
 		}
 		return "gpt-4o"
+	case "claude":
+		if model := os.Getenv("CLAUDE_MODEL"); model != "" {
+			return model
+		}
+		return "claude-sonnet-4-5-20250514"
 	case "gemini":
 		if model := os.Getenv("GEMINI_MODEL"); model != "" {
 			return model

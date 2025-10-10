@@ -11,7 +11,7 @@
 **Provider System (`pkg/providers/`)**
 - `interface.go`: Defines the Provider interface that all vision providers must implement
 - `registry.go`: Manages registration and retrieval of providers
-- Each provider package (`openai/`, `azure/`, `gemini/`, `ollama/`) implements the Provider interface
+- Each provider package (`openai/`, `azure/`, `claude/`, `gemini/`, `ollama/`) implements the Provider interface
 
 **Command Structure (`cmd/`)**
 - `root.go`: Root cobra command with logging configuration
@@ -34,7 +34,8 @@
 
 Each provider requires specific environment variables:
 - **OpenAI**: `OPENAI_API_KEY`
-- **Azure**: `AZURE_OCR_ENDPOINT`, `AZURE_OCR_API_KEY`  
+- **Azure**: `AZURE_OCR_ENDPOINT`, `AZURE_OCR_API_KEY`
+- **Claude**: `ANTHROPIC_API_KEY`
 - **Gemini**: `GEMINI_API_KEY`
 - **Ollama**: `OLLAMA_URL` (optional, defaults to localhost:11434)
 
