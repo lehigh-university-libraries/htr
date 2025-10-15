@@ -280,7 +280,7 @@ func TestCalculateAccuracyMetricsWithIgnore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, tt.ignorePatterns)
+			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, tt.ignorePatterns, false)
 
 			if result.IgnoredCharsCount != tt.expectedIgnoredCount {
 				t.Errorf("IgnoredCharsCount = %d, want %d\n  description: %s",
@@ -407,6 +407,215 @@ func TestCalculateSimilarity(t *testing.T) {
 			if diff := got - tt.expected; diff > 0.01 || diff < -0.01 {
 				t.Errorf("calculateSimilarity(%q, %q) = %.3f, want %.3f",
 					tt.s1, tt.s2, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCalculateAccuracyMetricsWithSingleLine(t *testing.T) {
+	tests := []struct {
+		name                   string
+		groundTruth            string
+		transcription          string
+		singleLine             bool
+		expectedWordAccuracy   float64
+		expectedCorrectWords   int
+		expectedTotalWordsOrig int
+		description            string
+	}{
+		{
+			name:                   "multi-line ground truth without single-line",
+			groundTruth:            "hello\nworld",
+			transcription:          "hello world",
+			singleLine:             false,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   2,
+			expectedTotalWordsOrig: 2,
+			description:            "Newline in ground truth is treated as space without single-line",
+		},
+		{
+			name:                   "multi-line ground truth with single-line",
+			groundTruth:            "hello\nworld\ntest",
+			transcription:          "hello world test",
+			singleLine:             true,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   3,
+			expectedTotalWordsOrig: 3,
+			description:            "Newlines removed and converted to spaces with single-line",
+		},
+		{
+			name:                   "carriage return handling with single-line",
+			groundTruth:            "hello\r\nworld",
+			transcription:          "hello world",
+			singleLine:             true,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   2,
+			expectedTotalWordsOrig: 2,
+			description:            "Both \\r and \\n removed with single-line",
+		},
+		{
+			name:                   "complex multi-line document with single-line",
+			groundTruth:            "Line one\nLine two\nLine three",
+			transcription:          "Line one Line two Line three",
+			singleLine:             true,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   6,
+			expectedTotalWordsOrig: 6,
+			description:            "Multi-line document converted to single line",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, []string{}, tt.singleLine)
+
+			if result.CorrectWords != tt.expectedCorrectWords {
+				t.Errorf("CorrectWords = %d, want %d\n  description: %s",
+					result.CorrectWords, tt.expectedCorrectWords, tt.description)
+			}
+
+			if result.TotalWordsOriginal != tt.expectedTotalWordsOrig {
+				t.Errorf("TotalWordsOriginal = %d, want %d\n  description: %s",
+					result.TotalWordsOriginal, tt.expectedTotalWordsOrig, tt.description)
+			}
+
+			if diff := result.WordAccuracy - tt.expectedWordAccuracy; diff > 0.01 || diff < -0.01 {
+				t.Errorf("WordAccuracy = %.3f, want %.3f\n  description: %s",
+					result.WordAccuracy, tt.expectedWordAccuracy, tt.description)
+			}
+		})
+	}
+}
+
+func TestNormalizeSpaces(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{
+			name:     "no extra spaces",
+			input:    "hello world",
+			expected: "hello world",
+		},
+		{
+			name:     "double spaces",
+			input:    "hello  world",
+			expected: "hello world",
+		},
+		{
+			name:     "multiple spaces",
+			input:    "hello     world",
+			expected: "hello world",
+		},
+		{
+			name:     "spaces at multiple locations",
+			input:    "hello   world  test   example",
+			expected: "hello world test example",
+		},
+		{
+			name:     "leading space preserved",
+			input:    " hello world",
+			expected: " hello world",
+		},
+		{
+			name:     "trailing space preserved",
+			input:    "hello world ",
+			expected: "hello world ",
+		},
+		{
+			name:     "only spaces",
+			input:    "     ",
+			expected: " ",
+		},
+		{
+			name:     "empty string",
+			input:    "",
+			expected: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := normalizeSpaces(tt.input)
+			if got != tt.expected {
+				t.Errorf("normalizeSpaces(%q) = %q, want %q",
+					tt.input, got, tt.expected)
+			}
+		})
+	}
+}
+
+func TestCalculateAccuracyMetricsWithSingleLineNormalization(t *testing.T) {
+	tests := []struct {
+		name                   string
+		groundTruth            string
+		transcription          string
+		singleLine             bool
+		expectedWordAccuracy   float64
+		expectedCorrectWords   int
+		expectedTotalWordsOrig int
+		description            string
+	}{
+		{
+			name:                   "newlines create double spaces - normalized",
+			groundTruth:            "hello\n\nworld",
+			transcription:          "hello world",
+			singleLine:             true,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   2,
+			expectedTotalWordsOrig: 2,
+			description:            "Multiple newlines create multiple spaces, normalized to single space",
+		},
+		{
+			name:                   "tabs replaced with spaces",
+			groundTruth:            "hello\tworld",
+			transcription:          "hello world",
+			singleLine:             true,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   2,
+			expectedTotalWordsOrig: 2,
+			description:            "Tabs replaced with spaces and normalized",
+		},
+		{
+			name:                   "mixed whitespace normalized",
+			groundTruth:            "hello\n\t\nworld\t\ttest",
+			transcription:          "hello world test",
+			singleLine:             true,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   3,
+			expectedTotalWordsOrig: 3,
+			description:            "Mixed newlines and tabs all normalized to single spaces",
+		},
+		{
+			name:                   "complex document with various whitespace",
+			groundTruth:            "Line one\n\nLine two\t\tLine three",
+			transcription:          "Line one Line two Line three",
+			singleLine:             true,
+			expectedWordAccuracy:   1.0,
+			expectedCorrectWords:   6,
+			expectedTotalWordsOrig: 6,
+			description:            "Multi-line document with various whitespace types normalized",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, []string{}, tt.singleLine)
+
+			if result.CorrectWords != tt.expectedCorrectWords {
+				t.Errorf("CorrectWords = %d, want %d\n  description: %s",
+					result.CorrectWords, tt.expectedCorrectWords, tt.description)
+			}
+
+			if result.TotalWordsOriginal != tt.expectedTotalWordsOrig {
+				t.Errorf("TotalWordsOriginal = %d, want %d\n  description: %s",
+					result.TotalWordsOriginal, tt.expectedTotalWordsOrig, tt.description)
+			}
+
+			if diff := result.WordAccuracy - tt.expectedWordAccuracy; diff > 0.01 || diff < -0.01 {
+				t.Errorf("WordAccuracy = %.3f, want %.3f\n  description: %s",
+					result.WordAccuracy, tt.expectedWordAccuracy, tt.description)
 			}
 		})
 	}

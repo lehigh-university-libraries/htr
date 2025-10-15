@@ -135,6 +135,7 @@ var (
 	dir             string
 	rows            []int
 	ignorePatterns  []string
+	singleLine      bool
 )
 
 func init() {
@@ -160,6 +161,7 @@ func init() {
 	evalCmd.Flags().StringVar(&dir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalCmd.Flags().IntSliceVar(&rows, "rows", []int{}, "A list of row numbers to run the test on")
 	evalCmd.Flags().StringSliceVar(&ignorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
+	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -472,7 +474,7 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		return EvalResult{}, fmt.Errorf("provider API call failed: %w", err)
 	}
 
-	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse, ignorePatterns)
+	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse, ignorePatterns, singleLine)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(imagePath),
@@ -737,6 +739,27 @@ func normalizeText(text string) string {
 	return strings.ToLower(strings.TrimSpace(text))
 }
 
+// normalizeSpaces replaces multiple consecutive spaces with a single space
+func normalizeSpaces(text string) string {
+	var result strings.Builder
+	result.Grow(len(text))
+
+	prevWasSpace := false
+	for _, r := range text {
+		if r == ' ' {
+			if !prevWasSpace {
+				result.WriteRune(r)
+			}
+			prevWasSpace = true
+		} else {
+			result.WriteRune(r)
+			prevWasSpace = false
+		}
+	}
+
+	return result.String()
+}
+
 func levenshteinDistance(s1, s2 string) int {
 	len1, len2 := len(s1), len(s2)
 	if len1 == 0 {
@@ -843,12 +866,46 @@ func calculateWordLevelMetrics(orig, trans []string) (float64, int, int, int, in
 	return wordAccuracy, correct, substitutions, deletions, insertions
 }
 
-func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string) EvalResult {
+func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string, singleLine bool) EvalResult {
+	// Apply text transformations first
+	origTransformed := original
+	transTransformed := transcribed
+
+	// Convert to single line if requested
+	if singleLine {
+		slog.Debug("Applying --single-line transformation",
+			"original_ground_truth", original,
+			"original_transcription", transcribed)
+		origTransformed = strings.ReplaceAll(origTransformed, "\n", " ")
+		origTransformed = strings.ReplaceAll(origTransformed, "\r", " ")
+		origTransformed = strings.ReplaceAll(origTransformed, "\t", " ")
+		transTransformed = strings.ReplaceAll(transTransformed, "\n", " ")
+		transTransformed = strings.ReplaceAll(transTransformed, "\r", " ")
+		transTransformed = strings.ReplaceAll(transTransformed, "\t", " ")
+
+		// Normalize multiple spaces to single space
+		origTransformed = normalizeSpaces(origTransformed)
+		transTransformed = normalizeSpaces(transTransformed)
+
+		slog.Debug("After --single-line transformation",
+			"transformed_ground_truth", origTransformed,
+			"transformed_transcription", transTransformed)
+	}
+
 	// Apply ignore patterns to both texts
-	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(original, transcribed, ignorePatterns)
+	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(origTransformed, transTransformed, ignorePatterns)
+
+	slog.Debug("Before normalizeText (trim and lowercase)",
+		"ground_truth", origProcessed,
+		"llm_response", transProcessed)
 
 	origNorm := normalizeText(origProcessed)
 	transNorm := normalizeText(transProcessed)
+
+	slog.Debug("After normalizeText (trim and lowercase)",
+		"ground_truth", origNorm,
+		"llm_response", transNorm)
+
 	charSim := calculateSimilarity(origNorm, transNorm)
 	origWords := strings.Fields(origNorm)
 	transWords := strings.Fields(transNorm)

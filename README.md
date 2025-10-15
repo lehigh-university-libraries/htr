@@ -94,7 +94,7 @@ htr eval \
 ```bash
 htr eval \
   --provider ollama \
-  --model llava \
+  --model mistral-small3.2:24b \
   --prompt "Extract all text from this image" \
   --temperature 0.0 \
   --csv fixtures/images.csv \
@@ -158,6 +158,39 @@ Result:       Compares "The cat jumped" vs "The cat jumped" (skips "quick" and "
 - More accurate evaluation metrics when dealing with damaged or unclear documents
 - Ignored characters are counted separately in results
 - Character and word accuracy rates exclude unknown characters from denominators
+
+#### Single Line Mode
+
+**`--single-line`**: Convert multi-line documents to single-line text
+
+Removes all newlines, carriage returns, and tabs from ground truth and transcripts, normalizing multiple spaces to single spaces. This is useful when:
+- Your ground truth uses line breaks but the model output doesn't (or vice versa)
+- You want to focus on content accuracy regardless of line formatting
+- You need to normalize whitespace for fair comparison
+
+```bash
+# Evaluate as single-line text
+htr eval \
+  --provider openai \
+  --model gpt-4o \
+  --prompt "Extract all text from this image" \
+  --csv fixtures/images.csv \
+  --single-line \
+  --dir ./ground-truth
+```
+
+**Examples:**
+
+```
+# With --single-line
+Ground truth: "Line 1\nLine 2"
+Model output: "Line 1 Line 2"
+Result:       Perfect match (newlines converted to spaces)
+
+# With tabs and multiple spaces
+Ground truth: "Hello\t\tWorld\n\nTest"
+Model output: "Hello World Test"
+Result:       Perfect match (tabs, newlines, and multiple spaces normalized)
 
 ### Create
 
@@ -239,9 +272,11 @@ Where:
 htr eval-external --csv external_model.csv --name loghi --rows 0,1,2 --dir ./
 ```
 
-#### Using `--ignore` with External Models
+#### Using Flags with External Models
 
-The `--ignore` flag also works with external model evaluations:
+All evaluation flags work with external model evaluations:
+
+**Using `--ignore` for unknown characters:**
 
 ```bash
 # Evaluate with unknown character handling
@@ -260,7 +295,28 @@ htr eval-external \
   --dir ./transcriptions
 ```
 
-This is useful when your ground truth contains markers for unknown/unclear characters.
+**Using `--single-line` for normalization:**
+
+```bash
+# Convert to single-line for comparison
+htr eval-external \
+  --csv external_model.csv \
+  --name loghi \
+  --single-line \
+  --dir ./
+
+# Combine with ignore patterns
+htr eval-external \
+  --csv tesseract_results.csv \
+  --name tesseract \
+  --single-line \
+  --ignore '|' \
+  --dir ./transcriptions
+```
+
+These flags are useful when:
+- Your ground truth contains markers for unknown/unclear characters (`--ignore`)
+- External model output has different line break formatting (`--single-line`)
 
 ### Summary
 
