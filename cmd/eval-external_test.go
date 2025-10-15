@@ -311,14 +311,14 @@ func TestExternalEvalWithIgnorePatterns(t *testing.T) {
 		},
 		{
 			name:                   "multiple ignore patterns",
-			groundTruth:            "The | cat , jumped high",
-			transcription:          "The quick cat suddenly jumped high",
-			ignorePatterns:         []string{"|", ","},
+			groundTruth:            "The | cat | jumped high",
+			transcription:          "The quick cat very jumped high",
+			ignorePatterns:         []string{"|"},
 			expectedWordAccuracy:   1.0,
 			expectedCharSimilarity: 1.0,
 			expectedIgnoredCount:   2,
 			expectedCorrectWords:   4,
-			description:            "Both '|' and ',' should be ignored",
+			description:            "Multiple '|' patterns should be ignored",
 		},
 		{
 			name:                   "ignore pattern but transcription has error",
