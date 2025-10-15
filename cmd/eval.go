@@ -734,30 +734,11 @@ func applyIgnorePatterns(groundTruth, transcription string, ignorePatterns []str
 	return processedGT.String(), processedTrans.String(), ignoredCount
 }
 
-func normalizeText(text string) string {
-	// Simple normalization - trim and convert to lowercase
-	return strings.ToLower(strings.TrimSpace(text))
-}
-
-// normalizeSpaces replaces multiple consecutive spaces with a single space
 func normalizeSpaces(text string) string {
-	var result strings.Builder
-	result.Grow(len(text))
-
-	prevWasSpace := false
-	for _, r := range text {
-		if r == ' ' {
-			if !prevWasSpace {
-				result.WriteRune(r)
-			}
-			prevWasSpace = true
-		} else {
-			result.WriteRune(r)
-			prevWasSpace = false
-		}
+	for strings.Contains(text, "  ") {
+		text = strings.ReplaceAll(text, "  ", " ")
 	}
-
-	return result.String()
+	return text
 }
 
 func levenshteinDistance(s1, s2 string) int {
@@ -895,20 +876,9 @@ func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []str
 	// Apply ignore patterns to both texts
 	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(origTransformed, transTransformed, ignorePatterns)
 
-	slog.Debug("Before normalizeText (trim and lowercase)",
-		"ground_truth", origProcessed,
-		"llm_response", transProcessed)
-
-	origNorm := normalizeText(origProcessed)
-	transNorm := normalizeText(transProcessed)
-
-	slog.Debug("After normalizeText (trim and lowercase)",
-		"ground_truth", origNorm,
-		"llm_response", transNorm)
-
-	charSim := calculateSimilarity(origNorm, transNorm)
-	origWords := strings.Fields(origNorm)
-	transWords := strings.Fields(transNorm)
+	charSim := calculateSimilarity(origProcessed, transProcessed)
+	origWords := strings.Fields(origProcessed)
+	transWords := strings.Fields(transProcessed)
 	wordSim := calculateSimilarity(strings.Join(origWords, " "), strings.Join(transWords, " "))
 	wordAcc, correct, subs, dels, ins := calculateWordLevelMetrics(origWords, transWords)
 
