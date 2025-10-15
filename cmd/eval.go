@@ -135,6 +135,7 @@ var (
 	dir             string
 	rows            []int
 	ignorePatterns  []string
+	singleLine      bool
 )
 
 func init() {
@@ -160,6 +161,7 @@ func init() {
 	evalCmd.Flags().StringVar(&dir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalCmd.Flags().IntSliceVar(&rows, "rows", []int{}, "A list of row numbers to run the test on")
 	evalCmd.Flags().StringSliceVar(&ignorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
+	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -472,7 +474,7 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		return EvalResult{}, fmt.Errorf("provider API call failed: %w", err)
 	}
 
-	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse, ignorePatterns)
+	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse, ignorePatterns, singleLine)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(imagePath),
@@ -732,9 +734,11 @@ func applyIgnorePatterns(groundTruth, transcription string, ignorePatterns []str
 	return processedGT.String(), processedTrans.String(), ignoredCount
 }
 
-func normalizeText(text string) string {
-	// Simple normalization - trim and convert to lowercase
-	return strings.ToLower(strings.TrimSpace(text))
+func normalizeSpaces(text string) string {
+	for strings.Contains(text, "  ") {
+		text = strings.ReplaceAll(text, "  ", " ")
+	}
+	return text
 }
 
 func levenshteinDistance(s1, s2 string) int {
@@ -843,15 +847,38 @@ func calculateWordLevelMetrics(orig, trans []string) (float64, int, int, int, in
 	return wordAccuracy, correct, substitutions, deletions, insertions
 }
 
-func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string) EvalResult {
-	// Apply ignore patterns to both texts
-	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(original, transcribed, ignorePatterns)
+func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string, singleLine bool) EvalResult {
+	// Apply text transformations first
+	origTransformed := original
+	transTransformed := transcribed
 
-	origNorm := normalizeText(origProcessed)
-	transNorm := normalizeText(transProcessed)
-	charSim := calculateSimilarity(origNorm, transNorm)
-	origWords := strings.Fields(origNorm)
-	transWords := strings.Fields(transNorm)
+	// Convert to single line if requested
+	if singleLine {
+		slog.Debug("Applying --single-line transformation",
+			"original_ground_truth", original,
+			"original_transcription", transcribed)
+		origTransformed = strings.ReplaceAll(origTransformed, "\n", " ")
+		origTransformed = strings.ReplaceAll(origTransformed, "\r", " ")
+		origTransformed = strings.ReplaceAll(origTransformed, "\t", " ")
+		transTransformed = strings.ReplaceAll(transTransformed, "\n", " ")
+		transTransformed = strings.ReplaceAll(transTransformed, "\r", " ")
+		transTransformed = strings.ReplaceAll(transTransformed, "\t", " ")
+
+		// Normalize multiple spaces to single space
+		origTransformed = normalizeSpaces(origTransformed)
+		transTransformed = normalizeSpaces(transTransformed)
+
+		slog.Debug("After --single-line transformation",
+			"transformed_ground_truth", origTransformed,
+			"transformed_transcription", transTransformed)
+	}
+
+	// Apply ignore patterns to both texts
+	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(origTransformed, transTransformed, ignorePatterns)
+
+	charSim := calculateSimilarity(origProcessed, transProcessed)
+	origWords := strings.Fields(origProcessed)
+	transWords := strings.Fields(transProcessed)
 	wordSim := calculateSimilarity(strings.Join(origWords, " "), strings.Join(transWords, " "))
 	wordAcc, correct, subs, dels, ins := calculateWordLevelMetrics(origWords, transWords)
 

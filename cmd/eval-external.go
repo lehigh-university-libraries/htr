@@ -61,6 +61,7 @@ var (
 	evalExternalDir            string
 	evalExternalRows           []int
 	evalExternalIgnorePatterns []string
+	evalExternalSingleLine     bool
 )
 
 func init() {
@@ -71,6 +72,7 @@ func init() {
 	evalExternalCmd.Flags().StringVar(&evalExternalDir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalExternalCmd.Flags().IntSliceVar(&evalExternalRows, "rows", []int{}, "A list of row numbers to process")
 	evalExternalCmd.Flags().StringSliceVar(&evalExternalIgnorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
+	evalExternalCmd.Flags().BoolVar(&evalExternalSingleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
 
 	if err := evalExternalCmd.MarkFlagRequired("csv"); err != nil {
 		panic(err)
@@ -209,7 +211,7 @@ func processExternalEvalRow(row []string) (EvalResult, error) {
 	}
 
 	// Calculate metrics
-	metrics := CalculateAccuracyMetrics(groundTruth, externalTranscription, evalExternalIgnorePatterns)
+	metrics := CalculateAccuracyMetrics(groundTruth, externalTranscription, evalExternalIgnorePatterns, evalExternalSingleLine)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(transcriptPath),
