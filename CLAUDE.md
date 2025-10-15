@@ -21,7 +21,7 @@ HTR (Handwritten Text Recognition) is a Go CLI tool that provides text extractio
 ## Quick Start for Claude
 
 When working on this project:
-1. Always run `golangci-lint run` before suggesting code
+1. Always run `make lint` before suggesting code
 2. New providers go in `pkg/providers/[name]/`
 3. Tests use table-driven format (see conventions below)
 4. All exported functions need documentation comments
@@ -29,28 +29,19 @@ When working on this project:
 
 ## Commands
 
-### Build and Development
+### Makefile Commands (Preferred)
 ```bash
-# Build the binary
-go build -o htr
+# Build the binary (includes dependency management)
+make build
 
-# Run with go run
-go run main.go [command] [flags]
+# Run linter (formats code, runs golangci-lint, validates renovate.json5)
+make lint
 
-# Format code
-go fmt ./...
+# Run tests with race detector (builds first)
+make test
 
-# Run linter (uses .golangci.yaml config)
-golangci-lint run
-
-# Tidy dependencies
-go mod tidy
-
-# Run tests
-go test ./...
-
-# Run tests with race detector
-go test -race ./...
+# Install/update dependencies
+make deps
 ```
 
 ### Testing the CLI
@@ -60,6 +51,9 @@ go test -race ./...
 
 # Run evaluation with different providers
 ./htr eval --provider openai --model gpt-4o --prompt "Extract all text" --csv fixtures/images.csv --dir ./test-images
+
+# Evaluate external model transcriptions (no API calls)
+./htr eval-external --csv loghi_results.csv --name loghi --dir ./fixtures
 
 # View evaluation summaries
 ./htr summary

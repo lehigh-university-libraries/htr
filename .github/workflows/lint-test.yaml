@@ -17,10 +17,8 @@ jobs:
         with:
           version: latest
 
-      - name: Install dependencies
-        run: go get .
+      - name: lint
+        run: make lint
 
-      - run: go build
-
-      - name: Test with the Go CLI
-        run: go test -v ./...
+      - name: unit test
+        run: make test

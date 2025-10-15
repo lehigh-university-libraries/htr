@@ -57,6 +57,8 @@ The HTR tool supports multiple providers for text extraction from images. Set th
 
 ### Eval
 
+Evaluate OCR/HTR performance by sending images to AI vision models and comparing their output against ground truth transcripts.
+
 #### OpenAI Example
 ```bash
 htr eval \
@@ -115,6 +117,69 @@ htr create --image scan.png --provider gemini --model gemini-1.5-flash -o scan.h
 ```
 
 **Note:** The `create` command requires ImageMagick to be installed on your system.
+
+### Eval External
+
+Evaluate transcriptions from external OCR/HTR models (like Loghi, Tesseract, Kraken, etc.) against ground truth transcripts. This command reads pre-generated transcriptions from text files and compares them to ground truth without making any API calls.
+
+#### Usage
+
+```bash
+# Evaluate external model transcriptions
+htr eval-external \
+  --csv loghi_results.csv \
+  --name loghi \
+  --dir ./transcriptions
+```
+
+#### CSV Format
+
+The CSV file should have 2 columns:
+
+```csv
+transcript,transcription
+ground-truth-1.txt,loghi-output-1.txt
+ground-truth-2.txt,loghi-output-2.txt
+```
+
+Where:
+- `transcript`: Path to the ground truth transcript file
+- `transcription`: Path to the external model's transcription output file
+
+#### Example Workflow
+
+1. Run your images through an external HTR model (e.g., Loghi):
+   ```bash
+   # Example: Process images with Loghi
+   for img in images/*.jpg; do
+     loghi-htr predict --image "$img" --output "transcriptions/$(basename $img .jpg).txt"
+   done
+   ```
+
+2. Create a CSV mapping ground truth to external transcriptions:
+   ```csv
+   transcript,transcription
+   groundtruth/page1.txt,transcriptions/page1.txt
+   groundtruth/page2.txt,transcriptions/page2.txt
+   ```
+
+3. Evaluate the external model's performance:
+   ```bash
+   htr eval-external --csv external_model.csv --name loghi --dir ./
+   ```
+
+4. View results alongside other model evaluations:
+   ```bash
+   htr summary loghi
+   htr csv  # Compare all models including external ones
+   ```
+
+#### Testing Specific Rows
+
+```bash
+# Test just the first few rows
+htr eval-external --csv external_model.csv --name loghi --rows 0,1,2 --dir ./
+```
 
 ### Summary
 
