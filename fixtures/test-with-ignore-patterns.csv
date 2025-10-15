@@ -1,6 +1,0 @@
-transcript,transcription
-gt-with-unknown-word.txt,trans-with-unknown-word.txt
-gt-with-unknown-char.txt,trans-with-unknown-char.txt
-gt-multiple-unknown.txt,trans-multiple-unknown.txt
-gt-partial-error.txt,trans-partial-error.txt
-gt-realistic-document.txt,trans-realistic-document.txt
