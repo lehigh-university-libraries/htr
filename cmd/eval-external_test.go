@@ -274,3 +274,137 @@ func TestExternalEvalCSVParsing(t *testing.T) {
 		})
 	}
 }
+
+func TestExternalEvalWithIgnorePatterns(t *testing.T) {
+	tests := []struct {
+		name                   string
+		groundTruth            string
+		transcription          string
+		ignorePatterns         []string
+		expectedWordAccuracy   float64
+		expectedCharSimilarity float64
+		expectedIgnoredCount   int
+		expectedCorrectWords   int
+		description            string
+	}{
+		{
+			name:                   "perfect match with unknown word ignored",
+			groundTruth:            "The quick | fox jumps over the lazy dog",
+			transcription:          "The quick brown fox jumps over the lazy dog",
+			ignorePatterns:         []string{"|"},
+			expectedWordAccuracy:   1.0,
+			expectedCharSimilarity: 1.0,
+			expectedIgnoredCount:   1,
+			expectedCorrectWords:   8,
+			description:            "Unknown word 'brown' should be skipped, resulting in perfect match",
+		},
+		{
+			name:                   "perfect match with unknown character ignored",
+			groundTruth:            "John's d|te of birth is March 15th",
+			transcription:          "John's date of birth is March 15th",
+			ignorePatterns:         []string{"|"},
+			expectedWordAccuracy:   1.0,
+			expectedCharSimilarity: 1.0,
+			expectedIgnoredCount:   1,
+			expectedCorrectWords:   7,
+			description:            "Unknown character 'a' in 'date' should be skipped",
+		},
+		{
+			name:                   "multiple ignore patterns",
+			groundTruth:            "The | cat , jumped high",
+			transcription:          "The quick cat suddenly jumped high",
+			ignorePatterns:         []string{"|", ","},
+			expectedWordAccuracy:   1.0,
+			expectedCharSimilarity: 1.0,
+			expectedIgnoredCount:   2,
+			expectedCorrectWords:   4,
+			description:            "Both '|' and ',' should be ignored",
+		},
+		{
+			name:                   "ignore pattern but transcription has error",
+			groundTruth:            "The | cat jumped over the fence",
+			transcription:          "The quick cat jumped over the fense",
+			ignorePatterns:         []string{"|"},
+			expectedWordAccuracy:   0.833, // 5 correct out of 6 words (after removing "|" and "quick")
+			expectedCharSimilarity: 0.967, // High similarity but not perfect due to 'fense'
+			expectedIgnoredCount:   1,
+			expectedCorrectWords:   5,
+			description:            "Unknown word ignored, but 'fence' vs 'fense' is still an error",
+		},
+		{
+			name:                   "realistic document with multiple unknowns",
+			groundTruth:            "On this day the 15th of | in the year 1842 the following resolution was passed by the committee The chairman Mr J|hn Smith declared the motion carried with | votes in favor",
+			transcription:          "On this day the 15th of March in the year 1842 the following resolution was passed by the committee The chairman Mr John Smith declared the motion carried with 12 votes in favor",
+			ignorePatterns:         []string{"|"},
+			expectedWordAccuracy:   1.0,
+			expectedCharSimilarity: 1.0,
+			expectedIgnoredCount:   3,
+			expectedCorrectWords:   31,
+			description:            "Realistic historical document with unknown month, character in name, and number (no punctuation)",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Save original ignore patterns
+			originalIgnorePatterns := evalExternalIgnorePatterns
+			defer func() { evalExternalIgnorePatterns = originalIgnorePatterns }()
+
+			// Set ignore patterns for this test
+			evalExternalIgnorePatterns = tt.ignorePatterns
+
+			// Create temporary files
+			tmpDir, err := os.MkdirTemp("", "eval-external-ignore-test-*")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+			defer os.RemoveAll(tmpDir)
+
+			gtPath := filepath.Join(tmpDir, "ground.txt")
+			transPath := filepath.Join(tmpDir, "trans.txt")
+
+			if err := os.WriteFile(gtPath, []byte(tt.groundTruth), 0644); err != nil {
+				t.Fatalf("Failed to write ground truth file: %v", err)
+			}
+			if err := os.WriteFile(transPath, []byte(tt.transcription), 0644); err != nil {
+				t.Fatalf("Failed to write transcription file: %v", err)
+			}
+
+			// Set evalExternalDir
+			originalDir := evalExternalDir
+			evalExternalDir = tmpDir
+			defer func() { evalExternalDir = originalDir }()
+
+			// Process the row
+			row := []string{"ground.txt", "trans.txt"}
+			result, err := processExternalEvalRow(row)
+			if err != nil {
+				t.Fatalf("processExternalEvalRow() error = %v", err)
+			}
+
+			// Check ignored count
+			if result.IgnoredCharsCount != tt.expectedIgnoredCount {
+				t.Errorf("IgnoredCharsCount = %d, want %d\n  description: %s",
+					result.IgnoredCharsCount, tt.expectedIgnoredCount, tt.description)
+			}
+
+			// Check correct words
+			if result.CorrectWords != tt.expectedCorrectWords {
+				t.Errorf("CorrectWords = %d, want %d\n  description: %s",
+					result.CorrectWords, tt.expectedCorrectWords, tt.description)
+			}
+
+			// Check word accuracy (with tolerance)
+			if diff := result.WordAccuracy - tt.expectedWordAccuracy; diff > 0.01 || diff < -0.01 {
+				t.Errorf("WordAccuracy = %.3f, want %.3f\n  description: %s",
+					result.WordAccuracy, tt.expectedWordAccuracy, tt.description)
+			}
+
+			// Check character similarity (with tolerance)
+			if diff := result.CharacterSimilarity - tt.expectedCharSimilarity; diff > 0.01 || diff < -0.01 {
+				t.Errorf("CharacterSimilarity = %.3f, want %.3f\n  description: %s",
+					result.CharacterSimilarity, tt.expectedCharSimilarity, tt.description)
+			}
+		})
+	}
+}

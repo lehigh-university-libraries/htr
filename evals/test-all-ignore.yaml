@@ -1,0 +1,89 @@
+config:
+    provider: external
+    model: test-all-ignore
+    prompt: Evaluated from external source
+    temperature: 0
+    csvpath: fixtures/test-with-ignore-patterns.csv
+    testrows: []
+    timestamp: 2025-10-15_06-54-08
+results:
+    - identifier: gt-with-unknown-word.txt
+      imagepath: ""
+      transcriptpath: fixtures/gt-with-unknown-word.txt
+      public: false
+      providerresponse: The quick brown fox jumps over the lazy dog
+      charactersimilarity: 1
+      wordsimilarity: 1
+      wordaccuracy: 1
+      worderrorrate: 0
+      totalwordsoriginal: 8
+      totalwordstranscribed: 8
+      correctwords: 8
+      substitutions: 0
+      deletions: 0
+      insertions: 0
+      ignoredcharscount: 1
+    - identifier: gt-with-unknown-char.txt
+      imagepath: ""
+      transcriptpath: fixtures/gt-with-unknown-char.txt
+      public: false
+      providerresponse: John's date of birth is March 15th
+      charactersimilarity: 1
+      wordsimilarity: 1
+      wordaccuracy: 1
+      worderrorrate: 0
+      totalwordsoriginal: 7
+      totalwordstranscribed: 7
+      correctwords: 7
+      substitutions: 0
+      deletions: 0
+      insertions: 0
+      ignoredcharscount: 1
+    - identifier: gt-multiple-unknown.txt
+      imagepath: ""
+      transcriptpath: fixtures/gt-multiple-unknown.txt
+      public: false
+      providerresponse: The quick cat suddenly jumped high
+      charactersimilarity: 0.4545454545454546
+      wordsimilarity: 0.4285714285714286
+      wordaccuracy: 0.4
+      worderrorrate: 0.6
+      totalwordsoriginal: 5
+      totalwordstranscribed: 4
+      correctwords: 2
+      substitutions: 2
+      deletions: 1
+      insertions: 0
+      ignoredcharscount: 1
+    - identifier: gt-partial-error.txt
+      imagepath: ""
+      transcriptpath: fixtures/gt-partial-error.txt
+      public: false
+      providerresponse: The quick cat jumped over the fense
+      charactersimilarity: 0.9666666666666667
+      wordsimilarity: 0.9655172413793104
+      wordaccuracy: 0.8333333333333334
+      worderrorrate: 0.16666666666666663
+      totalwordsoriginal: 6
+      totalwordstranscribed: 6
+      correctwords: 5
+      substitutions: 1
+      deletions: 0
+      insertions: 0
+      ignoredcharscount: 1
+    - identifier: gt-realistic-document.txt
+      imagepath: ""
+      transcriptpath: fixtures/gt-realistic-document.txt
+      public: false
+      providerresponse: On this day, the 15th of March, in the year 1842, the following resolution was passed by the committee. The chairman, Mr. John Smith, declared the motion carried with 12 votes in favor.
+      charactersimilarity: 0.9438202247191011
+      wordsimilarity: 0.9488636363636364
+      wordaccuracy: 0.90625
+      worderrorrate: 0.09375
+      totalwordsoriginal: 32
+      totalwordstranscribed: 31
+      correctwords: 29
+      substitutions: 2
+      deletions: 1
+      insertions: 0
+      ignoredcharscount: 3

@@ -14,6 +14,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode"
 
 	"github.com/lehigh-university-libraries/htr/pkg/azure"
 	"github.com/lehigh-university-libraries/htr/pkg/claude"
@@ -51,6 +52,7 @@ type EvalResult struct {
 	Substitutions         int     `json:"substitutions"`
 	Deletions             int     `json:"deletions"`
 	Insertions            int     `json:"insertions"`
+	IgnoredCharsCount     int     `json:"ignored_chars_count"`
 }
 
 type EvalSummary struct {
@@ -76,8 +78,29 @@ var evalCmd = &cobra.Command{
 	Use:   "eval",
 	Short: "Evaluate OCR performance using vision models",
 	Long: `Evaluate OCR performance by comparing vision model outputs with ground truth transcripts.
-	
-You can either provide individual flags or use a previous evaluation config file.`,
+
+You can either provide individual flags or use a previous evaluation config file.
+
+HANDLING UNKNOWN CHARACTERS:
+
+When ground truth contains characters that cannot be deciphered, use the --ignore flag to mark them.
+The image still contains these characters, so the LLM will transcribe them as something.
+HTR automatically skips the corresponding LLM output when calculating accuracy metrics.
+
+- If ignore pattern is a standalone word (surrounded by spaces): skip next word in transcription
+- If ignore pattern is within a word: skip next character in transcription
+
+Examples:
+  # Mark unknown characters with pipe
+  htr eval --provider openai --model gpt-4o --prompt "Extract text" --csv data.csv --ignore '|'
+
+  # Use multiple ignore patterns
+  htr eval --provider gemini --model gemini-1.5-flash --prompt "Extract text" --csv data.csv --ignore '|' --ignore ','
+
+Ground truth examples:
+  GT: "The quick | fox"     Trans: "The quick brown fox"     -> Compares "The quick fox" (skips "brown")
+  GT: "d|te"                Trans: "date"                    -> Compares "dte" (skips "a")
+  GT: "The | cat , jumped"  Trans: "The quick cat suddenly jumped"  -> Compares "The cat jumped"`,
 	RunE: runEval,
 }
 
@@ -111,6 +134,7 @@ var (
 	evalTemplate    string
 	dir             string
 	rows            []int
+	ignorePatterns  []string
 )
 
 func init() {
@@ -135,6 +159,7 @@ func init() {
 	evalCmd.Flags().StringVar(&evalTemplate, "template", "", "Custom JSON template file for API (optional)")
 	evalCmd.Flags().StringVar(&dir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalCmd.Flags().IntSliceVar(&rows, "rows", []int{}, "A list of row numbers to run the test on")
+	evalCmd.Flags().StringSliceVar(&ignorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -447,7 +472,7 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		return EvalResult{}, fmt.Errorf("provider API call failed: %w", err)
 	}
 
-	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse)
+	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse, ignorePatterns)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(imagePath),
@@ -465,6 +490,7 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		Substitutions:         metrics.Substitutions,
 		Deletions:             metrics.Deletions,
 		Insertions:            metrics.Insertions,
+		IgnoredCharsCount:     metrics.IgnoredCharsCount,
 	}
 
 	return result, nil
@@ -569,6 +595,9 @@ func printRowResult(result EvalResult) {
 	fmt.Printf("Substitutions: %d\n", result.Substitutions)
 	fmt.Printf("Deletions: %d\n", result.Deletions)
 	fmt.Printf("Insertions: %d\n", result.Insertions)
+	if result.IgnoredCharsCount > 0 {
+		fmt.Printf("Ignored Characters: %d\n", result.IgnoredCharsCount)
+	}
 }
 
 func printSummaryStats(results []EvalResult) {
@@ -593,6 +622,114 @@ func printSummaryStats(results []EvalResult) {
 	fmt.Printf("Average Word Similarity: %.3f\n", totalWordSim/count)
 	fmt.Printf("Average Word Accuracy: %.3f\n", totalWordAcc/count)
 	fmt.Printf("Average Word Error Rate: %.3f\n", totalWER/count)
+}
+
+// applyIgnorePatterns handles unknown characters in ground truth.
+//
+// When a character cannot be deciphered in the ground truth, it's marked with an ignore pattern (e.g., "|").
+// The image still contains some character, so the LLM will transcribe it as something.
+// This function:
+// 1. Counts all ignored pattern occurrences in ground truth
+// 2. Removes ignored patterns from ground truth
+// 3. Skips corresponding characters/words in the LLM transcription:
+//   - If ignore pattern is surrounded by spaces (standalone word): skip next word in transcription
+//   - If ignore pattern is within a word: skip next character in transcription
+//
+// Example 1 (standalone): GT="hello | world", Trans="hello foo world"
+//
+//	-> processedGT="hello world", processedTrans="hello world", ignoredCount=1
+//
+// Example 2 (within word): GT="hel|o", Trans="hello"
+//
+//	-> processedGT="helo", processedTrans="helo", ignoredCount=1
+//
+// Returns: (processedGroundTruth, processedTranscription, ignoredCharCount)
+func applyIgnorePatterns(groundTruth, transcription string, ignorePatterns []string) (string, string, int) {
+	if len(ignorePatterns) == 0 {
+		return groundTruth, transcription, 0
+	}
+
+	// Count total ignored characters in ground truth
+	ignoredCount := 0
+	for _, pattern := range ignorePatterns {
+		ignoredCount += strings.Count(groundTruth, pattern) * len(pattern)
+	}
+
+	// Process character by character and word by word
+	var processedGT strings.Builder
+	var processedTrans strings.Builder
+
+	gtRunes := []rune(groundTruth)
+	transRunes := []rune(transcription)
+
+	gtIdx := 0
+	transIdx := 0
+
+	for gtIdx < len(gtRunes) {
+		// Check if current position matches any ignore pattern
+		matchedPattern := ""
+		for _, pattern := range ignorePatterns {
+			patternRunes := []rune(pattern)
+			if gtIdx+len(patternRunes) <= len(gtRunes) {
+				match := true
+				for i, pr := range patternRunes {
+					if gtRunes[gtIdx+i] != pr {
+						match = false
+						break
+					}
+				}
+				if match {
+					matchedPattern = pattern
+					break
+				}
+			}
+		}
+
+		if matchedPattern != "" {
+			// Found an ignore pattern - determine if it's standalone or within a word
+			patternLen := len([]rune(matchedPattern))
+
+			// Check if pattern is surrounded by whitespace (or at boundaries)
+			beforeIsSpace := gtIdx == 0 || unicode.IsSpace(gtRunes[gtIdx-1])
+			afterIsSpace := gtIdx+patternLen >= len(gtRunes) || unicode.IsSpace(gtRunes[gtIdx+patternLen])
+
+			if beforeIsSpace && afterIsSpace {
+				// Standalone word - skip the pattern and skip next word in transcription
+				gtIdx += patternLen
+
+				// Skip whitespace in transcription
+				for transIdx < len(transRunes) && unicode.IsSpace(transRunes[transIdx]) {
+					transIdx++
+				}
+
+				// Skip the next word in transcription
+				for transIdx < len(transRunes) && !unicode.IsSpace(transRunes[transIdx]) {
+					transIdx++
+				}
+			} else {
+				// Pattern within a word - skip the pattern and skip next character in transcription
+				gtIdx += patternLen
+
+				// Skip one non-whitespace character in transcription
+				if transIdx < len(transRunes) {
+					transIdx++
+				}
+			}
+		} else {
+			// Normal character - copy to both outputs
+			currentChar := gtRunes[gtIdx]
+			processedGT.WriteRune(currentChar)
+
+			if transIdx < len(transRunes) {
+				processedTrans.WriteRune(transRunes[transIdx])
+				transIdx++
+			}
+
+			gtIdx++
+		}
+	}
+
+	return processedGT.String(), processedTrans.String(), ignoredCount
 }
 
 func normalizeText(text string) string {
@@ -706,9 +843,12 @@ func calculateWordLevelMetrics(orig, trans []string) (float64, int, int, int, in
 	return wordAccuracy, correct, substitutions, deletions, insertions
 }
 
-func CalculateAccuracyMetrics(original, transcribed string) EvalResult {
-	origNorm := normalizeText(original)
-	transNorm := normalizeText(transcribed)
+func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string) EvalResult {
+	// Apply ignore patterns to both texts
+	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(original, transcribed, ignorePatterns)
+
+	origNorm := normalizeText(origProcessed)
+	transNorm := normalizeText(transProcessed)
 	charSim := calculateSimilarity(origNorm, transNorm)
 	origWords := strings.Fields(origNorm)
 	transWords := strings.Fields(transNorm)
@@ -728,6 +868,7 @@ func CalculateAccuracyMetrics(original, transcribed string) EvalResult {
 		Substitutions:         subs,
 		Deletions:             dels,
 		Insertions:            ins,
+		IgnoredCharsCount:     ignoredCount,
 	}
 }
 

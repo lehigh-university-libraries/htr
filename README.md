@@ -101,6 +101,64 @@ htr eval \
   --dir /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents
 ```
 
+#### Handling Unknown Characters with `--ignore`
+
+Sometimes ground truth transcripts contain characters that cannot be deciphered. Use the `--ignore` flag to mark these unknown characters and exclude them from accuracy calculations.
+
+**How it works:**
+- Mark unknown characters in ground truth with a special pattern (e.g., `|`)
+- The LLM will still transcribe the unknown character in the image as something
+- HTR will automatically skip the corresponding output in the transcription when calculating metrics
+- If the ignore pattern is a **standalone word** (surrounded by spaces), skip the next word in the transcription
+- If the ignore pattern is **within a word**, skip the next character in the transcription
+
+**Examples:**
+
+```bash
+# Use pipe (|) to mark unknown characters
+htr eval \
+  --provider openai \
+  --model gpt-4o \
+  --prompt "Extract all text from this image" \
+  --csv fixtures/images.csv \
+  --ignore '|' \
+  --dir ./ground-truth
+
+# Use multiple ignore patterns (pipe and comma)
+htr eval \
+  --provider gemini \
+  --model gemini-1.5-flash \
+  --prompt "Extract all text from this image" \
+  --csv fixtures/images.csv \
+  --ignore '|' \
+  --ignore ',' \
+  --dir ./ground-truth
+```
+
+**Ground truth examples:**
+
+```
+# Unknown word (standalone)
+Ground truth: "The quick | fox"
+LLM output:   "The quick brown fox"
+Result:       Compares "The quick fox" vs "The quick fox" (skips "brown")
+
+# Unknown character (within word)
+Ground truth: "d|te"
+LLM output:   "date"
+Result:       Compares "dte" vs "dte" (skips "a")
+
+# Multiple unknowns
+Ground truth: "The | cat , jumped"
+LLM output:   "The quick cat suddenly jumped"
+Result:       Compares "The cat jumped" vs "The cat jumped" (skips "quick" and "suddenly")
+```
+
+**Benefits:**
+- More accurate evaluation metrics when dealing with damaged or unclear documents
+- Ignored characters are counted separately in results
+- Character and word accuracy rates exclude unknown characters from denominators
+
 ### Create
 
 Create hOCR XML files from images using custom word detection and LLM transcription:
@@ -180,6 +238,29 @@ Where:
 # Test just the first few rows
 htr eval-external --csv external_model.csv --name loghi --rows 0,1,2 --dir ./
 ```
+
+#### Using `--ignore` with External Models
+
+The `--ignore` flag also works with external model evaluations:
+
+```bash
+# Evaluate with unknown character handling
+htr eval-external \
+  --csv external_model.csv \
+  --name loghi \
+  --ignore '|' \
+  --dir ./
+
+# Multiple ignore patterns
+htr eval-external \
+  --csv tesseract_results.csv \
+  --name tesseract \
+  --ignore '|' \
+  --ignore ',' \
+  --dir ./transcriptions
+```
+
+This is useful when your ground truth contains markers for unknown/unclear characters.
 
 ### Summary
 
