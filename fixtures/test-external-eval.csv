@@ -1,7 +1,0 @@
-transcript,transcription
-test-groundtruth-1.txt,test-exact-match-1.txt
-test-groundtruth-2.txt,test-exact-match-2.txt
-test-groundtruth-3.txt,test-exact-match-3.txt
-test-groundtruth-1.txt,test-off-by-one-1.txt
-test-groundtruth-2.txt,test-off-by-one-2.txt
-test-groundtruth-1.txt,test-not-close-1.txt

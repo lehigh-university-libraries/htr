@@ -34,16 +34,33 @@ Where:
   - transcript: path to ground truth transcript
   - transcription: path to external model's transcription output
 
-Example:
-  htr eval-external --csv loghi_results.csv --name loghi --dir ./fixtures`,
+HANDLING UNKNOWN CHARACTERS:
+
+Use the --ignore flag when your ground truth contains markers for unknown/unclear characters.
+The external model will have transcribed these characters as something.
+HTR automatically skips the corresponding output when calculating accuracy metrics.
+
+- If ignore pattern is a standalone word (surrounded by spaces): skip next word in transcription
+- If ignore pattern is within a word: skip next character in transcription
+
+Examples:
+  # Basic evaluation
+  htr eval-external --csv loghi_results.csv --name loghi --dir ./fixtures
+
+  # With unknown character handling
+  htr eval-external --csv tesseract.csv --name tesseract --ignore '|' --dir ./
+
+  # Multiple ignore patterns
+  htr eval-external --csv kraken.csv --name kraken --ignore '|' --ignore ',' --dir ./transcriptions`,
 	RunE: runEvalExternal,
 }
 
 var (
-	evalExternalCSVPath   string
-	evalExternalModelName string
-	evalExternalDir       string
-	evalExternalRows      []int
+	evalExternalCSVPath        string
+	evalExternalModelName      string
+	evalExternalDir            string
+	evalExternalRows           []int
+	evalExternalIgnorePatterns []string
 )
 
 func init() {
@@ -53,6 +70,7 @@ func init() {
 	evalExternalCmd.Flags().StringVarP(&evalExternalModelName, "name", "n", "", "Name of the external model (e.g., 'loghi', 'tesseract') (required)")
 	evalExternalCmd.Flags().StringVar(&evalExternalDir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalExternalCmd.Flags().IntSliceVar(&evalExternalRows, "rows", []int{}, "A list of row numbers to process")
+	evalExternalCmd.Flags().StringSliceVar(&evalExternalIgnorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
 
 	if err := evalExternalCmd.MarkFlagRequired("csv"); err != nil {
 		panic(err)
@@ -191,7 +209,7 @@ func processExternalEvalRow(row []string) (EvalResult, error) {
 	}
 
 	// Calculate metrics
-	metrics := CalculateAccuracyMetrics(groundTruth, externalTranscription)
+	metrics := CalculateAccuracyMetrics(groundTruth, externalTranscription, evalExternalIgnorePatterns)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(transcriptPath),
@@ -209,6 +227,7 @@ func processExternalEvalRow(row []string) (EvalResult, error) {
 		Substitutions:         metrics.Substitutions,
 		Deletions:             metrics.Deletions,
 		Insertions:            metrics.Insertions,
+		IgnoredCharsCount:     metrics.IgnoredCharsCount,
 	}
 
 	return result, nil

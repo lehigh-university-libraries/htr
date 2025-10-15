@@ -1,0 +1,12 @@
+transcript,transcription
+ground-truth/simple-abc.txt,external/exact-match-abc.txt
+ground-truth/simple-xyz.txt,external/exact-match-xyz.txt
+ground-truth/simple-hello-world.txt,external/exact-match-hello-world.txt
+ground-truth/simple-abc.txt,external/off-by-one-abc.txt
+ground-truth/simple-xyz.txt,external/off-by-one-xyz.txt
+ground-truth/simple-abc.txt,external/not-close-abc.txt
+ground-truth/unknown-word.txt,external/unknown-word.txt
+ground-truth/unknown-char.txt,external/unknown-char.txt
+ground-truth/multiple-unknown.txt,external/multiple-unknown.txt
+ground-truth/partial-error.txt,external/partial-error.txt
+ground-truth/realistic-document.txt,external/realistic-document.txt
