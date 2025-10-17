@@ -27,13 +27,15 @@ import (
 )
 
 type EvalConfig struct {
-	Provider    string  `json:"provider"`
-	Model       string  `json:"model"`
-	Prompt      string  `json:"prompt"`
-	Temperature float64 `json:"temperature"`
-	CSVPath     string  `json:"csv_path"`
-	TestRows    []int   `json:"rows"`
-	Timestamp   string  `json:"timestamp"`
+	Provider       string   `json:"provider"`
+	Model          string   `json:"model"`
+	Prompt         string   `json:"prompt"`
+	Temperature    float64  `json:"temperature"`
+	CSVPath        string   `json:"csv_path"`
+	TestRows       []int    `json:"rows"`
+	Timestamp      string   `json:"timestamp"`
+	IgnorePatterns []string `json:"ignore_patterns,omitempty"`
+	SingleLine     bool     `json:"single_line,omitempty"`
 }
 
 type EvalResult struct {
@@ -134,6 +136,9 @@ var backfillCmd = &cobra.Command{
 This command reads the provider response and ground truth from existing evaluation files,
 recalculates metrics (character accuracy, word similarity), and updates the YAML files in place.
 
+By default, uses the --single-line and --ignore flags saved in each evaluation's config.
+You can override these by passing --single-line or --ignore flags to this command.
+
 This is useful after upgrading to a version with improved metric calculations.`,
 	RunE: runBackfill,
 	Args: cobra.NoArgs,
@@ -151,6 +156,11 @@ var (
 	rows            []int
 	ignorePatterns  []string
 	singleLine      bool
+
+	// Backfill command flags
+	backfillIgnorePatterns []string
+	backfillSingleLine     bool
+	backfillOverride       bool
 )
 
 func init() {
@@ -167,6 +177,7 @@ func init() {
 	RootCmd.AddCommand(csvCmd)
 	RootCmd.AddCommand(backfillCmd)
 
+	// Eval command flags
 	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, claude, gemini, ollama")
 	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
 	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to the provider")
@@ -181,6 +192,11 @@ func init() {
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
+
+	// Backfill command flags
+	backfillCmd.Flags().StringSliceVar(&backfillIgnorePatterns, "ignore", []string{}, "Override ignore patterns for all evaluations (e.g., --ignore '|' --ignore ',')")
+	backfillCmd.Flags().BoolVar(&backfillSingleLine, "single-line", false, "Override single-line flag for all evaluations")
+	backfillCmd.Flags().BoolVar(&backfillOverride, "override", false, "Force override of saved flags (use CLI flags for all evaluations)")
 }
 
 func runEval(cmd *cobra.Command, args []string) error {
@@ -196,12 +212,14 @@ func runEval(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Loaded configuration from %s\n", evalConfigPath)
 	} else {
 		config = EvalConfig{
-			Provider:    evalProvider,
-			Model:       evalModel,
-			Prompt:      evalPrompt,
-			Temperature: evalTemperature,
-			CSVPath:     evalCSVPath,
-			Timestamp:   time.Now().Format("2006-01-02_15-04-05"),
+			Provider:       evalProvider,
+			Model:          evalModel,
+			Prompt:         evalPrompt,
+			Temperature:    evalTemperature,
+			CSVPath:        evalCSVPath,
+			Timestamp:      time.Now().Format("2006-01-02_15-04-05"),
+			IgnorePatterns: ignorePatterns,
+			SingleLine:     singleLine,
 		}
 	}
 
@@ -331,6 +349,13 @@ func runCSV(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		// Get the original flags from config for backward compatibility
+		ignorePatterns := summary.Config.IgnorePatterns
+		if ignorePatterns == nil {
+			ignorePatterns = []string{}
+		}
+		singleLine := summary.Config.SingleLine
+
 		// Calculate aggregated metrics
 		var totalCharSim, totalCharAcc, totalWordSim, totalWordAcc, totalWER float64
 		for _, result := range summary.Results {
@@ -340,9 +365,9 @@ func runCSV(cmd *cobra.Command, args []string) error {
 			charAcc := result.CharacterAccuracy
 			if charAcc == 0.0 && result.ProviderResponse != "" {
 				// Calculate on the fly using ground truth from TranscriptPath
-				// Use empty ignorePatterns and singleLine=false since we don't have the original flags
+				// Use the original flags from the evaluation config
 				if groundTruth, err := readTextFile(result.TranscriptPath); err == nil {
-					metrics := CalculateAccuracyMetrics(groundTruth, result.ProviderResponse, []string{}, false)
+					metrics := CalculateAccuracyMetrics(groundTruth, result.ProviderResponse, ignorePatterns, singleLine)
 					charAcc = metrics.CharacterAccuracy
 				}
 			}
@@ -417,6 +442,22 @@ func runBackfill(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
+	// Check if user wants to override flags
+	hasIgnoreFlag := cmd.Flags().Changed("ignore")
+	hasSingleLineFlag := cmd.Flags().Changed("single-line")
+	useOverride := backfillOverride || hasIgnoreFlag || hasSingleLineFlag
+
+	if useOverride {
+		fmt.Printf("Using CLI flags for recalculation:\n")
+		if hasIgnoreFlag {
+			fmt.Printf("  --ignore: %v\n", backfillIgnorePatterns)
+		}
+		if hasSingleLineFlag {
+			fmt.Printf("  --single-line: %v\n", backfillSingleLine)
+		}
+		fmt.Println()
+	}
+
 	updatedCount := 0
 	skippedCount := 0
 
@@ -438,6 +479,31 @@ func runBackfill(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
+		// Determine which flags to use
+		var ignorePatterns []string
+		var singleLine bool
+
+		if useOverride {
+			// Use CLI flags (override)
+			if hasIgnoreFlag {
+				ignorePatterns = backfillIgnorePatterns
+			} else {
+				ignorePatterns = []string{}
+			}
+			if hasSingleLineFlag {
+				singleLine = backfillSingleLine
+			} else {
+				singleLine = false
+			}
+		} else {
+			// Use saved flags from config (default behavior)
+			ignorePatterns = summary.Config.IgnorePatterns
+			if ignorePatterns == nil {
+				ignorePatterns = []string{}
+			}
+			singleLine = summary.Config.SingleLine
+		}
+
 		// Recalculate metrics for all results
 		needsUpdate := false
 		for i := range summary.Results {
@@ -452,8 +518,8 @@ func runBackfill(cmd *cobra.Command, args []string) error {
 				continue
 			}
 
-			// Recalculate all metrics using empty ignorePatterns and singleLine=false
-			metrics := CalculateAccuracyMetrics(groundTruth, summary.Results[i].ProviderResponse, []string{}, false)
+			// Recalculate all metrics
+			metrics := CalculateAccuracyMetrics(groundTruth, summary.Results[i].ProviderResponse, ignorePatterns, singleLine)
 
 			// Check if we need to update any metrics
 			if summary.Results[i].CharacterAccuracy != metrics.CharacterAccuracy ||
