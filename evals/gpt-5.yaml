@@ -22,7 +22,7 @@ results:
         It is not more than ten minutes since I have heard a very extraordinary letter of yours, to Mr Fairfax, read to the House of assembly, in this city, the whole of which is false and malignant, evidently done and with much artifice and care to injure me and gratify Horton Fairfax and other of my personal enemies; you state positive, that I pirated Mr Cartwright’s [—] machine and sold it to you as wholly my own, this is untrue. I always informed you that Mr Cartwright had made such a machine; I introduced you to him by letter, would a pirate wishing to conceal his fraud have done so? I made one from memory with some alterations, the laws of [illegible] permitted patents for improvements; you were to give me something for it; I lent you in your distress more than I ever received; but if you had reason to complain of this transaction why not do it to me within the last ten years? You say I received from Aaron Vail [illegible] papers and had them for several months and that you can well believe it, because [text continues off page].
       charactersimilarity: 0.7676518883415435
       characteraccuracy: 0.7457627118644068
-      wordsimilarity: 0.8092105263157895
+      wordsimilarity: 0.7798165137614679
       wordaccuracy: 0.7614213197969544
       worderrorrate: 0.23857868020304562
       totalwordsoriginal: 197
@@ -44,7 +44,7 @@ results:
         If you want, I can try another pass focusing on specific lines you care about, or apply image enhancement to reduce the [illegible] spots.
       charactersimilarity: 0.6599655370476738
       characteraccuracy: 0.5817543859649124
-      wordsimilarity: 0.6894767107533065
+      wordsimilarity: 0.6185567010309279
       wordaccuracy: 0.5657370517928286
       worderrorrate: 0.4342629482071714
       totalwordsoriginal: 251
@@ -72,7 +72,7 @@ results:
         Robert Fulton
       charactersimilarity: 0.858843537414966
       characteraccuracy: 0.8571428571428572
-      wordsimilarity: 0.8838028169014085
+      wordsimilarity: 0.8076923076923077
       wordaccuracy: 0.8076923076923077
       worderrorrate: 0.1923076923076923
       totalwordsoriginal: 104
@@ -107,7 +107,7 @@ results:
         Obedt Robt Fulton
       charactersimilarity: 0.8513274336283185
       characteraccuracy: 0.8460176991150442
-      wordsimilarity: 0.9044943820224719
+      wordsimilarity: 0.8041237113402062
       wordaccuracy: 0.8247422680412371
       worderrorrate: 0.17525773195876293
       totalwordsoriginal: 97
@@ -149,7 +149,7 @@ results:
         The Governor of Virginia.
       charactersimilarity: 0.8494983277591973
       characteraccuracy: 0.8444816053511706
-      wordsimilarity: 0.9638095238095238
+      wordsimilarity: 0.8953488372093024
       wordaccuracy: 0.9176470588235294
       worderrorrate: 0.08235294117647063
       totalwordsoriginal: 85
@@ -186,7 +186,7 @@ results:
         We are all well, and as happy as other Folks for the present.
       charactersimilarity: 0.7343999999999999
       characteraccuracy: 0.7284552845528456
-      wordsimilarity: 0.8165584415584416
+      wordsimilarity: 0.7241379310344828
       wordaccuracy: 0.7047619047619047
       worderrorrate: 0.2952380952380953
       totalwordsoriginal: 105
@@ -210,7 +210,7 @@ results:
         London
       charactersimilarity: 0.26732673267326734
       characteraccuracy: -0.20967741935483875
-      wordsimilarity: 0.40594059405940597
+      wordsimilarity: 0.4
       wordaccuracy: 0
       worderrorrate: 1
       totalwordsoriginal: 9
@@ -240,7 +240,7 @@ results:
         Charles Dickens
       charactersimilarity: 0.7953890489913544
       characteraccuracy: 0.7765042979942693
-      wordsimilarity: 0.9166666666666666
+      wordsimilarity: 0.7272727272727273
       wordaccuracy: 0.8076923076923077
       worderrorrate: 0.1923076923076923
       totalwordsoriginal: 52
@@ -278,7 +278,7 @@ results:
         Colo. Smith.
       charactersimilarity: 0.8636977058029689
       characteraccuracy: 0.8596491228070176
-      wordsimilarity: 0.9050279329608939
+      wordsimilarity: 0.8115942028985508
       wordaccuracy: 0.8246268656716418
       worderrorrate: 0.17537313432835822
       totalwordsoriginal: 268
@@ -316,7 +316,7 @@ results:
         Enclosures.
       charactersimilarity: 0.7273838630806846
       characteraccuracy: 0.7273838630806846
-      wordsimilarity: 0.986863711001642
+      wordsimilarity: 0.9649122807017544
       wordaccuracy: 0.9646017699115044
       worderrorrate: 0.03539823008849563
       totalwordsoriginal: 113
@@ -365,7 +365,7 @@ results:
         [There are a few small ink marks/notations in the left margin that are unreadable.]
       charactersimilarity: 0.5254777070063694
       characteraccuracy: 0.35506241331484045
-      wordsimilarity: 0.5606874328678839
+      wordsimilarity: 0.44654088050314467
       wordaccuracy: 0.2660550458715596
       worderrorrate: 0.7339449541284404
       totalwordsoriginal: 109
@@ -404,7 +404,7 @@ results:
         I have made a purchase of 50 Bushells Corn at 4/9 pr Bushell, have bought no [Hay] as yet but expect in a few Days I shall be able to get some as I have a Man to look out for such…
       charactersimilarity: 0.7170818505338079
       characteraccuracy: 0.7090747330960854
-      wordsimilarity: 0.7641255605381165
+      wordsimilarity: 0.7047619047619047
       wordaccuracy: 0.725
       worderrorrate: 0.275
       totalwordsoriginal: 200
@@ -426,7 +426,7 @@ results:
         P.S. please send by the waggon some [oakum] and nails for repairing the [boats].
       charactersimilarity: 0.7022831050228311
       characteraccuracy: 0.6714836223506744
-      wordsimilarity: 0.7602927721866423
+      wordsimilarity: 0.6473429951690821
       wordaccuracy: 0.6684782608695652
       worderrorrate: 0.3315217391304348
       totalwordsoriginal: 184
@@ -473,7 +473,7 @@ results:
         for it please deliver
       charactersimilarity: 0.4192825112107623
       characteraccuracy: -0.01945525291828787
-      wordsimilarity: 0.46485260770975056
+      wordsimilarity: 0.37209302325581395
       wordaccuracy: -0.20454545454545459
       worderrorrate: 1.2045454545454546
       totalwordsoriginal: 44
@@ -498,7 +498,7 @@ results:
         Victoria
       charactersimilarity: 0.6935483870967742
       characteraccuracy: 0.6774193548387097
-      wordsimilarity: 0.7610619469026548
+      wordsimilarity: 0.5714285714285714
       wordaccuracy: 0.6190476190476191
       worderrorrate: 0.38095238095238093
       totalwordsoriginal: 21
@@ -528,7 +528,7 @@ results:
         If you can share a higher‑resolution image or additional pages, I can refine the unclear portions.
       charactersimilarity: 0.5876726886291179
       characteraccuracy: 0.5205647636586863
-      wordsimilarity: 0.6092750533049041
+      wordsimilarity: 0.4683908045977011
       wordaccuracy: 0.44342507645259943
       worderrorrate: 0.5565749235474006
       totalwordsoriginal: 327
@@ -545,7 +545,7 @@ results:
       providerresponse: "Here’s a best‑effort transcription. Unclear words are marked with [?] or [illegible].\n\nThere is many things that makes war unpleasant. Death in its natural state has no horror, but in battle there is no certainty in the fate or doom of any person. There a man may bee shot all to pieces by the murderous shells or he may bee slightly wounded & then bee sent to a hospital & there falls into the hands [of those] that cares not whether he lives or dies. There he is neglected & left to bear his suffering when there is no kind friend near to sooth his pains & drive away the gloom that hangs over his sinking spirits, [health?] and kind [words?] from those at a distance hundreds of miles [illegible]. [The] soldier [who was wounded at the] [first?] of the evening [died] there & there [illegible] not the morrow of his [rest?]—dead, though [illegible]. It was tolerable [illegible]. It has pleased the divine ruler that I bee spared to the present time though my time now may bee growing short & now for aught I know it’s near at hand, but as a soldier I hope that I may see the end of this wicked war & again see our country in peace & prosperity. Times are very hard here but now we get my heart rations—only 1/2 pound of bacon & 1/2 pound of flour to the man per day—but still I never hear a man grumble; we are all content & are now resigned to the fate of this war. The men are all in fine spirits; some has a hope that the war is almost at an end, but for myself last night I was as dark now as I [have been] since the [war began]. [God grant] our happy country [illegible]. \n\nIf you can share a higher‑resolution scan or close‑ups of the hard‑to‑read areas, I can refine the transcription."
       charactersimilarity: 0.6355835240274599
       characteraccuracy: 0.6321510297482837
-      wordsimilarity: 0.626970227670753
+      wordsimilarity: 0.5119760479041916
       wordaccuracy: 0.5239520958083832
       worderrorrate: 0.4760479041916168
       totalwordsoriginal: 334
@@ -591,7 +591,7 @@ results:
         bin poorly [illegible] for this winter in the way of blankets [illegible]
       charactersimilarity: 0.67642186637217
       characteraccuracy: 0.6512309495896835
-      wordsimilarity: 0.6917127071823204
+      wordsimilarity: 0.625
       wordaccuracy: 0.6456456456456456
       worderrorrate: 0.35435435435435436
       totalwordsoriginal: 333
@@ -608,7 +608,7 @@ results:
       providerresponse: "[Top margin: LLT]\n\nI do not see but what we git along just as well as the distrebution  \nthe comissary [dist?] them for two man first to go & help his self &  \neach man has from 5 to 6 blankets now we have no tents only 2 or 3  \nblankets to the man we can gater up every thing we have on our  \nshoulders & be ready to march at 5 minutes notice we are now  \nencamped on the Rappahannock River near Frederickburg & they are on  \nthe east side & we are on the west side & when we are on picket gard  \nwe can see them very plainly & we can see their encampments from  \nwhere we are now I recon you will be uneasy with this I am restlessing  \nconsiderable of mis[?] So no close give my love to all the family & to  \nCousin [—] give my respects also to the Garretts family I wou’d gladly  \nreceive a letter from her about friend & relation if she does not  \nthink her self above writing to a poor soldier I would write to her if  \nI knowed her address please excuse all bad wrighting & mistakes &  \nbelieve me to be your constant friend\n\nAllen Kirkham\n\nWright to me as soon this comes to hand Lizza\n\n[Bottom margin: LLB]"
       charactersimilarity: 0.712624584717608
       characteraccuracy: 0.7084717607973422
-      wordsimilarity: 0.7747349823321554
+      wordsimilarity: 0.6379310344827587
       wordaccuracy: 0.646551724137931
       worderrorrate: 0.35344827586206895
       totalwordsoriginal: 232
@@ -647,7 +647,7 @@ results:
         and am getting more weaker.
       charactersimilarity: 0.516352824578791
       characteraccuracy: 0.514370664023786
-      wordsimilarity: 0.8477905073649754
+      wordsimilarity: 0.7596899224806202
       wordaccuracy: 0.7751937984496124
       worderrorrate: 0.22480620155038755
       totalwordsoriginal: 129
@@ -712,7 +712,7 @@ results:
         Suffolk Va.
       charactersimilarity: 0.6453576864535768
       characteraccuracy: 0.6382488479262673
-      wordsimilarity: 0.7267175572519085
+      wordsimilarity: 0.6488549618320612
       wordaccuracy: 0.631578947368421
       worderrorrate: 0.368421052631579
       totalwordsoriginal: 247
@@ -747,7 +747,7 @@ results:
         Lehigh University Digital Library
       charactersimilarity: 0.8044692737430168
       characteraccuracy: 0.8002793296089385
-      wordsimilarity: 0.898379970544919
+      wordsimilarity: 0.7966101694915254
       wordaccuracy: 0.8125
       worderrorrate: 0.1875
       totalwordsoriginal: 112
@@ -801,7 +801,7 @@ results:
         Lehigh University Digital Library
       charactersimilarity: 0.6191806331471136
       characteraccuracy: 0.4780426599749059
-      wordsimilarity: 0.6578699340245051
+      wordsimilarity: 0.6170212765957447
       wordaccuracy: 0.5217391304347826
       worderrorrate: 0.4782608695652174
       totalwordsoriginal: 138
@@ -818,7 +818,7 @@ results:
       providerresponse: "Here is a best‑effort transcription of all legible text from the image. Illegible or uncertain words are noted in brackets.\n\n[Holograph letter from]  \nMrs Lincoln to J. R. Bartlett\n\nChicago. Nov 27th/65.\n\nHon John R. Bartlett.\n\nSir,\n\nYour letter, requesting the [autographs] and letters of condolence sent us, has been received. These tributes of respect & affection to the memory of my beloved husband, have come to us from every quarter of the civilized world, and so far as the autographs are concerned, they are at your service. As to the letters, very many of them, from the most distinguished persons of our own country and of Europe, I regret that it is impossible for me to comply with that portion of your request — so many persons\n\n[Right margin, near the postage stamp:]  \n[Bartlett]  \n[illegible]  \n[illegible] [John]"
       charactersimilarity: 0.5510204081632653
       characteraccuracy: 0.4155038759689923
-      wordsimilarity: 0.6007326007326007
+      wordsimilarity: 0.5652173913043479
       wordaccuracy: 0.4158415841584159
       worderrorrate: 0.5841584158415841
       totalwordsoriginal: 101
@@ -852,7 +852,7 @@ results:
         R. I.
       charactersimilarity: 0.7683215130023641
       characteraccuracy: 0.7659574468085106
-      wordsimilarity: 0.8482587064676617
+      wordsimilarity: 0.7702702702702703
       wordaccuracy: 0.7538461538461538
       worderrorrate: 0.24615384615384617
       totalwordsoriginal: 65
@@ -876,7 +876,7 @@ results:
         You will receive herewith inclosed Copies of several Acts of Congress vizt one of the 22nd inst. directing a copy of an Act of the 6th of March last respecting the controul of Congress by appeal in the last resort over all jurisdictions for deciding the legality of Captures on the high seas to be sent to the several States which is accordingly inclosed—Another of the 22nd May relative to the exchange of citizens in captivity with the Indians
       charactersimilarity: 0.8448979591836735
       characteraccuracy: 0.8234086242299794
-      wordsimilarity: 0.8870636550308009
+      wordsimilarity: 0.686046511627907
       wordaccuracy: 0.7558139534883721
       worderrorrate: 0.2441860465116279
       totalwordsoriginal: 86
@@ -904,7 +904,7 @@ results:
         His Excellency Governor Henry—
       charactersimilarity: 0.8976109215017065
       characteraccuracy: 0.8873720136518771
-      wordsimilarity: 0.9298245614035088
+      wordsimilarity: 0.6818181818181819
       wordaccuracy: 0.75
       worderrorrate: 0.25
       totalwordsoriginal: 44
@@ -974,7 +974,7 @@ results:
         practice. Our blessings so far [illegible].
       charactersimilarity: 0.19374313940724475
       characteraccuracy: 0.17930271167681244
-      wordsimilarity: 0.2339020363236104
+      wordsimilarity: 0.012779552715655007
       wordaccuracy: 0.009615384615384581
       worderrorrate: 0.9903846153846154
       totalwordsoriginal: 312
@@ -998,7 +998,7 @@ results:
         death of [Colden/Colonel Mayel/Mayes], though I believe it was sent in mercy to him. The last years of his life must have been years of misery to him. I trust he is now at rest & at peace. You must express my sympathy to the family, [which I] could [have] done without renewing the sad remembrance of their loss. You young people must have had a fine time in the absence of all your seniors. I hope you had a quantity of work done for your mother, the leaves all disposed of, the garden arranged, and all her things placed where she could find them. I fear her anxiety for the [advancement] of your operations, and the apprehension of their suffering in her absence, may have diminished the pleasure of her visit to the White House. This though is the fate of all good housewives. I had some young ones around me that are busy in their way arranging their establishments, making the most [—]
       charactersimilarity: 0.7481636935991606
       characteraccuracy: 0.7340659340659341
-      wordsimilarity: 0.7956932773109244
+      wordsimilarity: 0.7401129943502824
       wordaccuracy: 0.729483282674772
       worderrorrate: 0.270516717325228
       totalwordsoriginal: 329
@@ -1042,7 +1042,7 @@ results:
         [am invited this week/this evening ?].
       charactersimilarity: 0.7147335423197492
       characteraccuracy: 0.7090336134453781
-      wordsimilarity: 0.762303664921466
+      wordsimilarity: 0.6569767441860466
       wordaccuracy: 0.6727272727272727
       worderrorrate: 0.32727272727272727
       totalwordsoriginal: 165
@@ -1093,7 +1093,7 @@ results:
         If you can provide a higher‑resolution scan (300–600 dpi), better lighting/contrast, or separate images of each direction of writing, I can give a much more complete and accurate transcription.
       charactersimilarity: 0.4340909090909091
       characteraccuracy: 0.2462349397590361
-      wordsimilarity: 0.4496300512236767
+      wordsimilarity: 0.3441558441558441
       wordaccuracy: 0.18218623481781382
       worderrorrate: 0.8178137651821862
       totalwordsoriginal: 247
@@ -1134,7 +1134,7 @@ results:
         2
       charactersimilarity: 0.6535796766743649
       characteraccuracy: 0.5805555555555555
-      wordsimilarity: 0.6985981308411215
+      wordsimilarity: 0.56
       wordaccuracy: 0.484375
       worderrorrate: 0.515625
       totalwordsoriginal: 64
@@ -1159,7 +1159,7 @@ results:
         W. M. Rossetti
       charactersimilarity: 0.7916666666666666
       characteraccuracy: 0.7916666666666666
-      wordsimilarity: 0.9047619047619048
+      wordsimilarity: 0.7586206896551724
       wordaccuracy: 0.75
       worderrorrate: 0.25
       totalwordsoriginal: 28

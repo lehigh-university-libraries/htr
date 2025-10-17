@@ -37,7 +37,7 @@ results:
         months and that you can wiele belove it because
       charactersimilarity: 0.9161168708765316
       characteraccuracy: 0.8652988403211419
-      wordsimilarity: 0.9161168708765316
+      wordsimilarity: 0.7727272727272727
       wordaccuracy: 0.7817258883248731
       worderrorrate: 0.2182741116751269
       totalwordsoriginal: 197
@@ -80,7 +80,7 @@ results:
         you or any living been to stain my character with
       charactersimilarity: 0.8527696793002916
       characteraccuracy: 0.8189473684210526
-      wordsimilarity: 0.8527696793002916
+      wordsimilarity: 0.6294820717131474
       wordaccuracy: 0.6334661354581673
       worderrorrate: 0.3665338645418327
       totalwordsoriginal: 251
@@ -107,7 +107,7 @@ results:
         make alowement -
       charactersimilarity: 0.8028169014084507
       characteraccuracy: 0.7687074829931972
-      wordsimilarity: 0.8028169014084507
+      wordsimilarity: 0.6538461538461539
       wordaccuracy: 0.6923076923076923
       worderrorrate: 0.3076923076923077
       totalwordsoriginal: 104
@@ -141,7 +141,7 @@ results:
         Rob Fulton
       charactersimilarity: 0.8445692883895131
       characteraccuracy: 0.7911504424778761
-      wordsimilarity: 0.8445692883895131
+      wordsimilarity: 0.5876288659793815
       wordaccuracy: 0.5979381443298969
       worderrorrate: 0.4020618556701031
       totalwordsoriginal: 97
@@ -171,7 +171,7 @@ results:
         The Governor of Infinia.
       charactersimilarity: 0.7090558766859345
       characteraccuracy: 0.6020066889632107
-      wordsimilarity: 0.7090558766859345
+      wordsimilarity: 0.47058823529411764
       wordaccuracy: 0.48235294117647054
       worderrorrate: 0.5176470588235295
       totalwordsoriginal: 85
@@ -209,7 +209,7 @@ results:
         for the profent
       charactersimilarity: 0.7468805704099821
       characteraccuracy: 0.6878048780487804
-      wordsimilarity: 0.7468805704099821
+      wordsimilarity: 0.4380952380952381
       wordaccuracy: 0.4476190476190476
       worderrorrate: 0.5523809523809524
       totalwordsoriginal: 105
@@ -229,7 +229,7 @@ results:
         Thee Lane
       charactersimilarity: 0.38636363636363635
       characteraccuracy: 0.25806451612903225
-      wordsimilarity: 0.38636363636363635
+      wordsimilarity: 0.11111111111111116
       wordaccuracy: 0.11111111111111116
       worderrorrate: 0.8888888888888888
       totalwordsoriginal: 9
@@ -257,7 +257,7 @@ results:
         Sharksprechens
       charactersimilarity: 0.5925925925925926
       characteraccuracy: 0.4899713467048711
-      wordsimilarity: 0.5925925925925926
+      wordsimilarity: 0.3076923076923077
       wordaccuracy: 0.34615384615384615
       worderrorrate: 0.6538461538461539
       totalwordsoriginal: 52
@@ -301,7 +301,7 @@ results:
         Col : Smith
       charactersimilarity: 0.9153140437544107
       characteraccuracy: 0.8724696356275303
-      wordsimilarity: 0.9153140437544107
+      wordsimilarity: 0.7970479704797048
       wordaccuracy: 0.7985074626865671
       worderrorrate: 0.20149253731343286
       totalwordsoriginal: 268
@@ -339,7 +339,7 @@ results:
         Enclosures.
       charactersimilarity: 0.9884678747940692
       characteraccuracy: 0.7273838630806846
-      wordsimilarity: 0.9884678747940692
+      wordsimilarity: 0.9649122807017544
       wordaccuracy: 0.9646017699115044
       worderrorrate: 0.03539823008849563
       totalwordsoriginal: 113
@@ -381,7 +381,7 @@ results:
         afternoon fresh Aces ~ ~ N.C.
       charactersimilarity: 0.65424739195231
       characteraccuracy: 0.6019417475728155
-      wordsimilarity: 0.65424739195231
+      wordsimilarity: 0.4508196721311475
       wordaccuracy: 0.4495412844036697
       worderrorrate: 0.5504587155963303
       totalwordsoriginal: 109
@@ -426,7 +426,7 @@ results:
         some as I have a Man to look out for such
       charactersimilarity: 0.6810912511759173
       characteraccuracy: 0.6494661921708185
-      wordsimilarity: 0.6810912511759173
+      wordsimilarity: 0.54
       wordaccuracy: 0.5549999999999999
       worderrorrate: 0.44500000000000006
       totalwordsoriginal: 200
@@ -467,7 +467,7 @@ results:
         John wowendell
       charactersimilarity: 0.778238341968912
       characteraccuracy: 0.7148362235067438
-      wordsimilarity: 0.778238341968912
+      wordsimilarity: 0.5978260869565217
       wordaccuracy: 0.6195652173913043
       worderrorrate: 0.3804347826086957
       totalwordsoriginal: 184
@@ -498,7 +498,7 @@ results:
         of Sugs Hospital dans
       charactersimilarity: 0.36016949152542377
       characteraccuracy: 0.3268482490272373
-      wordsimilarity: 0.36016949152542377
+      wordsimilarity: 0.20454545454545459
       wordaccuracy: 0.20454545454545459
       worderrorrate: 0.7954545454545454
       totalwordsoriginal: 44
@@ -520,7 +520,7 @@ results:
         Kwhilians
       charactersimilarity: 0.5929203539823009
       characteraccuracy: 0.5161290322580645
-      wordsimilarity: 0.5929203539823009
+      wordsimilarity: 0.33333333333333337
       wordaccuracy: 0.38095238095238093
       worderrorrate: 0.6190476190476191
       totalwordsoriginal: 21
@@ -568,7 +568,7 @@ results:
         PR B
       charactersimilarity: 0.8400503778337531
       characteraccuracy: 0.8017188459177409
-      wordsimilarity: 0.8400503778337531
+      wordsimilarity: 0.6055045871559632
       wordaccuracy: 0.6391437308868502
       worderrorrate: 0.36085626911314983
       totalwordsoriginal: 327
@@ -616,7 +616,7 @@ results:
         mentalthis country
       charactersimilarity: 0.8502444987775061
       characteraccuracy: 0.7740274599542334
-      wordsimilarity: 0.8502444987775061
+      wordsimilarity: 0.6347305389221557
       wordaccuracy: 0.652694610778443
       worderrorrate: 0.34730538922155696
       totalwordsoriginal: 334
@@ -663,7 +663,7 @@ results:
         him poorly fr ded for this winter the way of blankets
       charactersimilarity: 0.8526130358191427
       characteraccuracy: 0.8264947245017585
-      wordsimilarity: 0.8526130358191427
+      wordsimilarity: 0.6726726726726726
       wordaccuracy: 0.7117117117117118
       worderrorrate: 0.28828828828828823
       totalwordsoriginal: 333
@@ -704,7 +704,7 @@ results:
         LLA
       charactersimilarity: 0.8109540636042403
       characteraccuracy: 0.7416943521594684
-      wordsimilarity: 0.8109540636042403
+      wordsimilarity: 0.6163793103448276
       wordaccuracy: 0.6293103448275862
       worderrorrate: 0.3706896551724138
       totalwordsoriginal: 232
@@ -741,7 +741,7 @@ results:
         me, and am getting very weak
       charactersimilarity: 0.8641571194762684
       characteraccuracy: 0.5232903865213082
-      wordsimilarity: 0.8641571194762684
+      wordsimilarity: 0.751937984496124
       wordaccuracy: 0.7596899224806202
       worderrorrate: 0.24031007751937983
       totalwordsoriginal: 129
@@ -803,7 +803,7 @@ results:
         I will send you won account
       charactersimilarity: 0.2936708860759494
       characteraccuracy: 0.2695852534562212
-      wordsimilarity: 0.2936708860759494
+      wordsimilarity: 0.06072874493927127
       wordaccuracy: 0.06477732793522262
       worderrorrate: 0.9352226720647774
       totalwordsoriginal: 247
@@ -840,7 +840,7 @@ results:
         Lehigh University Digital Library
       charactersimilarity: 0.8634294385432474
       characteraccuracy: 0.7597765363128491
-      wordsimilarity: 0.8634294385432474
+      wordsimilarity: 0.6923076923076923
       wordaccuracy: 0.7053571428571428
       worderrorrate: 0.2946428571428572
       totalwordsoriginal: 112
@@ -882,7 +882,7 @@ results:
         Lehigh University Digital Library
       charactersimilarity: 0.8555691554467564
       characteraccuracy: 0.7917189460476788
-      wordsimilarity: 0.8555691554467564
+      wordsimilarity: 0.78
       wordaccuracy: 0.782608695652174
       worderrorrate: 0.21739130434782605
       totalwordsoriginal: 138
@@ -923,7 +923,7 @@ results:
         your request- To many prendmed,
       charactersimilarity: 0.7849293563579278
       characteraccuracy: 0.7457364341085271
-      wordsimilarity: 0.7849293563579278
+      wordsimilarity: 0.6050420168067228
       wordaccuracy: 0.5544554455445545
       worderrorrate: 0.4455445544554455
       totalwordsoriginal: 101
@@ -956,7 +956,7 @@ results:
         R. 2.
       charactersimilarity: 0.8034825870646767
       characteraccuracy: 0.7257683215130024
-      wordsimilarity: 0.8034825870646767
+      wordsimilarity: 0.5384615384615384
       wordaccuracy: 0.5076923076923077
       worderrorrate: 0.49230769230769234
       totalwordsoriginal: 65
@@ -986,7 +986,7 @@ results:
         Indiant
       charactersimilarity: 0.8607068607068606
       characteraccuracy: 0.8275154004106776
-      wordsimilarity: 0.8607068607068606
+      wordsimilarity: 0.6333333333333333
       wordaccuracy: 0.7093023255813953
       worderrorrate: 0.2906976744186047
       totalwordsoriginal: 86
@@ -1012,7 +1012,7 @@ results:
         His Excellency Governor Henry
       charactersimilarity: 0.7773851590106007
       characteraccuracy: 0.7337883959044369
-      wordsimilarity: 0.7773851590106007
+      wordsimilarity: 0.5
       wordaccuracy: 0.5681818181818181
       worderrorrate: 0.4318181818181819
       totalwordsoriginal: 44
@@ -1076,7 +1076,7 @@ results:
         of the boats & their hering
       charactersimilarity: 0.30343622597553876
       characteraccuracy: 0.28278915329275045
-      wordsimilarity: 0.30343622597553876
+      wordsimilarity: 0.07692307692307687
       wordaccuracy: 0.09294871794871795
       worderrorrate: 0.907051282051282
       totalwordsoriginal: 312
@@ -1123,7 +1123,7 @@ results:
         face, I amnot hilfe agutting the their establishments, making the ourt
       charactersimilarity: 0.2972658522396743
       characteraccuracy: 0.28736263736263734
-      wordsimilarity: 0.2972658522396743
+      wordsimilarity: 0.0942249240121581
       wordaccuracy: 0.09726443768996962
       worderrorrate: 0.9027355623100304
       totalwordsoriginal: 329
@@ -1163,7 +1163,7 @@ results:
         w "an invitation this and be thewedding
       charactersimilarity: 0.6983425414364641
       characteraccuracy: 0.64390756302521
-      wordsimilarity: 0.6983425414364641
+      wordsimilarity: 0.4303030303030303
       wordaccuracy: 0.49090909090909096
       worderrorrate: 0.509090909090909
       totalwordsoriginal: 165
@@ -1203,7 +1203,7 @@ results:
         his muting , lam trente a good hand a
       charactersimilarity: 0.447452229299363
       characteraccuracy: 0.41792168674698793
-      wordsimilarity: 0.447452229299363
+      wordsimilarity: 0.25506072874493924
       wordaccuracy: 0.26315789473684215
       worderrorrate: 0.7368421052631579
       totalwordsoriginal: 247
@@ -1237,7 +1237,7 @@ results:
         2
       charactersimilarity: 0.7698863636363636
       characteraccuracy: 0.6805555555555556
-      wordsimilarity: 0.7698863636363636
+      wordsimilarity: 0.4871794871794872
       wordaccuracy: 0.390625
       worderrorrate: 0.609375
       totalwordsoriginal: 64
@@ -1260,7 +1260,7 @@ results:
         the faithfully your ,
       charactersimilarity: 0.7321428571428572
       characteraccuracy: 0.640625
-      wordsimilarity: 0.7321428571428572
+      wordsimilarity: 0.4285714285714286
       wordaccuracy: 0.4642857142857143
       worderrorrate: 0.5357142857142857
       totalwordsoriginal: 28

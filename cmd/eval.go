@@ -128,13 +128,13 @@ Results are sorted by word accuracy (best to worst) and printed to terminal.`,
 
 var backfillCmd = &cobra.Command{
 	Use:   "backfill",
-	Short: "Backfill character accuracy for existing evaluation files",
-	Long: `Scan all YAML files in the evals directory and calculate missing character accuracy values.
+	Short: "Backfill metrics for existing evaluation files",
+	Long: `Scan all YAML files in the evals directory and recalculate metrics for existing evaluations.
 
 This command reads the provider response and ground truth from existing evaluation files,
-calculates the character accuracy metric, and updates the YAML files in place.
+recalculates metrics (character accuracy, word similarity), and updates the YAML files in place.
 
-This is useful after upgrading to a version that includes character accuracy metrics.`,
+This is useful after upgrading to a version with improved metric calculations.`,
 	RunE: runBackfill,
 	Args: cobra.NoArgs,
 }
@@ -438,20 +438,28 @@ func runBackfill(cmd *cobra.Command, args []string) error {
 			continue
 		}
 
-		// Check if any results need backfilling
+		// Recalculate metrics for all results
 		needsUpdate := false
 		for i := range summary.Results {
-			if summary.Results[i].CharacterAccuracy == 0.0 && summary.Results[i].ProviderResponse != "" {
-				// Calculate character accuracy from stored data
-				groundTruth, err := readTextFile(summary.Results[i].TranscriptPath)
-				if err != nil {
-					fmt.Printf("Warning: failed to read transcript %s: %v\n", summary.Results[i].TranscriptPath, err)
-					continue
-				}
+			if summary.Results[i].ProviderResponse == "" {
+				continue
+			}
 
-				// Calculate metrics using empty ignorePatterns and singleLine=false
-				metrics := CalculateAccuracyMetrics(groundTruth, summary.Results[i].ProviderResponse, []string{}, false)
+			// Read ground truth from stored path
+			groundTruth, err := readTextFile(summary.Results[i].TranscriptPath)
+			if err != nil {
+				fmt.Printf("Warning: failed to read transcript %s: %v\n", summary.Results[i].TranscriptPath, err)
+				continue
+			}
+
+			// Recalculate all metrics using empty ignorePatterns and singleLine=false
+			metrics := CalculateAccuracyMetrics(groundTruth, summary.Results[i].ProviderResponse, []string{}, false)
+
+			// Check if we need to update any metrics
+			if summary.Results[i].CharacterAccuracy != metrics.CharacterAccuracy ||
+				summary.Results[i].WordSimilarity != metrics.WordSimilarity {
 				summary.Results[i].CharacterAccuracy = metrics.CharacterAccuracy
+				summary.Results[i].WordSimilarity = metrics.WordSimilarity
 				needsUpdate = true
 			}
 		}
@@ -471,7 +479,7 @@ func runBackfill(cmd *cobra.Command, args []string) error {
 
 	fmt.Printf("\nBackfill complete:\n")
 	fmt.Printf("  Updated: %d files\n", updatedCount)
-	fmt.Printf("  Skipped: %d files (already have character accuracy)\n", skippedCount)
+	fmt.Printf("  Skipped: %d files (metrics already up to date)\n", skippedCount)
 
 	return nil
 }
@@ -895,6 +903,52 @@ func calculateSimilarity(s1, s2 string) float64 {
 	return 1.0 - float64(distance)/float64(maxLen)
 }
 
+func calculateWordSimilarity(words1, words2 []string) float64 {
+	maxLen := max(len(words1), len(words2))
+	if maxLen == 0 {
+		return 1.0
+	}
+	distance := wordLevelLevenshteinDistance(words1, words2)
+	return 1.0 - float64(distance)/float64(maxLen)
+}
+
+func wordLevelLevenshteinDistance(words1, words2 []string) int {
+	len1, len2 := len(words1), len(words2)
+	if len1 == 0 {
+		return len2
+	}
+	if len2 == 0 {
+		return len1
+	}
+
+	matrix := make([][]int, len1+1)
+	for i := range matrix {
+		matrix[i] = make([]int, len2+1)
+	}
+
+	for i := 0; i <= len1; i++ {
+		matrix[i][0] = i
+	}
+	for j := 0; j <= len2; j++ {
+		matrix[0][j] = j
+	}
+
+	for i := 1; i <= len1; i++ {
+		for j := 1; j <= len2; j++ {
+			cost := 0
+			if words1[i-1] != words2[j-1] {
+				cost = 1
+			}
+			matrix[i][j] = min(
+				min(matrix[i-1][j]+1, matrix[i][j-1]+1), // deletion, insertion
+				matrix[i-1][j-1]+cost,                   // substitution
+			)
+		}
+	}
+
+	return matrix[len1][len2]
+}
+
 func calculateWordLevelMetrics(orig, trans []string) (float64, int, int, int, int) {
 	m, n := len(orig), len(trans)
 	dp := make([][]int, m+1)
@@ -996,7 +1050,7 @@ func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []str
 
 	origWords := strings.Fields(origProcessed)
 	transWords := strings.Fields(transProcessed)
-	wordSim := calculateSimilarity(strings.Join(origWords, " "), strings.Join(transWords, " "))
+	wordSim := calculateWordSimilarity(origWords, transWords)
 	wordAcc, correct, subs, dels, ins := calculateWordLevelMetrics(origWords, transWords)
 
 	wer := 1.0 - wordAcc

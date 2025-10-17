@@ -27,7 +27,7 @@ results:
         The text appears to be a handwritten letter dated January 28, 1815, addressed to Nathaniel Cutting. The content discusses a dispute over a machine, accusations of piracy, and a misunderstanding regarding patents and inventions. The handwriting is somewhat difficult to decipher in places, but the above transcription captures the essence of the letter.
       charactersimilarity: 0.6215112321307011
       characteraccuracy: 0.5013380909901873
-      wordsimilarity: 0.6609706083390294
+      wordsimilarity: 0.5992217898832685
       wordaccuracy: 0.4873096446700508
       worderrorrate: 0.5126903553299492
       totalwordsoriginal: 197
@@ -76,7 +76,7 @@ results:
         Please note that the text contains several spelling errors, inconsistencies, and unclear words, which are preserved as they appear in the image.
       charactersimilarity: 0.7230671736375158
       characteraccuracy: 0.6912280701754385
-      wordsimilarity: 0.7607868020304569
+      wordsimilarity: 0.6725352112676056
       wordaccuracy: 0.6374501992031872
       worderrorrate: 0.36254980079681276
       totalwordsoriginal: 251
@@ -100,7 +100,7 @@ results:
         ```
       charactersimilarity: 0.7193877551020409
       characteraccuracy: 0.717687074829932
-      wordsimilarity: 0.7491228070175439
+      wordsimilarity: 0.6880733944954128
       wordaccuracy: 0.6826923076923077
       worderrorrate: 0.3173076923076923
       totalwordsoriginal: 104
@@ -130,7 +130,7 @@ results:
         The text appears to be slightly repetitive and contains some inconsistencies, which might be due to the nature of the handwriting or the scanning process. The main content is about a trip to Washington to seek amendments to patent laws and a request for introductions to influential people.
       charactersimilarity: 0.5319634703196348
       characteraccuracy: 0.2619469026548673
-      wordsimilarity: 0.5655172413793104
+      wordsimilarity: 0.43506493506493504
       wordaccuracy: 0.1649484536082474
       worderrorrate: 0.8350515463917526
       totalwordsoriginal: 97
@@ -175,7 +175,7 @@ results:
         The text is a formal communication regarding the ratification of a treaty between the United States of America and the United Netherlands, dated February 8, 1703. It is addressed to the Governor of Virginia.
       charactersimilarity: 0.5778061224489797
       characteraccuracy: 0.43311036789297663
-      wordsimilarity: 0.62905317769131
+      wordsimilarity: 0.5275590551181102
       wordaccuracy: 0.3058823529411765
       worderrorrate: 0.6941176470588235
       totalwordsoriginal: 85
@@ -222,7 +222,7 @@ results:
         The text appears to be a handwritten letter with some variations in spelling and punctuation, typical of the time period. The signature at the bottom is "John Franklin.
       charactersimilarity: 0.5420792079207921
       characteraccuracy: 0.38861788617886184
-      wordsimilarity: 0.5843828715365239
+      wordsimilarity: 0.4895104895104895
       wordaccuracy: 0.35238095238095235
       worderrorrate: 0.6476190476190476
       totalwordsoriginal: 105
@@ -249,7 +249,7 @@ results:
         ```
       charactersimilarity: 0.19148936170212771
       characteraccuracy: -0.22580645161290325
-      wordsimilarity: 0.28260869565217395
+      wordsimilarity: 0.06666666666666665
       wordaccuracy: -0.5555555555555556
       worderrorrate: 1.5555555555555556
       totalwordsoriginal: 9
@@ -266,7 +266,7 @@ results:
       providerresponse: "Here is the text extracted from the image:\n\n---\n\n**Liverpool,  \nMonday morning 3rd June 1848  \nMy dear Sir,**\n\nI cannot remember in  \nthe multiplicity of letters I have  \nwritten about these plays, whether  \nI have written you what is on the other  \nside, for a handbill was struck  \nabout the Theatre.  \n\nan immense house here,  \nWright!  \n\n**Charles Dickens**  \n\n---\n\nThe signature at the bottom appears to be \"Charles Dickens.\" The text is somewhat repetitive and contains some inconsistencies, which might be due to the nature of the handwritten note."
       charactersimilarity: 0.4774774774774775
       characteraccuracy: 0.15759312320916907
-      wordsimilarity: 0.5114068441064639
+      wordsimilarity: 0.4044943820224719
       wordaccuracy: 0.038461538461538436
       worderrorrate: 0.9615384615384616
       totalwordsoriginal: 52
@@ -283,7 +283,7 @@ results:
       providerresponse: "Certainly! Here is the text extracted from the image:\n\n---\n\n**ALS 3**\n\nDear Sir,\n\nParis, June 16, 1786.\n\nSince the receipt of your favor of May 21, I have been in daily expectation of receiving from you a particular state of the cost of my press, etc. Mr. Paradis wrote one that it was about five guineas, but I knew there would still be some additions. The moment you will be so good as to favor me with this information, I will remit you a bill for that and the eight guineas I formerly took the liberty of drawing on you for. In addition to this, I must give you another piece of trouble. That is to desire Mr. Woodmason, on my part, to send me a copying press (such as the one he sent me before) with spare springs, damping boxes, damping boxes complete, three reams of copying paper, and a stock of inkpens, order proportioned to that. This he must direct to me. I intend to the care of Mr. Garvey in Rouen, sending me a bill of the cost, which I will remit immediately, unless he should prefer drawing on me, in which case his draft shall be paid on sight.\n\nIf you have any news from America, it will be very acceptable.\n\nI have received no journals of Congress of later date than October 10, nor any letter from the Office for Foreign Affairs of later date than January.\n\nThere is a violent contest arisen here between the king and parliament of Bordeaux. When the papers are public, I will send them to you.\n\nAdieu, my dear Sir,\n\nYours affectionately,\n\n---\n\n**Col. C. Smith**  \n**W. Jefferson**  \n\n--- \n\nThis text appears to be a handwritten letter from Thomas Jefferson to Colonel C. Smith, dated June 16, 1786, in Paris. The letter discusses various matters, including the cost of a press, requests for supplies, and updates on political events in France."
       charactersimilarity: 0.71671388101983
       characteraccuracy: 0.6545209176788125
-      wordsimilarity: 0.7520045819014891
+      wordsimilarity: 0.653250773993808
       wordaccuracy: 0.6119402985074627
       worderrorrate: 0.3880597014925373
       totalwordsoriginal: 268
@@ -300,7 +300,7 @@ results:
       providerresponse: "Here is the text extracted from the image:\n\n---\n\n**THE WHITE HOUSE,  \nWASHINGTON.**\n\n**Oyster Bay, N.Y.,  \nAugust 14, 1905.**\n\nMy dear Miss Beaux:\n\nIn spite of your prohibition I do answer your letter, and I return the clippings, for you must be proud of them. It was a fine thing to have a man willing to act as your brother-in-law has acted. It is the kind of thing that is particularly pleasant to me to come across, for, my dear Miss Beaux, I so often see what is mean and sordid in our life that that I like to have the good deeds called to my attention too.\n\nWith all thanks,\n\nSincerely yours,\n\n**Theodore Roosevelt**\n\n---\n\n**Miss Cecilia Beaux,  \nEast Gloucester, Mass.**\n\nEnclosures.\n\n---\n\n**& Probation to the Chamberlain's election, doubt, proceeding of little** (Handwritten note at the bottom)"
       charactersimilarity: 0.58679706601467
       characteraccuracy: 0.578239608801956
-      wordsimilarity: 0.7646310432569975
+      wordsimilarity: 0.7338129496402878
       wordaccuracy: 0.6814159292035398
       worderrorrate: 0.31858407079646023
       totalwordsoriginal: 113
@@ -317,7 +317,7 @@ results:
       providerresponse: "Here is the text extracted from the image:\n\n---\n\n**Mif. Nicklin & Griffiths  \nChilidae.**\n\nGentlemen\n\nThe pilot is just going to leave us and will take his opportunity to express you my expression of my gratitude for your confidence and friendship. I am willing to do everything in my power to promote your interests and shall give you every information respecting the situation of the Colony and other places where I expect to go. I shall be ready and if I can do anything for the advantage of our common interests.\n\nI have the honour to be\n\nGentlemen,\n\nYour much obliged friend\n\nLouis Dolomaitilles\n\n---\n\n**Saturday 13th Nov. 2 o'clock in the afternoon Fresh Meadows, N.C.E.**\n\n---\n\n**Brother in Yard of Lafayette.**"
       charactersimilarity: 0.6102635228848821
       characteraccuracy: 0.5922330097087378
-      wordsimilarity: 0.6704545454545454
+      wordsimilarity: 0.5327868852459017
       wordaccuracy: 0.5504587155963303
       worderrorrate: 0.4495412844036697
       totalwordsoriginal: 109
@@ -378,7 +378,7 @@ results:
         - The content discusses logistical matters, including the need to send provisions to Johnstown, the increase in the number of men stationed there, and the purchase of corn and other supplies.
       charactersimilarity: 0.5179417738659444
       characteraccuracy: 0.35943060498220636
-      wordsimilarity: 0.5540448674371177
+      wordsimilarity: 0.49640287769784175
       wordaccuracy: 0.33999999999999997
       worderrorrate: 0.66
       totalwordsoriginal: 200
@@ -429,7 +429,7 @@ results:
         ```
       charactersimilarity: 0.6801541425818882
       characteraccuracy: 0.6714836223506744
-      wordsimilarity: 0.7212435233160621
+      wordsimilarity: 0.5706521739130435
       wordaccuracy: 0.5923913043478262
       worderrorrate: 0.40760869565217384
       totalwordsoriginal: 184
@@ -446,7 +446,7 @@ results:
       providerresponse: "as follows:\n\n---\n\n**Left Side:**\n```\nmilliard\n```\n\n**Right Side:**\n```\nALS\n330\n23 June 1811\n\nDear Sir,\n\nI have promised\nand my body figure to\nthe members of the\nmedical Congress, who are\ncollecting body figures to\nillustrate bandaging to\nEo. ig. 16 St. Luke MD\nof Surgeon Hospital and\nfor its plan and delivery\n```\n\n--- \n\nThe text appears to be a handwritten note, with some parts of the text being difficult to decipher due to the cursive style and potential smudging. The date \"23 June 1811\" is clearly visible at the top right."
       charactersimilarity: 0.3245283018867925
       characteraccuracy: -0.4085603112840468
-      wordsimilarity: 0.3505747126436781
+      wordsimilarity: 0.21875
       wordaccuracy: -0.6818181818181819
       worderrorrate: 1.6818181818181819
       totalwordsoriginal: 44
@@ -473,7 +473,7 @@ results:
         The signature at the bottom appears to be "Vukhlinin." The text is somewhat unclear in places, so there might be slight variations in interpretation. Let me know if you need further clarification!
       charactersimilarity: 0.19634703196347036
       characteraccuracy: -1.8548387096774195
-      wordsimilarity: 0.21100917431192656
+      wordsimilarity: 0.1298701298701299
       wordaccuracy: -2.1904761904761907
       worderrorrate: 3.1904761904761907
       totalwordsoriginal: 21
@@ -503,7 +503,7 @@ results:
         The text appears to be a letter written during the American Civil War, discussing the state of the writer's brigade, the health of the army, and personal reflections on the war and its impact on the writer's family and comrades.
       charactersimilarity: 0.7110987172336866
       characteraccuracy: 0.6777163904235728
-      wordsimilarity: 0.7308337996642418
+      wordsimilarity: 0.5882352941176471
       wordaccuracy: 0.5688073394495412
       worderrorrate: 0.4311926605504588
       totalwordsoriginal: 327
@@ -529,7 +529,7 @@ results:
         The text appears to be a personal letter or diary entry discussing the hardships and horrors of war, the fate of soldiers, and the author's own experiences and hopes. The handwriting is cursive and somewhat difficult to read in places, which may account for some minor inconsistencies in transcription.
       charactersimilarity: 0.7395615866388309
       characteraccuracy: 0.7116704805491991
-      wordsimilarity: 0.7364016736401673
+      wordsimilarity: 0.6771653543307087
       wordaccuracy: 0.6407185628742516
       worderrorrate: 0.35928143712574845
       totalwordsoriginal: 334
@@ -555,7 +555,7 @@ results:
         The text appears to be a handwritten letter discussing political rumors, foreign intervention, and personal reflections on winter conditions and living arrangements.
       charactersimilarity: 0.7320261437908497
       characteraccuracy: 0.7057444314185228
-      wordsimilarity: 0.7347161572052402
+      wordsimilarity: 0.6440677966101696
       wordaccuracy: 0.6456456456456456
       worderrorrate: 0.35435435435435436
       totalwordsoriginal: 333
@@ -585,7 +585,7 @@ results:
         The text appears to be a handwritten letter, with some words repeated or misspelled, likely due to the style of writing or the condition of the document.
       charactersimilarity: 0.7091917591125199
       characteraccuracy: 0.6885382059800664
-      wordsimilarity: 0.7205414012738853
+      wordsimilarity: 0.5984251968503937
       wordaccuracy: 0.5818965517241379
       worderrorrate: 0.4181034482758621
       totalwordsoriginal: 232
@@ -602,7 +602,7 @@ results:
       providerresponse: "Here is the text extracted from the image:\n\n---\n\n**Camp near Suffolk, Va.  \nMay 12nd 1863**\n\nDear Mother,\n\nThe news of the 18th was received yesterday, and I was glad to hear from you one more and hear that you was well. Gamboy is not well and I am afraid he will not be soon. I cannot get any medicine down here for they have none, my bowels are some better but in a bad condition. I have that old disease in my back it is so lame that it hurts me to move and I went to the Doctor yesterday and he told me to bathe it with cold water. I cannot cut any thing as it passes right through me, and am getting very weak.\n\n---\n\nThe text appears to be a handwritten letter, with some repetition and variations in wording, likely due to the style of writing or the condition of the paper."
       charactersimilarity: 0.4192269573835481
       characteraccuracy: 0.4182358771060456
-      wordsimilarity: 0.6023316062176165
+      wordsimilarity: 0.5192307692307692
       wordaccuracy: 0.4263565891472868
       worderrorrate: 0.5736434108527132
       totalwordsoriginal: 129
@@ -628,7 +628,7 @@ results:
         The text appears to be a handwritten letter with some repetition and variations in spelling, which is typical of cursive handwriting. The signature at the bottom is partially legible, but it seems to read something like "G. D. Richmond" or similar. The content suggests a wartime context, possibly related to the American Civil War, given the mention of a captain, a company ("Con. 'F'"), and the reference to whiskey and fighting.
       charactersimilarity: 0.5245775729646698
       characteraccuracy: 0.5207373271889402
-      wordsimilarity: 0.5556492411467117
+      wordsimilarity: 0.4089068825910931
       wordaccuracy: 0.41295546558704455
       worderrorrate: 0.5870445344129555
       totalwordsoriginal: 247
@@ -645,7 +645,7 @@ results:
       providerresponse: "Here is the text extracted from the image:\n\n---\n\n**Department of State  \nJune 5th 1804.**\n\nSir,\n\nAgreeably to an Act of Congress, entitled \"An Act for the more general promulgation of the Laws of the United States,\" passed 3rd March 1795, and an Act in addition thereto, passed on the 2nd March 1799, I have transmitted to the Collector of the Customs at Philadelphia, 1700 copies of the Laws of the United States, 2nd Session 7th Congress, being the proportion for the State of Pennsylvania. With a request that he would forward them to your Excellency.\n\nI have the honor to be, Sir,\n\nWith great respect,\n\nYour Obedient Servant,\n\nJames Madison\n\nHis Excellency  \nThe Governor  \nof the State of Pennsylvania\n\n---\n\n**Lehigh University Digital Library**"
       charactersimilarity: 0.7413333333333334
       characteraccuracy: 0.7248603351955307
-      wordsimilarity: 0.8417462482946794
+      wordsimilarity: 0.76
       wordaccuracy: 0.7589285714285714
       worderrorrate: 0.2410714285714286
       totalwordsoriginal: 112
@@ -683,7 +683,7 @@ results:
         **Mathew Carey Esquire**
       charactersimilarity: 0.8331257783312578
       characteraccuracy: 0.8281053952321205
-      wordsimilarity: 0.8902900378310215
+      wordsimilarity: 0.7931034482758621
       wordaccuracy: 0.8043478260869565
       worderrorrate: 0.19565217391304346
       totalwordsoriginal: 138
@@ -717,7 +717,7 @@ results:
         This text appears to be a handwritten letter from Mary Todd Lincoln to Hon. John R. Batlett, dated November 27, 1865, in Chicago. The letter discusses the resolutions and letters of condolence sent to her after the death of her husband, President Abraham Lincoln. She acknowledges the receipt of Batlett's request and indicates that while the resolutions are available, she regrets that she cannot comply with the request for the letters due to their number.
       charactersimilarity: 0.4285714285714286
       characteraccuracy: 0.010852713178294615
-      wordsimilarity: 0.47420814479638007
+      wordsimilarity: 0.418848167539267
       wordaccuracy: -0.07920792079207928
       worderrorrate: 1.0792079207920793
       totalwordsoriginal: 101
@@ -747,7 +747,7 @@ results:
         ```
       charactersimilarity: 0.6150341685649203
       characteraccuracy: 0.5957446808510638
-      wordsimilarity: 0.7195402298850575
+      wordsimilarity: 0.5875
       wordaccuracy: 0.5076923076923077
       worderrorrate: 0.49230769230769234
       totalwordsoriginal: 65
@@ -783,7 +783,7 @@ results:
         ```
       charactersimilarity: 0.839458413926499
       characteraccuracy: 0.8151950718685832
-      wordsimilarity: 0.8638132295719845
+      wordsimilarity: 0.7032967032967032
       wordaccuracy: 0.7558139534883721
       worderrorrate: 0.2441860465116279
       totalwordsoriginal: 86
@@ -820,7 +820,7 @@ results:
         ```
       charactersimilarity: 0.75
       characteraccuracy: 0.6928327645051194
-      wordsimilarity: 0.7784615384615384
+      wordsimilarity: 0.5384615384615384
       wordaccuracy: 0.5681818181818181
       worderrorrate: 0.4318181818181819
       totalwordsoriginal: 44
@@ -905,7 +905,7 @@ results:
         This text appears to be a handwritten letter or journal entry, likely from the 19th century, given the date and style. The content discusses people, their conditions, and logistical matters related to mail and steamers.
       charactersimilarity: 0.5936073059360731
       characteraccuracy: 0.5495296070835639
-      wordsimilarity: 0.6357615894039735
+      wordsimilarity: 0.49287749287749283
       wordaccuracy: 0.4455128205128205
       worderrorrate: 0.5544871794871795
       totalwordsoriginal: 312
@@ -931,7 +931,7 @@ results:
         Please note that some parts of the text are difficult to read accurately due to the handwriting style and potential smudges. If you need further clarification on specific sections, let me know!
       charactersimilarity: 0.2919186366135239
       characteraccuracy: 0.28956043956043953
-      wordsimilarity: 0.30017452006980805
+      wordsimilarity: 0.14893617021276595
       wordaccuracy: 0.14893617021276595
       worderrorrate: 0.851063829787234
       totalwordsoriginal: 329
@@ -979,7 +979,7 @@ results:
         ```
       charactersimilarity: 0.6466876971608833
       characteraccuracy: 0.6260504201680672
-      wordsimilarity: 0.6762430939226519
+      wordsimilarity: 0.45508982035928147
       wordaccuracy: 0.5333333333333333
       worderrorrate: 0.4666666666666667
       totalwordsoriginal: 165
@@ -1026,7 +1026,7 @@ results:
         Please note that the text appears to be handwritten and contains some inconsistencies, abbreviations, and possible errors. The transcription attempts to capture the content as accurately as possible.
       charactersimilarity: 0.4631024096385542
       characteraccuracy: 0.4555722891566265
-      wordsimilarity: 0.4792993630573248
+      wordsimilarity: 0.25506072874493924
       wordaccuracy: 0.2591093117408907
       worderrorrate: 0.7408906882591093
       totalwordsoriginal: 247
@@ -1043,7 +1043,7 @@ results:
       providerresponse: "Here is the text extracted from the image:\n\n---\n\n**ALS 691**\n\n56 Euston Sq. R.W.  \n97 June\n\nDear Tito,\n\nWhen last I consulted Dr. Trelawny about the sketch which you have an engraving of the Running of Thelwall's body, he tried upon one onion taken point - which indeed has arisen. I know not how. There are 3 figures towards the fire ground: but the only 2 - Trelawny (upwards of 6 feet high).\n\n---\n\nThe text appears to be a handwritten letter with some corrections and annotations. The date is noted as \"97 June,\" and the address is \"56 Euston Sq. R.W.\" The letter is addressed to \"Dear Tito\" and discusses a consultation with Dr. Trelawny regarding a sketch of Thelwall's body. The letter mentions an engraving, an onion, and the presence of three figures near a fire. The final note refers to Trelawny's height."
       charactersimilarity: 0.32515337423312884
       characteraccuracy: -0.5277777777777777
-      wordsimilarity: 0.3535980148883374
+      wordsimilarity: 0.3082191780821918
       wordaccuracy: -0.578125
       worderrorrate: 1.578125
       totalwordsoriginal: 64
@@ -1073,7 +1073,7 @@ results:
         ```
       charactersimilarity: 0.5622119815668203
       characteraccuracy: 0.5052083333333333
-      wordsimilarity: 0.6542056074766356
+      wordsimilarity: 0.4871794871794872
       wordaccuracy: 0.2857142857142857
       worderrorrate: 0.7142857142857143
       totalwordsoriginal: 28
