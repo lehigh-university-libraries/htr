@@ -37,6 +37,7 @@ results:
         Vail Fitch's papers and had them for several
         months and that you can well believe it, because
       charactersimilarity: 0.9143621766280107
+      characteraccuracy: 0.9125780553077609
       wordsimilarity: 0.9635173058933583
       wordaccuracy: 0.9086294416243654
       worderrorrate: 0.09137055837563457
@@ -46,6 +47,7 @@ results:
       substitutions: 14
       deletions: 1
       insertions: 3
+      ignoredcharscount: 0
     - identifier: i-remain_1030_003.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_003.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_003.txt
@@ -63,6 +65,7 @@ results:
         make atonement—
         Robert Fulton
       charactersimilarity: 0.8792517006802721
+      characteraccuracy: 0.8775510204081632
       wordsimilarity: 0.9084507042253521
       wordaccuracy: 0.8653846153846154
       worderrorrate: 0.13461538461538458
@@ -72,6 +75,7 @@ results:
       substitutions: 11
       deletions: 3
       insertions: 0
+      ignoredcharscount: 0
     - identifier: i-remain_1082_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1082_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1082_001.txt
@@ -97,6 +101,7 @@ results:
         evening Respectfully your most
         Obedt Rob Fulton
       charactersimilarity: 0.8690265486725663
+      characteraccuracy: 0.8690265486725663
       wordsimilarity: 0.9250936329588015
       wordaccuracy: 0.7835051546391752
       worderrorrate: 0.21649484536082475
@@ -106,6 +111,7 @@ results:
       substitutions: 15
       deletions: 2
       insertions: 4
+      ignoredcharscount: 0
     - identifier: i-remain_1169_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1169_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1169_001.txt
@@ -138,6 +144,7 @@ results:
         His Excellency
         The Governor of Virginia.
       charactersimilarity: 0.802675585284281
+      characteraccuracy: 0.7959866220735786
       wordsimilarity: 0.8892794376098418
       wordaccuracy: 0.8117647058823529
       worderrorrate: 0.18823529411764706
@@ -147,6 +154,7 @@ results:
       substitutions: 5
       deletions: 1
       insertions: 10
+      ignoredcharscount: 0
     - identifier: i-remain_118_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_001.txt
@@ -184,6 +192,7 @@ results:
         ALS
         654
       charactersimilarity: 0.7265745007680491
+      characteraccuracy: 0.7089430894308943
       wordsimilarity: 0.8027950310559007
       wordaccuracy: 0.7047619047619047
       worderrorrate: 0.2952380952380953
@@ -193,6 +202,7 @@ results:
       substitutions: 13
       deletions: 1
       insertions: 17
+      ignoredcharscount: 0
     - identifier: i-remain_118_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_002.txt
@@ -209,6 +219,7 @@ results:
         *   **3/8** (faint handwritten numbers, right of center)
         *   A stylized mark/symbol (bottom right)
       charactersimilarity: 0.10649350649350653
+      characteraccuracy: -4.564516129032258
       wordsimilarity: 0.11684782608695654
       wordaccuracy: -5.222222222222222
       worderrorrate: 6.222222222222222
@@ -218,6 +229,7 @@ results:
       substitutions: 8
       deletions: 0
       insertions: 48
+      ignoredcharscount: 0
     - identifier: i-remain_120_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_120_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_120_001.txt
@@ -243,6 +255,7 @@ results:
         Faithfully Yours
         Charles Dickens
       charactersimilarity: 0.8097982708933718
+      characteraccuracy: 0.7994269340974212
       wordsimilarity: 0.9401993355481728
       wordaccuracy: 0.8653846153846154
       worderrorrate: 0.13461538461538458
@@ -252,6 +265,7 @@ results:
       substitutions: 4
       deletions: 1
       insertions: 2
+      ignoredcharscount: 0
     - identifier: i-remain_123_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_123_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_123_001.txt
@@ -289,6 +303,7 @@ results:
 
         Colo. Smith.
       charactersimilarity: 0.8771929824561404
+      characteraccuracy: 0.8724696356275303
       wordsimilarity: 0.9190509420795534
       wordaccuracy: 0.8544776119402985
       worderrorrate: 0.14552238805970152
@@ -298,6 +313,7 @@ results:
       substitutions: 28
       deletions: 1
       insertions: 10
+      ignoredcharscount: 0
     - identifier: i-remain_125_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_125_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_125_001.txt
@@ -339,6 +355,7 @@ results:
         election matters
         9/16
       charactersimilarity: 0.6161369193154034
+      characteraccuracy: 0.6112469437652812
       wordsimilarity: 0.8110661268556005
       wordaccuracy: 0.7787610619469026
       worderrorrate: 0.22123893805309736
@@ -348,6 +365,7 @@ results:
       substitutions: 1
       deletions: 1
       insertions: 23
+      ignoredcharscount: 0
     - identifier: i-remain_1254_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1254_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1254_001.txt
@@ -388,6 +406,7 @@ results:
         Saturday 13th Novr. 2 o'clock in the
         afternoon fresh Breeze N.E.
       charactersimilarity: 0.6796116504854368
+      characteraccuracy: 0.6657420249653259
       wordsimilarity: 0.7460992907801418
       wordaccuracy: 0.5963302752293578
       worderrorrate: 0.4036697247706422
@@ -397,6 +416,7 @@ results:
       substitutions: 19
       deletions: 2
       insertions: 23
+      ignoredcharscount: 0
     - identifier: i-remain_1257_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_001.txt
@@ -437,6 +457,7 @@ results:
         but Expect in a few Days I shall be able to get
         some as I have a Man to look out for such
       charactersimilarity: 0.7838078291814947
+      characteraccuracy: 0.7793594306049823
       wordsimilarity: 0.8229263746505125
       wordaccuracy: 0.775
       worderrorrate: 0.22499999999999998
@@ -446,6 +467,7 @@ results:
       substitutions: 24
       deletions: 4
       insertions: 17
+      ignoredcharscount: 0
     - identifier: i-remain_1257_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_002.txt
@@ -473,6 +495,7 @@ results:
         some Oakum and Nails for Obt Hum Servt
         repairing the Batteaux – John Wendell
       charactersimilarity: 0.7658959537572254
+      characteraccuracy: 0.7581888246628131
       wordsimilarity: 0.8155440414507772
       wordaccuracy: 0.75
       worderrorrate: 0.25
@@ -482,6 +505,7 @@ results:
       substitutions: 21
       deletions: 9
       insertions: 16
+      ignoredcharscount: 0
     - identifier: i-remain_1369_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_001.txt
@@ -511,6 +535,7 @@ results:
         of Guys Hospital and
         for it please deliver
       charactersimilarity: 0.4971910112359551
+      characteraccuracy: 0.2996108949416343
       wordsimilarity: 0.5524079320113314
       wordaccuracy: 0.2272727272727273
       worderrorrate: 0.7727272727272727
@@ -520,6 +545,7 @@ results:
       substitutions: 13
       deletions: 0
       insertions: 21
+      ignoredcharscount: 0
     - identifier: i-remain_1369_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_002.txt
@@ -532,6 +558,7 @@ results:
         Sorry.
         Philliars
       charactersimilarity: 0.7016129032258065
+      characteraccuracy: 0.6935483870967742
       wordsimilarity: 0.7699115044247787
       wordaccuracy: 0.5714285714285714
       worderrorrate: 0.4285714285714286
@@ -541,6 +568,7 @@ results:
       substitutions: 5
       deletions: 3
       insertions: 1
+      ignoredcharscount: 0
     - identifier: i-remain_2106_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_001.txt
@@ -576,6 +604,7 @@ results:
         asistence to them was impossible by their happy hearers.
         CB RRB
       charactersimilarity: 0.8483732351135667
+      characteraccuracy: 0.8459177409453653
       wordsimilarity: 0.8797229219143576
       wordaccuracy: 0.7920489296636086
       worderrorrate: 0.20795107033639137
@@ -585,6 +614,7 @@ results:
       substitutions: 47
       deletions: 5
       insertions: 16
+      ignoredcharscount: 0
     - identifier: i-remain_2106_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_002.txt
@@ -619,6 +649,7 @@ results:
         dark now as it ever has bin since the sun of our happy country
         went down
       charactersimilarity: 0.8478260869565217
+      characteraccuracy: 0.8443935926773456
       wordsimilarity: 0.9205378973105134
       wordaccuracy: 0.8323353293413174
       worderrorrate: 0.16766467065868262
@@ -628,6 +659,7 @@ results:
       substitutions: 43
       deletions: 5
       insertions: 8
+      ignoredcharscount: 0
     - identifier: i-remain_2106_003.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_003.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_003.txt
@@ -663,6 +695,7 @@ results:
         we would have to break up & move to another camp we have
         bin poorly provided for this winter in the way of blankets
       charactersimilarity: 0.8440797186400938
+      characteraccuracy: 0.8347010550996483
       wordsimilarity: 0.8596594245449207
       wordaccuracy: 0.7927927927927928
       worderrorrate: 0.2072072072072072
@@ -672,6 +705,7 @@ results:
       substitutions: 42
       deletions: 13
       insertions: 14
+      ignoredcharscount: 0
     - identifier: i-remain_2106_004.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_004.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_004.txt
@@ -697,6 +731,7 @@ results:
         to bee your constant friend Wm Rickham
         Wright to me as soon as this comes to hand Luriza
       charactersimilarity: 0.8230897009966778
+      characteraccuracy: 0.8172757475083057
       wordsimilarity: 0.8904593639575972
       wordaccuracy: 0.7844827586206897
       worderrorrate: 0.21551724137931028
@@ -706,6 +741,7 @@ results:
       substitutions: 36
       deletions: 10
       insertions: 4
+      ignoredcharscount: 0
     - identifier: i-remain_2226_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_001.txt
@@ -735,6 +771,7 @@ results:
         thing as it pass is right through
         me, and am geting very weak.
       charactersimilarity: 0.5530227948463826
+      characteraccuracy: 0.5490584737363726
       wordsimilarity: 0.8535031847133758
       wordaccuracy: 0.7906976744186046
       worderrorrate: 0.2093023255813954
@@ -744,6 +781,7 @@ results:
       substitutions: 13
       deletions: 4
       insertions: 10
+      ignoredcharscount: 0
     - identifier: i-remain_2226_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_002.txt
@@ -795,6 +833,7 @@ results:
         Co "C" 17th N.G. Voll
         Suffolk Co. Va
       charactersimilarity: 0.7857142857142857
+      characteraccuracy: 0.7788018433179723
       wordsimilarity: 0.8623853211009174
       wordaccuracy: 0.7692307692307692
       worderrorrate: 0.23076923076923084
@@ -804,6 +843,7 @@ results:
       substitutions: 41
       deletions: 6
       insertions: 10
+      ignoredcharscount: 0
     - identifier: i-remain_228_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_228_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_228_001.txt
@@ -833,6 +873,7 @@ results:
         His Excellency The Governor
         of the State of Pennsylvania
       charactersimilarity: 0.8505586592178771
+      characteraccuracy: 0.8477653631284916
       wordsimilarity: 0.95141065830721
       wordaccuracy: 0.9017857142857143
       worderrorrate: 0.0982142857142857
@@ -842,6 +883,7 @@ results:
       substitutions: 6
       deletions: 2
       insertions: 3
+      ignoredcharscount: 0
     - identifier: i-remain_231_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_231_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_231_001.txt
@@ -885,6 +927,7 @@ results:
         **Footer:**
         Lehigh University Digital Library
       charactersimilarity: 0.672962226640159
+      characteraccuracy: 0.5846925972396486
       wordsimilarity: 0.7132867132867133
       wordaccuracy: 0.644927536231884
       worderrorrate: 0.35507246376811596
@@ -894,6 +937,7 @@ results:
       substitutions: 5
       deletions: 2
       insertions: 42
+      ignoredcharscount: 0
     - identifier: i-remain_2614_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_001.txt
@@ -928,6 +972,7 @@ results:
         -ence
         Rhode Island
       charactersimilarity: 0.7527047913446677
+      characteraccuracy: 0.751937984496124
       wordsimilarity: 0.8167701863354038
       wordaccuracy: 0.7425742574257426
       worderrorrate: 0.25742574257425743
@@ -937,6 +982,7 @@ results:
       substitutions: 10
       deletions: 1
       insertions: 15
+      ignoredcharscount: 0
     - identifier: i-remain_2614_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_002.txt
@@ -962,6 +1008,7 @@ results:
         Providence
         R. I.
       charactersimilarity: 0.7990543735224587
+      characteraccuracy: 0.7872340425531915
       wordsimilarity: 0.8775
       wordaccuracy: 0.7384615384615385
       worderrorrate: 0.2615384615384615
@@ -971,6 +1018,7 @@ results:
       substitutions: 8
       deletions: 1
       insertions: 8
+      ignoredcharscount: 0
     - identifier: i-remain_474_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_001.txt
@@ -994,6 +1042,7 @@ results:
         exchange of Citizens in Captivity with the
         Indians -
       charactersimilarity: 0.8790322580645161
+      characteraccuracy: 0.86652977412731
       wordsimilarity: 0.9046653144016227
       wordaccuracy: 0.813953488372093
       worderrorrate: 0.18604651162790697
@@ -1003,6 +1052,7 @@ results:
       substitutions: 6
       deletions: 3
       insertions: 7
+      ignoredcharscount: 0
     - identifier: i-remain_474_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_002.txt
@@ -1021,6 +1071,7 @@ results:
 
         His Excellency Governor Henry
       charactersimilarity: 0.9249146757679181
+      characteraccuracy: 0.9180887372013652
       wordsimilarity: 0.9540636042402827
       wordaccuracy: 0.8181818181818181
       worderrorrate: 0.18181818181818188
@@ -1030,6 +1081,7 @@ results:
       substitutions: 6
       deletions: 1
       insertions: 1
+      ignoredcharscount: 0
     - identifier: i-remain_837_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_001.txt
@@ -1087,6 +1139,7 @@ results:
         are made to accommodate the business
         of the boats & their business.
       charactersimilarity: 0.8355481727574751
+      characteraccuracy: 0.8312119535141118
       wordsimilarity: 0.8753640069889341
       wordaccuracy: 0.7980769230769231
       worderrorrate: 0.20192307692307687
@@ -1096,6 +1149,7 @@ results:
       substitutions: 47
       deletions: 6
       insertions: 10
+      ignoredcharscount: 0
     - identifier: i-remain_837_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_002.txt
@@ -1151,6 +1205,7 @@ results:
         that are busy in their way. Arranging
         their establishments, making the most
       charactersimilarity: 0.8768554150632215
+      characteraccuracy: 0.8747252747252747
       wordsimilarity: 0.9278650378126818
       wordaccuracy: 0.8905775075987842
       worderrorrate: 0.10942249240121582
@@ -1160,6 +1215,7 @@ results:
       substitutions: 26
       deletions: 1
       insertions: 9
+      ignoredcharscount: 0
     - identifier: i-remain_837_003.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_003.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_003.txt
@@ -1190,6 +1246,7 @@ results:
         appears to be an imposing edifice. I
         we an invitation this eve to the wedding
       charactersimilarity: 0.8580441640378549
+      characteraccuracy: 0.8497899159663865
       wordsimilarity: 0.901657458563536
       wordaccuracy: 0.8303030303030303
       worderrorrate: 0.16969696969696968
@@ -1199,6 +1256,7 @@ results:
       substitutions: 24
       deletions: 3
       insertions: 1
+      ignoredcharscount: 0
     - identifier: i-remain_837_004.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_004.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_004.txt
@@ -1229,6 +1287,7 @@ results:
         for Jul' was elegant, He must attend to
         his writing, learn to write a good hand, or
       charactersimilarity: 0.6121987951807228
+      characteraccuracy: 0.6069277108433735
       wordsimilarity: 0.64171974522293
       wordaccuracy: 0.5668016194331984
       worderrorrate: 0.4331983805668016
@@ -1238,6 +1297,7 @@ results:
       substitutions: 43
       deletions: 62
       insertions: 2
+      ignoredcharscount: 0
     - identifier: i-remain_94_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_001.txt
@@ -1261,6 +1321,7 @@ results:
         12-12-06-12/6
         2
       charactersimilarity: 0.7938718662952646
+      characteraccuracy: 0.7944444444444445
       wordsimilarity: 0.8879310344827587
       wordaccuracy: 0.828125
       worderrorrate: 0.171875
@@ -1270,6 +1331,7 @@ results:
       substitutions: 7
       deletions: 0
       insertions: 4
+      ignoredcharscount: 0
     - identifier: i-remain_94_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_002.txt
@@ -1284,6 +1346,7 @@ results:
         Very faithfully yours,
         W. M. Rossetti.
       charactersimilarity: 0.7708333333333334
+      characteraccuracy: 0.7708333333333334
       wordsimilarity: 0.8809523809523809
       wordaccuracy: 0.7142857142857143
       worderrorrate: 0.2857142857142857
@@ -1293,3 +1356,4 @@ results:
       substitutions: 6
       deletions: 1
       insertions: 1
+      ignoredcharscount: 0

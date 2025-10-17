@@ -22,6 +22,7 @@ results:
 
         Sir It is not more than ten minutes since I have read a very extraordinary letter of yours to Mr. Halifax read to the House of assembly in this city, the whole of which is false and malignantly evidently done and with much spitefulness and care to injure me and gratify Thornton Halifax and Mr. H. my rival and enemies: you state positively, that I privately Mr. Carbuncle's rope machine and sold it you as wholly my own, this is untrue. I always informed you that Mr. Carbuncle had made such a machine I introduced you to him by letter, would a pirate wishing to conceal his faults have done so? I made one from memory with some alterations, the laws of France permitted patents for inferior inventions, you were to give me something for it. I lent you in your distress more than I have received, but if you had reason to complain of this transaction why not do it to me within the last ten years? You say I received from Aaron Paul Wichers papers and had them for several months and that you can well believing because
       charactersimilarity: 0.8465655664585192
+      characteraccuracy: 0.8456735057983943
       wordsimilarity: 0.8918423464711274
       wordaccuracy: 0.8071065989847716
       worderrorrate: 0.19289340101522845
@@ -31,6 +32,7 @@ results:
       substitutions: 29
       deletions: 3
       insertions: 6
+      ignoredcharscount: 0
     - identifier: i-remain_1030_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_002.txt
@@ -40,6 +42,7 @@ results:
 
         if Spiritualists are machine, why not private another and would use Kirch's combination which I felt that we were twins could defeat the plagiarism. This is malignant to the highest degree and as false as it is base. I never saw a paper or plan of Kirch's until I saw his patent in the Office at Washington in 1869, but if I had seen all the papers which he ever had with his specifications and drawings such as I have never seen in the possession of Mr. Hanify, they could teach me nothing. For Kirch knew nothing, he was as _____ therein she about as much - I have now seen the collected and united efforts of Ogden, Hanify, Kirsch... and Delacy with your aid to destroy me - I have seen in alarming colours your combined wickedness and fortunately for me your weakness. The evidence of Kirch before his own Kandor and ourselves he was much had no device, just one crude scientific idea of a Steam book and acknowledges his failure. But for I despise your efforts and that of the miserable ephemeral bean whom envy and not talent urges onto attack me. What could induce you to enter into this rank of mystery I cannot conceive. I always treated you with friendship and certainly I have at times believed your pressing wants, you have stopped forward (impoverished) to be my enemy. I accept the war, I defy you or any lying being to stain my character with
       charactersimilarity: 0.8140350877192982
+      characteraccuracy: 0.8098245614035088
       wordsimilarity: 0.8473837209302326
       wordaccuracy: 0.7330677290836654
       worderrorrate: 0.26693227091633465
@@ -49,12 +52,14 @@ results:
       substitutions: 55
       deletions: 5
       insertions: 7
+      ignoredcharscount: 0
     - identifier: i-remain_1030_003.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_003.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1030_003.txt
       public: false
       providerresponse: be unjust, ungentrous or illiberal act toward my friends or of usurping to myself in any way what is not my own and I will not lose an instant in making you answerable for a libel on my character as a man of honor. While I labour for the government never it is to be seen if either, and the War and Patent Office shall be paid to calumniate me and involve me in lawsuits to consume my time and destroy my best exertions for my country. - This in has published your calumny in a pamphlet, and you shall make atonement. - Robert Haller
       charactersimilarity: 0.8197278911564626
+      characteraccuracy: 0.8163265306122449
       wordsimilarity: 0.8485915492957746
       wordaccuracy: 0.7884615384615384
       worderrorrate: 0.21153846153846156
@@ -64,6 +69,7 @@ results:
       substitutions: 17
       deletions: 2
       insertions: 3
+      ignoredcharscount: 0
     - identifier: i-remain_1082_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1082_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1082_001.txt
@@ -91,6 +97,7 @@ results:
         evening Respectfully your most
         Obedlt        Thos Fulton
       charactersimilarity: 0.8017699115044248
+      characteraccuracy: 0.8017699115044248
       wordsimilarity: 0.8646209386281588
       wordaccuracy: 0.731958762886598
       worderrorrate: 0.268041237113402
@@ -100,6 +107,7 @@ results:
       substitutions: 18
       deletions: 3
       insertions: 5
+      ignoredcharscount: 0
     - identifier: i-remain_1169_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1169_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1169_001.txt
@@ -135,6 +143,7 @@ results:
         His Excellency
         The Governor of Virginia.
       charactersimilarity: 0.774247491638796
+      characteraccuracy: 0.7675585284280937
       wordsimilarity: 0.8568904593639576
       wordaccuracy: 0.7529411764705882
       worderrorrate: 0.24705882352941178
@@ -144,6 +153,7 @@ results:
       substitutions: 13
       deletions: 1
       insertions: 7
+      ignoredcharscount: 0
     - identifier: i-remain_118_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_001.txt
@@ -177,6 +187,7 @@ results:
         ALS
         L 54
       charactersimilarity: 0.647907647907648
+      characteraccuracy: 0.6016260162601625
       wordsimilarity: 0.7144948755490483
       wordaccuracy: 0.5809523809523809
       worderrorrate: 0.4190476190476191
@@ -186,6 +197,7 @@ results:
       substitutions: 23
       deletions: 1
       insertions: 20
+      ignoredcharscount: 0
     - identifier: i-remain_118_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_118_002.txt
@@ -206,6 +218,7 @@ results:
 
         Note: The cursive text in the center is quite faded and written in an old style that makes precise transcription challenging without specialized historical document expertise.
       charactersimilarity: 0.055256064690026974
+      characteraccuracy: -10.403225806451612
       wordsimilarity: 0.05691056910569103
       wordaccuracy: -12.555555555555555
       worderrorrate: 13.555555555555555
@@ -215,12 +228,14 @@ results:
       substitutions: 8
       deletions: 0
       insertions: 114
+      ignoredcharscount: 0
     - identifier: i-remain_120_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_120_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_120_001.txt
       public: false
       providerresponse: "# Transcription\n\nALS\n79\n\n**Luiſpool**\n\nMonday Morning 27th June 1859\n\nMy dear Sír\n\nI cannot remember in \nthe multiplying effects I have\nwritten about these plays, whether\nI have said what is on the other\nside. for a handbill title they\ndont the theatre.\n\nan immense house here,\nbright!\n\nFaithfully yours\n\nCharles Dickens\n\n---\n\n*Note: The text appears to be a handwritten letter from Charles Dickens, with characteristic 19th-century spelling and handwriting. Some words may be interpretations due to the cursive style.*"
       charactersimilarity: 0.42034548944337813
+      characteraccuracy: 0.12320916905444124
       wordsimilarity: 0.4784313725490196
       wordaccuracy: 0.07692307692307687
       worderrorrate: 0.9230769230769231
@@ -230,6 +245,7 @@ results:
       substitutions: 12
       deletions: 3
       insertions: 33
+      ignoredcharscount: 0
     - identifier: i-remain_123_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_123_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_123_001.txt
@@ -246,6 +262,7 @@ results:
 
         Col.º Smith.
       charactersimilarity: 0.7969151670951157
+      characteraccuracy: 0.7834008097165992
       wordsimilarity: 0.9301340860973888
       wordaccuracy: 0.8507462686567164
       worderrorrate: 0.14925373134328357
@@ -255,6 +272,7 @@ results:
       substitutions: 33
       deletions: 3
       insertions: 4
+      ignoredcharscount: 0
     - identifier: i-remain_125_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_125_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_125_001.txt
@@ -281,6 +299,7 @@ results:
 
         Enclosures.
       charactersimilarity: 0.7359413202933985
+      characteraccuracy: 0.7359413202933985
       wordsimilarity: 0.9966832504145937
       wordaccuracy: 0.9734513274336283
       worderrorrate: 0.026548672566371723
@@ -290,12 +309,14 @@ results:
       substitutions: 2
       deletions: 1
       insertions: 0
+      ignoredcharscount: 0
     - identifier: i-remain_1254_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1254_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1254_001.txt
       public: false
       providerresponse: "# Transcription of Historical Document\n\n**Top Section (Main Letter):**\n\nMr Hixman Greffetus  \nof Nevada  \n\nGentlemen  \nNov 7  \n\nthe pilot is just going, he leaves us and will take  \nhis opportunity. he accepted your the expression of my  \nfratitude for Your Conference and friendship  \n\nI write to every thing in my power to  \npromote your interests and I shall give you every informa  \ntion respecting the Situation of the Colony and other  \naffairs where I Expect to go. I shall be...  \n[text appears cut off] if it can do any thing for the advantag\n\n---\n\n**Bottom Section:**\n\nover Common Interests.  \n\nI have the honour to be,  \n\nGentlemen                Your most obt & ful  \n                        Louis deliverable  \n                        Lewis deliveries  \nSaturday 13th Nov. 2 o'clock in the     Brother in Law & Deputy  \nafternoon fresh Brecks - N.E."
       charactersimilarity: 0.5939675174013921
+      characteraccuracy: 0.5006934812760055
       wordsimilarity: 0.6617842876165113
       wordaccuracy: 0.4128440366972477
       worderrorrate: 0.5871559633027523
@@ -305,6 +326,7 @@ results:
       substitutions: 37
       deletions: 2
       insertions: 25
+      ignoredcharscount: 0
     - identifier: i-remain_1257_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_001.txt
@@ -349,6 +371,7 @@ results:
         but Expect in a few days I shall be able to get
         some as I have a Man to look out for such
       charactersimilarity: 0.73932384341637
+      characteraccuracy: 0.7322064056939501
       wordsimilarity: 0.7770460959548448
       wordaccuracy: 0.72
       worderrorrate: 0.28
@@ -358,6 +381,7 @@ results:
       substitutions: 38
       deletions: 6
       insertions: 12
+      ignoredcharscount: 0
     - identifier: i-remain_1257_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1257_002.txt
@@ -379,6 +403,7 @@ results:
         Some Oatmeal and thrills for
         repairing the Otthuse—
       charactersimilarity: 0.6936416184971098
+      characteraccuracy: 0.6840077071290944
       wordsimilarity: 0.7526881720430108
       wordaccuracy: 0.6521739130434783
       worderrorrate: 0.34782608695652173
@@ -388,6 +413,7 @@ results:
       substitutions: 42
       deletions: 5
       insertions: 17
+      ignoredcharscount: 0
     - identifier: i-remain_1369_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_1369_002.txt
@@ -402,6 +428,7 @@ results:
         Sorry
         Victorias
       charactersimilarity: 0.6532258064516129
+      characteraccuracy: 0.6370967741935484
       wordsimilarity: 0.7168141592920354
       wordaccuracy: 0.6190476190476191
       worderrorrate: 0.38095238095238093
@@ -411,6 +438,7 @@ results:
       substitutions: 4
       deletions: 3
       insertions: 1
+      ignoredcharscount: 0
     - identifier: i-remain_2106_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_001.txt
@@ -447,6 +475,7 @@ results:
         for help & beg for water at mid night carry four & even their
         assistance to them as impossible by the biger hearers
       charactersimilarity: 0.7642725598526703
+      characteraccuracy: 0.7605893186003683
       wordsimilarity: 0.7903022670025189
       wordaccuracy: 0.6513761467889908
       worderrorrate: 0.3486238532110092
@@ -456,6 +485,7 @@ results:
       substitutions: 90
       deletions: 14
       insertions: 10
+      ignoredcharscount: 0
     - identifier: i-remain_2106_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_002.txt
@@ -471,6 +501,7 @@ results:
 
         The men are all in fine spirits Some has a hope that the war is now almost at an end but as for my self the night is as dark now as it ever was bin sence the sence & [illegible] country
       charactersimilarity: 0.7454233409610984
+      characteraccuracy: 0.7402745995423341
       wordsimilarity: 0.7995110024449877
       wordaccuracy: 0.6736526946107784
       worderrorrate: 0.32634730538922163
@@ -480,6 +511,7 @@ results:
       substitutions: 81
       deletions: 13
       insertions: 15
+      ignoredcharscount: 0
     - identifier: i-remain_2106_003.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_003.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_003.txt
@@ -491,6 +523,7 @@ results:
 
         I hope this letter my self often I write [?] so I always have for time to open my letter & expect to see something & then be disappointed so I try to tell them something in my broken & stammering way. I recon you have heard of our position this winter we have had a very moderate season except a few very cold days & some snow storms there has been ice here this winter thick enough for men to skate upon & I witnessed the first skating in my history this winter & it was quite a novel time the snow fell a pretty deep we have moved 2 times since the winter begun we are now at the third camp that we have built very infernor winterquarters all & just as we compleated them so that we were comfortable in them we would have it to take up & move it another camp we have bin fairly pushed for this winter the way of blankets
       charactersimilarity: 0.8089097303634232
+      characteraccuracy: 0.8036342321219226
       wordsimilarity: 0.8103347034644744
       wordaccuracy: 0.7117117117117118
       worderrorrate: 0.28828828828828823
@@ -500,6 +533,7 @@ results:
       substitutions: 63
       deletions: 20
       insertions: 13
+      ignoredcharscount: 0
     - identifier: i-remain_2106_004.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_004.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2106_004.txt
@@ -510,6 +544,7 @@ results:
         Idle not so but what we get to doing just as well as we did when the commissary stood upon for every man just to go & help himself & each man had from 5 to 8 blankets now we have no tents only 2 or 3 blankets to the man we can gather up every thing we have on our shelter & be ready to march at 15 minutes notice we are now encampe on the Rapahannoc River near Fredericks burg the yankys are on the east side & we are on the west side & when we go on picket guard we can see them very plainly & we can see their encampments from where we are now I mean you will be weary with this un interesting scrawle of mine so I must close give my love to all the family & to Cousin Kate & give my respects also to Mrs Harrables family Tell Burgia that I would gladly received a letter from here about my late relation if she does not think here self a bove writing to a poor soldier I would wright to her if I knew of her adress please excuse all bad wrighting & mistakes & believe me to be your constant friend Wm C Picklam
         Wright to me as soon this comes to hand Burgia
       charactersimilarity: 0.7666112956810631
+      characteraccuracy: 0.7599667774086378
       wordsimilarity: 0.8162544169611308
       wordaccuracy: 0.6810344827586207
       worderrorrate: 0.31896551724137934
@@ -519,6 +554,7 @@ results:
       substitutions: 52
       deletions: 12
       insertions: 10
+      ignoredcharscount: 0
     - identifier: i-remain_2226_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_001.txt
@@ -533,6 +569,7 @@ results:
 
         Yours of the 11th was received yesterday, and I was glad to hear from you once more and hear that you was well. Cam'Boy is not well and I am afraid all not be soon for I cannot get any medicine down here for they have none, my bowels are some better but in a bad condition yet and I have that old disease in my back it is so lame that it hurts me to move and I went to the Doctor yesterday and he had nothing for me and told me to bath it with cold Water, I cannot eat any thing as it passes right through me, and almost every week
       charactersimilarity: 0.5391476709613479
+      characteraccuracy: 0.535183349851338
       wordsimilarity: 0.8805237315875614
       wordaccuracy: 0.8217054263565892
       worderrorrate: 0.17829457364341084
@@ -542,6 +579,7 @@ results:
       substitutions: 17
       deletions: 6
       insertions: 0
+      ignoredcharscount: 0
     - identifier: i-remain_2226_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2226_002.txt
@@ -594,6 +632,7 @@ results:
         Love to 10th   N.S. Bell
                         Suffolk Va. Va.
       charactersimilarity: 0.7150537634408602
+      characteraccuracy: 0.7119815668202765
       wordsimilarity: 0.7977346278317152
       wordaccuracy: 0.659919028340081
       worderrorrate: 0.340080971659919
@@ -603,6 +642,7 @@ results:
       substitutions: 65
       deletions: 6
       insertions: 13
+      ignoredcharscount: 0
     - identifier: i-remain_228_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_228_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_228_001.txt
@@ -627,6 +667,7 @@ results:
 
         Lehigh University Digital Library
       charactersimilarity: 0.803072625698324
+      characteraccuracy: 0.8016759776536313
       wordsimilarity: 0.8986587183308494
       wordaccuracy: 0.8035714285714286
       worderrorrate: 0.1964285714285714
@@ -636,12 +677,14 @@ results:
       substitutions: 14
       deletions: 1
       insertions: 7
+      ignoredcharscount: 0
     - identifier: i-remain_231_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_231_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_231_001.txt
       public: false
       providerresponse: "# Extracted Text from Image\n\n## Header/Date Information:\n**Quincy July 5th 1813**\n\n## Main Letter Text:\n\nSir\n\nLast night Mr Manston gave me the inclosed papers. The original Letter from Captain Helsted Hacker to Browne and Vernon, I wish to have returned. These Papers are authentic.\n\nI have found no Man so alive and ardent in promoting your and Mr Glenks Views as John Manston; who has spared no pains.\n\nThe Captain Simston mentioned in one of these Papers was, the first Lieutenant of Captain John Paul Jones when he captured the Twenty Gun Ship which he carried into Brest, in 1778. Simpsons name ought to be more known in History than it is. Ask Colonel Jonathan Williams, if he differs in Sentiment, I will dispute with him.\n\nThe Mail is at hand and, and I wish not to miss it.\n\nJohn Adams\n\n---\n\n## Additional Elements:\n\n**Address/Recipient:** \nMathew Carey Esquire\n\n**Archival Information (top left):**\nBurned May 1884\nNo 2\n10.85\nLehigh\n\n**Archival Reference (top right):**\nALS\n2\n\n**Seal/Stamp:** Red wax seal visible at bottom of page\n\n**Repository:** Lehigh University Digital Library"
       charactersimilarity: 0.6093321134492223
+      characteraccuracy: 0.45922208281053956
       wordsimilarity: 0.648096564531105
       wordaccuracy: 0.5507246376811594
       worderrorrate: 0.4492753623188406
@@ -651,6 +694,7 @@ results:
       substitutions: 12
       deletions: 3
       insertions: 47
+      ignoredcharscount: 0
     - identifier: i-remain_2614_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_001.txt
@@ -696,6 +740,7 @@ results:
 
         "Late Island
       charactersimilarity: 0.6150627615062761
+      characteraccuracy: 0.5643410852713178
       wordsimilarity: 0.6676096181046676
       wordaccuracy: 0.49504950495049505
       worderrorrate: 0.504950495049505
@@ -705,6 +750,7 @@ results:
       substitutions: 26
       deletions: 1
       insertions: 24
+      ignoredcharscount: 0
     - identifier: i-remain_2614_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_2614_002.txt
@@ -732,6 +778,7 @@ results:
                 Providence.
                         R.I.
       charactersimilarity: 0.6567460317460317
+      characteraccuracy: 0.5862884160756501
       wordsimilarity: 0.6880733944954128
       wordaccuracy: 0.5384615384615384
       worderrorrate: 0.46153846153846156
@@ -741,6 +788,7 @@ results:
       substitutions: 18
       deletions: 1
       insertions: 11
+      ignoredcharscount: 0
     - identifier: i-remain_474_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_001.txt
@@ -760,6 +808,7 @@ results:
 
         ---
       charactersimilarity: 0.7666666666666666
+      characteraccuracy: 0.7248459958932238
       wordsimilarity: 0.7958801498127341
       wordaccuracy: 0.686046511627907
       worderrorrate: 0.313953488372093
@@ -769,6 +818,7 @@ results:
       substitutions: 10
       deletions: 4
       insertions: 13
+      ignoredcharscount: 0
     - identifier: i-remain_474_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_474_002.txt
@@ -798,6 +848,7 @@ results:
 
         His Excellency Governor Henry
       charactersimilarity: 0.8506493506493507
+      characteraccuracy: 0.8191126279863481
       wordsimilarity: 0.8851351351351351
       wordaccuracy: 0.7272727272727273
       worderrorrate: 0.2727272727272727
@@ -807,6 +858,7 @@ results:
       substitutions: 10
       deletions: 0
       insertions: 2
+      ignoredcharscount: 0
     - identifier: i-remain_837_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_001.txt
@@ -867,6 +919,7 @@ results:
         are made to accommodate the beginning
         of the boats their bearings.
       charactersimilarity: 0.7009966777408638
+      characteraccuracy: 0.6950747094631986
       wordsimilarity: 0.7350029120559114
       wordaccuracy: 0.592948717948718
       worderrorrate: 0.40705128205128205
@@ -876,6 +929,7 @@ results:
       substitutions: 102
       deletions: 13
       insertions: 12
+      ignoredcharscount: 0
     - identifier: i-remain_837_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_002.txt
@@ -889,6 +943,7 @@ results:
         ## Right Page:
         death of Wilson Lloyd, though I knew it was sent in Mercy to him. The last years of his life must have been years of Mercy to him. I have received it not I fear. You must express my Sympathy to the family when it can be done without renewing the sad remembrance of their loss. My Yorke people must have had a few time in the absence of all your Owners. I hope you had a quantity of work done for your brother. I know of some trees all disposed of, the garden arranged & all her things placed where she could find them. I fear her housewift for the advancement of her operations, & the apprehension of their suffering in her absence, may have diminished the pleasure of her visit to the White House. This though is the fate of all good housewives. I have some young ones around me that are beginning that way, Arranging their establishments, making the most
       charactersimilarity: 0.7680043980208906
+      characteraccuracy: 0.7642857142857142
       wordsimilarity: 0.8110144927536231
       wordaccuracy: 0.7355623100303952
       worderrorrate: 0.2644376899696048
@@ -898,6 +953,7 @@ results:
       substitutions: 59
       deletions: 12
       insertions: 16
+      ignoredcharscount: 0
     - identifier: i-remain_837_003.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_003.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_003.txt
@@ -909,6 +965,7 @@ results:
 
         erected are dissenters that the latter unmarriedly birth Crusclerius. Then they are to shunt there, will to some be Leo allowed up in death short price. I have not yet been after the City of Brownsville. I profess returning some Calls to day, & can then see what action must it has made since my visit three years since. I have learned with regret that the Episcopal church has been aburnt since the institution of the troops have been on a When Mt. Papernice was Castle elsewhere & the was Chaplain to the Post & my own wellest hearing was very kind to the Missus I say for at the death of their father, he should have no chance their sharpes tomorrow. The Presbyterian church Contains, & a broad Catholic Church has been erected since I was here. I have only seen it at a distance, & it appears to be an imposing edifice & an ornamental this one? At the wedding
       charactersimilarity: 0.7097791798107256
+      characteraccuracy: 0.7016806722689075
       wordsimilarity: 0.7458563535911602
       wordaccuracy: 0.593939393939394
       worderrorrate: 0.406060606060606
@@ -918,6 +975,7 @@ results:
       substitutions: 51
       deletions: 8
       insertions: 8
+      ignoredcharscount: 0
     - identifier: i-remain_837_004.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_004.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_837_004.txt
@@ -952,6 +1010,7 @@ results:
 
         [Note: This is a challenging historical cursive document with some words that are difficult to decipher with complete certainty. Some interpretations may vary.]
       charactersimilarity: 0.4774096385542169
+      characteraccuracy: 0.4713855421686747
       wordsimilarity: 0.49840764331210186
       wordaccuracy: 0.31983805668016196
       worderrorrate: 0.680161943319838
@@ -961,6 +1020,7 @@ results:
       substitutions: 106
       deletions: 43
       insertions: 19
+      ignoredcharscount: 0
     - identifier: i-remain_94_001.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_001.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_001.txt
@@ -986,6 +1046,7 @@ results:
         Ground: but th.? be only 2 -
         Mearny ( upwards of 6 feet high),
       charactersimilarity: 0.6991643454038997
+      characteraccuracy: 0.6833333333333333
       wordsimilarity: 0.7894736842105263
       wordaccuracy: 0.625
       worderrorrate: 0.375
@@ -995,6 +1056,7 @@ results:
       substitutions: 19
       deletions: 0
       insertions: 5
+      ignoredcharscount: 0
     - identifier: i-remain_94_002.jpg
       imagepath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_002.jpg
       transcriptpath: /Volumes/2025-Lyrasis-Catalyst-Fund/ground-truth-documents/i-remain_94_002.txt
@@ -1011,6 +1073,7 @@ results:
         Very faithfully yours,
         W. M. Rossetti
       charactersimilarity: 0.6206896551724138
+      characteraccuracy: 0.5989583333333333
       wordsimilarity: 0.7412935323383085
       wordaccuracy: 0.5
       worderrorrate: 0.5
@@ -1020,3 +1083,4 @@ results:
       substitutions: 6
       deletions: 0
       insertions: 8
+      ignoredcharscount: 0
