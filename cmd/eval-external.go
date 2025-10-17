@@ -220,6 +220,7 @@ func processExternalEvalRow(row []string) (EvalResult, error) {
 		Public:                false,
 		ProviderResponse:      externalTranscription,
 		CharacterSimilarity:   metrics.CharacterSimilarity,
+		CharacterAccuracy:     metrics.CharacterAccuracy,
 		WordSimilarity:        metrics.WordSimilarity,
 		WordAccuracy:          metrics.WordAccuracy,
 		WordErrorRate:         metrics.WordErrorRate,

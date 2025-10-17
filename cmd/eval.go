@@ -43,6 +43,7 @@ type EvalResult struct {
 	Public                bool    `json:"public"`
 	ProviderResponse      string  `json:"provider_response"`
 	CharacterSimilarity   float64 `json:"character_similarity"`
+	CharacterAccuracy     float64 `json:"character_accuracy"`
 	WordSimilarity        float64 `json:"word_similarity"`
 	WordAccuracy          float64 `json:"word_accuracy"`
 	WordErrorRate         float64 `json:"word_error_rate"`
@@ -66,6 +67,7 @@ type ModelSummary struct {
 	Timestamp         string
 	TotalEvaluations  int
 	AvgCharSimilarity float64
+	AvgCharAccuracy   float64
 	AvgWordSimilarity float64
 	AvgWordAccuracy   float64
 	AvgWordErrorRate  float64
@@ -124,6 +126,19 @@ Results are sorted by word accuracy (best to worst) and printed to terminal.`,
 	Args: cobra.NoArgs,
 }
 
+var backfillCmd = &cobra.Command{
+	Use:   "backfill",
+	Short: "Backfill character accuracy for existing evaluation files",
+	Long: `Scan all YAML files in the evals directory and calculate missing character accuracy values.
+
+This command reads the provider response and ground truth from existing evaluation files,
+calculates the character accuracy metric, and updates the YAML files in place.
+
+This is useful after upgrading to a version that includes character accuracy metrics.`,
+	RunE: runBackfill,
+	Args: cobra.NoArgs,
+}
+
 var (
 	evalProvider    string
 	evalModel       string
@@ -150,6 +165,7 @@ func init() {
 	RootCmd.AddCommand(evalCmd)
 	RootCmd.AddCommand(summaryCmd)
 	RootCmd.AddCommand(csvCmd)
+	RootCmd.AddCommand(backfillCmd)
 
 	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, claude, gemini, ollama")
 	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
@@ -316,9 +332,22 @@ func runCSV(cmd *cobra.Command, args []string) error {
 		}
 
 		// Calculate aggregated metrics
-		var totalCharSim, totalWordSim, totalWordAcc, totalWER float64
+		var totalCharSim, totalCharAcc, totalWordSim, totalWordAcc, totalWER float64
 		for _, result := range summary.Results {
 			totalCharSim += result.CharacterSimilarity
+
+			// Backward compatibility: calculate CharacterAccuracy if not present
+			charAcc := result.CharacterAccuracy
+			if charAcc == 0.0 && result.ProviderResponse != "" {
+				// Calculate on the fly using ground truth from TranscriptPath
+				// Use empty ignorePatterns and singleLine=false since we don't have the original flags
+				if groundTruth, err := readTextFile(result.TranscriptPath); err == nil {
+					metrics := CalculateAccuracyMetrics(groundTruth, result.ProviderResponse, []string{}, false)
+					charAcc = metrics.CharacterAccuracy
+				}
+			}
+			totalCharAcc += charAcc
+
 			totalWordSim += result.WordSimilarity
 			totalWordAcc += result.WordAccuracy
 			totalWER += result.WordErrorRate
@@ -331,6 +360,7 @@ func runCSV(cmd *cobra.Command, args []string) error {
 			Timestamp:         summary.Config.Timestamp,
 			TotalEvaluations:  len(summary.Results),
 			AvgCharSimilarity: totalCharSim / count,
+			AvgCharAccuracy:   totalCharAcc / count,
 			AvgWordSimilarity: totalWordSim / count,
 			AvgWordAccuracy:   totalWordAcc / count,
 			AvgWordErrorRate:  totalWER / count,
@@ -356,18 +386,92 @@ func runCSV(cmd *cobra.Command, args []string) error {
 	})
 
 	// Print TSV header
-	fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate")
+	fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgCharAccuracy\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate")
 
 	// Print TSV data
 	for _, ms := range modelSummaries {
-		fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\n",
+		fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n",
 			ms.Model,
 			ms.TotalEvaluations,
 			ms.AvgCharSimilarity,
+			ms.AvgCharAccuracy,
 			ms.AvgWordSimilarity,
 			ms.AvgWordAccuracy,
 			ms.AvgWordErrorRate)
 	}
+
+	return nil
+}
+
+func runBackfill(cmd *cobra.Command, args []string) error {
+	evalsDir := "evals"
+
+	// Find all YAML files
+	files, err := filepath.Glob(filepath.Join(evalsDir, "*.yaml"))
+	if err != nil {
+		return fmt.Errorf("failed to list eval files: %w", err)
+	}
+
+	if len(files) == 0 {
+		fmt.Println("No evaluation files found in evals/ directory.")
+		return nil
+	}
+
+	updatedCount := 0
+	skippedCount := 0
+
+	// Process each file
+	for _, file := range files {
+		data, err := os.ReadFile(file)
+		if err != nil {
+			fmt.Printf("Warning: failed to read %s: %v\n", file, err)
+			continue
+		}
+
+		var summary EvalSummary
+		if err := yaml.Unmarshal(data, &summary); err != nil {
+			fmt.Printf("Warning: failed to parse %s: %v\n", file, err)
+			continue
+		}
+
+		if len(summary.Results) == 0 {
+			continue
+		}
+
+		// Check if any results need backfilling
+		needsUpdate := false
+		for i := range summary.Results {
+			if summary.Results[i].CharacterAccuracy == 0.0 && summary.Results[i].ProviderResponse != "" {
+				// Calculate character accuracy from stored data
+				groundTruth, err := readTextFile(summary.Results[i].TranscriptPath)
+				if err != nil {
+					fmt.Printf("Warning: failed to read transcript %s: %v\n", summary.Results[i].TranscriptPath, err)
+					continue
+				}
+
+				// Calculate metrics using empty ignorePatterns and singleLine=false
+				metrics := CalculateAccuracyMetrics(groundTruth, summary.Results[i].ProviderResponse, []string{}, false)
+				summary.Results[i].CharacterAccuracy = metrics.CharacterAccuracy
+				needsUpdate = true
+			}
+		}
+
+		if needsUpdate {
+			// Save updated YAML
+			if err := saveEvalResults(summary, file); err != nil {
+				fmt.Printf("Warning: failed to save %s: %v\n", file, err)
+				continue
+			}
+			fmt.Printf("✓ Updated %s\n", filepath.Base(file))
+			updatedCount++
+		} else {
+			skippedCount++
+		}
+	}
+
+	fmt.Printf("\nBackfill complete:\n")
+	fmt.Printf("  Updated: %d files\n", updatedCount)
+	fmt.Printf("  Skipped: %d files (already have character accuracy)\n", skippedCount)
 
 	return nil
 }
@@ -483,6 +587,7 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		Public:                public,
 		ProviderResponse:      providerResponse,
 		CharacterSimilarity:   metrics.CharacterSimilarity,
+		CharacterAccuracy:     metrics.CharacterAccuracy,
 		WordSimilarity:        metrics.WordSimilarity,
 		WordAccuracy:          metrics.WordAccuracy,
 		WordErrorRate:         metrics.WordErrorRate,
@@ -588,6 +693,7 @@ func printRowResult(result EvalResult) {
 	fmt.Printf("Image: %s\n", result.ImagePath)
 	fmt.Printf("Transcript: %s\n", result.TranscriptPath)
 	fmt.Printf("Character Similarity: %.3f\n", result.CharacterSimilarity)
+	fmt.Printf("Character Accuracy: %.3f\n", result.CharacterAccuracy)
 	fmt.Printf("Word Similarity: %.3f\n", result.WordSimilarity)
 	fmt.Printf("Word Accuracy: %.3f\n", result.WordAccuracy)
 	fmt.Printf("Word Error Rate: %.3f\n", result.WordErrorRate)
@@ -607,10 +713,11 @@ func printSummaryStats(results []EvalResult) {
 		return
 	}
 
-	var totalCharSim, totalWordSim, totalWordAcc, totalWER float64
+	var totalCharSim, totalCharAcc, totalWordSim, totalWordAcc, totalWER float64
 
 	for _, result := range results {
 		totalCharSim += result.CharacterSimilarity
+		totalCharAcc += result.CharacterAccuracy
 		totalWordSim += result.WordSimilarity
 		totalWordAcc += result.WordAccuracy
 		totalWER += result.WordErrorRate
@@ -621,6 +728,7 @@ func printSummaryStats(results []EvalResult) {
 	fmt.Printf("\n=== SUMMARY STATISTICS ===\n")
 	fmt.Printf("Total Evaluations: %d\n", len(results))
 	fmt.Printf("Average Character Similarity: %.3f\n", totalCharSim/count)
+	fmt.Printf("Average Character Accuracy: %.3f\n", totalCharAcc/count)
 	fmt.Printf("Average Word Similarity: %.3f\n", totalWordSim/count)
 	fmt.Printf("Average Word Accuracy: %.3f\n", totalWordAcc/count)
 	fmt.Printf("Average Word Error Rate: %.3f\n", totalWER/count)
@@ -877,6 +985,15 @@ func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []str
 	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(origTransformed, transTransformed, ignorePatterns)
 
 	charSim := calculateSimilarity(origProcessed, transProcessed)
+
+	// Calculate character accuracy (1 - CER)
+	origLen := len(origProcessed)
+	charDistance := levenshteinDistance(origProcessed, transProcessed)
+	charAcc := 1.0
+	if origLen > 0 {
+		charAcc = 1.0 - float64(charDistance)/float64(origLen)
+	}
+
 	origWords := strings.Fields(origProcessed)
 	transWords := strings.Fields(transProcessed)
 	wordSim := calculateSimilarity(strings.Join(origWords, " "), strings.Join(transWords, " "))
@@ -886,6 +1003,7 @@ func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []str
 
 	return EvalResult{
 		CharacterSimilarity:   charSim,
+		CharacterAccuracy:     charAcc,
 		WordSimilarity:        wordSim,
 		WordAccuracy:          wordAcc,
 		WordErrorRate:         wer,
