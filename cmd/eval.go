@@ -56,6 +56,8 @@ type EvalResult struct {
 	Deletions             int     `json:"deletions"`
 	Insertions            int     `json:"insertions"`
 	IgnoredCharsCount     int     `json:"ignored_chars_count"`
+	InputTokens           int     `json:"input_tokens,omitempty"`
+	OutputTokens          int     `json:"output_tokens,omitempty"`
 }
 
 type EvalSummary struct {
@@ -144,6 +146,21 @@ This is useful after upgrading to a version with improved metric calculations.`,
 	Args: cobra.NoArgs,
 }
 
+var costCmd = &cobra.Command{
+	Use:   "cost [eval-file]",
+	Short: "Calculate cost estimates based on token usage from an evaluation file",
+	Long: `Calculate cost estimates based on token usage from an evaluation file.
+
+This command reads an evaluation file containing token usage data and calculates:
+- Average input and output tokens per document
+- Estimated cost for a given number of documents
+
+Requires --input-price and --output-price flags (cost per million tokens).
+Optionally specify --doc-count to estimate cost for a specific number of documents.`,
+	RunE: runCost,
+	Args: cobra.ExactArgs(1),
+}
+
 var (
 	evalProvider    string
 	evalModel       string
@@ -161,6 +178,11 @@ var (
 	backfillIgnorePatterns []string
 	backfillSingleLine     bool
 	backfillOverride       bool
+
+	// Cost command flags
+	costInputPrice  float64
+	costOutputPrice float64
+	costDocCount    int
 )
 
 func init() {
@@ -176,6 +198,7 @@ func init() {
 	RootCmd.AddCommand(summaryCmd)
 	RootCmd.AddCommand(csvCmd)
 	RootCmd.AddCommand(backfillCmd)
+	RootCmd.AddCommand(costCmd)
 
 	// Eval command flags
 	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, claude, gemini, ollama")
@@ -197,6 +220,13 @@ func init() {
 	backfillCmd.Flags().StringSliceVar(&backfillIgnorePatterns, "ignore", []string{}, "Override ignore patterns for all evaluations (e.g., --ignore '|' --ignore ',')")
 	backfillCmd.Flags().BoolVar(&backfillSingleLine, "single-line", false, "Override single-line flag for all evaluations")
 	backfillCmd.Flags().BoolVar(&backfillOverride, "override", false, "Force override of saved flags (use CLI flags for all evaluations)")
+
+	// Cost command flags
+	costCmd.Flags().Float64Var(&costInputPrice, "input-price", 0.0, "Cost per million input tokens (e.g., 1.25 for $1.25/1M)")
+	costCmd.Flags().Float64Var(&costOutputPrice, "output-price", 0.0, "Cost per million output tokens (e.g., 10.0 for $10.00/1M)")
+	costCmd.Flags().IntVar(&costDocCount, "doc-count", 1000, "Number of documents to estimate cost for")
+	_ = costCmd.MarkFlagRequired("input-price")
+	_ = costCmd.MarkFlagRequired("output-price")
 }
 
 func runEval(cmd *cobra.Command, args []string) error {
@@ -647,7 +677,7 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		return EvalResult{}, fmt.Errorf("failed to process image: %w", err)
 	}
 
-	providerResponse, err := extractTextWithProvider(config, imagePath, imageBase64)
+	providerResponse, usage, err := extractTextWithProvider(config, imagePath, imageBase64)
 	if err != nil {
 		return EvalResult{}, fmt.Errorf("provider API call failed: %w", err)
 	}
@@ -672,6 +702,8 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		Deletions:             metrics.Deletions,
 		Insertions:            metrics.Insertions,
 		IgnoredCharsCount:     metrics.IgnoredCharsCount,
+		InputTokens:           usage.InputTokens,
+		OutputTokens:          usage.OutputTokens,
 	}
 
 	return result, nil
@@ -729,11 +761,11 @@ func getImageAsBase64(imagePath string) (string, error) {
 }
 
 // extractTextWithProvider extracts text using the appropriate provider
-func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (string, error) {
+func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
 	// Get provider from registry
 	provider, err := providerRegistry.Get(config.Provider)
 	if err != nil {
-		return "", fmt.Errorf("unsupported provider: %s", config.Provider)
+		return "", providers.UsageInfo{}, fmt.Errorf("unsupported provider: %s", config.Provider)
 	}
 
 	// Convert EvalConfig to providers.Config
@@ -746,7 +778,7 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 
 	// Validate configuration
 	if err := provider.ValidateConfig(providerConfig); err != nil {
-		return "", fmt.Errorf("invalid configuration for provider %s: %w", config.Provider, err)
+		return "", providers.UsageInfo{}, fmt.Errorf("invalid configuration for provider %s: %w", config.Provider, err)
 	}
 
 	// Extract text using the provider
@@ -1135,6 +1167,92 @@ func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []str
 		Insertions:            ins,
 		IgnoredCharsCount:     ignoredCount,
 	}
+}
+
+func runCost(cmd *cobra.Command, args []string) error {
+	evalsDir := "evals"
+	evalFile := args[0]
+
+	if !strings.HasSuffix(evalFile, ".yaml") {
+		evalFile += ".yaml"
+	}
+
+	// If no path separator, assume it's in evals directory
+	if !strings.Contains(evalFile, string(filepath.Separator)) {
+		evalFile = filepath.Join(evalsDir, evalFile)
+	}
+
+	// Read and parse the eval file
+	data, err := os.ReadFile(evalFile)
+	if err != nil {
+		return fmt.Errorf("failed to read eval file %s: %w", evalFile, err)
+	}
+
+	var summary EvalSummary
+	if err := yaml.Unmarshal(data, &summary); err != nil {
+		return fmt.Errorf("failed to parse eval file: %w", err)
+	}
+
+	// Calculate average tokens per document
+	var totalInputTokens, totalOutputTokens int
+	var docsWithTokens int
+
+	for _, result := range summary.Results {
+		if result.InputTokens > 0 || result.OutputTokens > 0 {
+			totalInputTokens += result.InputTokens
+			totalOutputTokens += result.OutputTokens
+			docsWithTokens++
+		}
+	}
+
+	if docsWithTokens == 0 {
+		return fmt.Errorf("no token usage data found in evaluation file (run eval with a provider that supports token tracking)")
+	}
+
+	avgInputTokens := float64(totalInputTokens) / float64(docsWithTokens)
+	avgOutputTokens := float64(totalOutputTokens) / float64(docsWithTokens)
+
+	// Calculate costs
+	// Price is per million tokens, so divide by 1,000,000
+	inputCostPerDoc := (avgInputTokens / 1_000_000) * costInputPrice
+	outputCostPerDoc := (avgOutputTokens / 1_000_000) * costOutputPrice
+	totalCostPerDoc := inputCostPerDoc + outputCostPerDoc
+
+	estimatedInputCost := inputCostPerDoc * float64(costDocCount)
+	estimatedOutputCost := outputCostPerDoc * float64(costDocCount)
+	estimatedTotalCost := totalCostPerDoc * float64(costDocCount)
+
+	// Display results
+	fmt.Printf("=== COST ESTIMATION ===\n")
+	fmt.Printf("File: %s\n", filepath.Base(evalFile))
+	fmt.Printf("Provider: %s\n", summary.Config.Provider)
+	fmt.Printf("Model: %s\n", summary.Config.Model)
+	fmt.Printf("\n")
+
+	fmt.Printf("=== Token Usage Statistics ===\n")
+	fmt.Printf("Documents analyzed: %d\n", docsWithTokens)
+	fmt.Printf("Average input tokens per document: %.2f\n", avgInputTokens)
+	fmt.Printf("Average output tokens per document: %.2f\n", avgOutputTokens)
+	fmt.Printf("Average total tokens per document: %.2f\n", avgInputTokens+avgOutputTokens)
+	fmt.Printf("\n")
+
+	fmt.Printf("=== Pricing Configuration ===\n")
+	fmt.Printf("Input token price: $%.2f per 1M tokens\n", costInputPrice)
+	fmt.Printf("Output token price: $%.2f per 1M tokens\n", costOutputPrice)
+	fmt.Printf("\n")
+
+	fmt.Printf("=== Per Document Cost ===\n")
+	fmt.Printf("Input cost: $%.6f\n", inputCostPerDoc)
+	fmt.Printf("Output cost: $%.6f\n", outputCostPerDoc)
+	fmt.Printf("Total cost: $%.6f\n", totalCostPerDoc)
+	fmt.Printf("\n")
+
+	fmt.Printf("=== Estimated Cost for %d Documents ===\n", costDocCount)
+	fmt.Printf("Input cost: $%.2f\n", estimatedInputCost)
+	fmt.Printf("Output cost: $%.2f\n", estimatedOutputCost)
+	fmt.Printf("Total cost: $%.2f\n", estimatedTotalCost)
+
+	return nil
 }
 
 func min(a, b int) int {

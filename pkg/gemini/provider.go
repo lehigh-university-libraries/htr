@@ -38,10 +38,10 @@ func (p *Provider) ValidateConfig(config providers.Config) error {
 }
 
 // ExtractText extracts text from an image using Google Gemini Vision API
-func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, error) {
+func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
 	apiKey := os.Getenv("GEMINI_API_KEY")
 	if apiKey == "" {
-		return "", fmt.Errorf("GEMINI_API_KEY environment variable not set")
+		return "", providers.UsageInfo{}, fmt.Errorf("GEMINI_API_KEY environment variable not set")
 	}
 
 	// Determine MIME type
@@ -80,14 +80,14 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 	requestJSON, err := json.Marshal(requestBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	// Make API request
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(requestJSON))
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -95,50 +95,61 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("gemini API error: %d - %s", resp.StatusCode, string(body))
+		return "", providers.UsageInfo{}, fmt.Errorf("gemini API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var geminiResp map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	// Extract text from Gemini response
 	candidates, ok := geminiResp["candidates"].([]interface{})
 	if !ok || len(candidates) == 0 {
-		return "", fmt.Errorf("no response from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("no response from Gemini")
 	}
 
 	candidate, ok := candidates[0].(map[string]interface{})
 	if !ok {
-		return "", fmt.Errorf("invalid response format from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Gemini")
 	}
 
 	content, ok := candidate["content"].(map[string]interface{})
 	if !ok {
-		return "", fmt.Errorf("invalid content format from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("invalid content format from Gemini")
 	}
 
 	parts, ok := content["parts"].([]interface{})
 	if !ok || len(parts) == 0 {
-		return "", fmt.Errorf("no parts in Gemini response")
+		return "", providers.UsageInfo{}, fmt.Errorf("no parts in Gemini response")
 	}
 
 	part, ok := parts[0].(map[string]interface{})
 	if !ok {
-		return "", fmt.Errorf("invalid part format from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("invalid part format from Gemini")
 	}
 
 	text, ok := part["text"].(string)
 	if !ok {
-		return "", fmt.Errorf("no text in Gemini response")
+		return "", providers.UsageInfo{}, fmt.Errorf("no text in Gemini response")
 	}
 
-	return providers.ProcessResponse(p, text), nil
+	// Extract usage metadata if available
+	usage := providers.UsageInfo{}
+	if usageMetadata, ok := geminiResp["usageMetadata"].(map[string]interface{}); ok {
+		if promptTokens, ok := usageMetadata["promptTokenCount"].(float64); ok {
+			usage.InputTokens = int(promptTokens)
+		}
+		if candidatesTokens, ok := usageMetadata["candidatesTokenCount"].(float64); ok {
+			usage.OutputTokens = int(candidatesTokens)
+		}
+	}
+
+	return providers.ProcessResponse(p, text), usage, nil
 }

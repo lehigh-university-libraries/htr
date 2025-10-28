@@ -26,6 +26,11 @@ type Response struct {
 			Content string `json:"content"`
 		} `json:"message"`
 	} `json:"choices"`
+	Usage struct {
+		PromptTokens     int `json:"prompt_tokens"`
+		CompletionTokens int `json:"completion_tokens"`
+		TotalTokens      int `json:"total_tokens"`
+	} `json:"usage"`
 }
 
 // TemplateData represents data for API request template
@@ -57,10 +62,10 @@ func (p *Provider) ValidateConfig(config providers.Config) error {
 }
 
 // ExtractText extracts text from an image using OpenAI's vision API
-func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, error) {
+func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
 	apiKey := os.Getenv("OPENAI_API_KEY")
 	if apiKey == "" {
-		return "", fmt.Errorf("OPENAI_API_KEY environment variable not set")
+		return "", providers.UsageInfo{}, fmt.Errorf("OPENAI_API_KEY environment variable not set")
 	}
 
 	// Determine image format
@@ -84,24 +89,24 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	// Parse and execute template
 	tmpl, err := template.New("openai").Parse(templateStr)
 	if err != nil {
-		return "", fmt.Errorf("failed to parse template: %w", err)
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to parse template: %w", err)
 	}
 
 	var requestBuffer bytes.Buffer
 	if err := tmpl.Execute(&requestBuffer, templateData); err != nil {
-		return "", fmt.Errorf("failed to execute template: %w", err)
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to execute template: %w", err)
 	}
 
 	// Validate JSON
 	var jsonTest any
 	if err := json.Unmarshal(requestBuffer.Bytes(), &jsonTest); err != nil {
-		return "", fmt.Errorf("generated invalid JSON: %w\nJSON: %s", err, requestBuffer.String())
+		return "", providers.UsageInfo{}, fmt.Errorf("generated invalid JSON: %w\nJSON: %s", err, requestBuffer.String())
 	}
 
 	// Make API request
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.openai.com/v1/chat/completions", &requestBuffer)
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -110,25 +115,30 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("openAI API error: %d - %s", resp.StatusCode, string(body))
+		return "", providers.UsageInfo{}, fmt.Errorf("openAI API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var openaiResp Response
 	if err := json.NewDecoder(resp.Body).Decode(&openaiResp); err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	if len(openaiResp.Choices) == 0 {
-		return "", fmt.Errorf("no response from OpenAI")
+		return "", providers.UsageInfo{}, fmt.Errorf("no response from OpenAI")
 	}
 
-	return providers.ProcessResponse(p, openaiResp.Choices[0].Message.Content), nil
+	usage := providers.UsageInfo{
+		InputTokens:  openaiResp.Usage.PromptTokens,
+		OutputTokens: openaiResp.Usage.CompletionTokens,
+	}
+
+	return providers.ProcessResponse(p, openaiResp.Choices[0].Message.Content), usage, nil
 }
 
 // jsonEscape properly escapes a string for use in JSON

@@ -40,18 +40,18 @@ func (p *Provider) ValidateConfig(config providers.Config) error {
 }
 
 // ExtractText extracts text from an image using Azure Computer Vision Read API
-func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, error) {
+func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
 	endpoint := os.Getenv("AZURE_OCR_ENDPOINT")
 	apiKey := os.Getenv("AZURE_OCR_API_KEY")
 
 	if endpoint == "" || apiKey == "" {
-		return "", fmt.Errorf("AZURE_OCR_ENDPOINT and AZURE_OCR_API_KEY environment variables must be set")
+		return "", providers.UsageInfo{}, fmt.Errorf("AZURE_OCR_ENDPOINT and AZURE_OCR_API_KEY environment variables must be set")
 	}
 
 	// Decode base64 image data
 	imageData, err := base64.StdEncoding.DecodeString(imageBase64)
 	if err != nil {
-		return "", fmt.Errorf("failed to decode base64 image: %w", err)
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to decode base64 image: %w", err)
 	}
 
 	// Azure Computer Vision Read API 3.2 URL (more widely supported)
@@ -60,7 +60,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	// Create request
 	req, err := http.NewRequestWithContext(ctx, "POST", readURL, bytes.NewReader(imageData))
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	// Set headers
@@ -70,19 +70,19 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	client := &http.Client{Timeout: 60 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusAccepted {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("azure OCR API error: %d - %s", resp.StatusCode, string(body))
+		return "", providers.UsageInfo{}, fmt.Errorf("azure OCR API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	// Get the operation URL from the Operation-Location header
 	operationURL := resp.Header.Get("Operation-Location")
 	if operationURL == "" {
-		return "", fmt.Errorf("no operation location returned from Azure OCR")
+		return "", providers.UsageInfo{}, fmt.Errorf("no operation location returned from Azure OCR")
 	}
 
 	// Poll for results
@@ -91,13 +91,13 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 		req, err := http.NewRequestWithContext(ctx, "GET", operationURL, nil)
 		if err != nil {
-			return "", err
+			return "", providers.UsageInfo{}, err
 		}
 		req.Header.Set("Ocp-Apim-Subscription-Key", apiKey)
 
 		resp, err := client.Do(req)
 		if err != nil {
-			return "", err
+			return "", providers.UsageInfo{}, err
 		}
 
 		if resp.StatusCode != http.StatusOK {
@@ -108,25 +108,26 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		var result map[string]interface{}
 		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
 			resp.Body.Close()
-			return "", err
+			return "", providers.UsageInfo{}, err
 		}
 		resp.Body.Close()
 
 		status, ok := result["status"].(string)
 		if !ok {
-			return "", fmt.Errorf("invalid response format from Azure OCR")
+			return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Azure OCR")
 		}
 
 		switch status {
 		case "succeeded":
-			return extractText(result), nil
+			// Azure OCR does not provide token usage information
+			return extractText(result), providers.UsageInfo{}, nil
 		case "failed":
-			return "", fmt.Errorf("azure OCR analysis failed")
+			return "", providers.UsageInfo{}, fmt.Errorf("azure OCR analysis failed")
 		}
 		// Continue polling if status is "running" or "notStarted"
 	}
 
-	return "", fmt.Errorf("azure OCR operation timed out")
+	return "", providers.UsageInfo{}, fmt.Errorf("azure OCR operation timed out")
 }
 
 // extractText extracts text from Azure OCR response (supports both v3.2 and v4.0 formats)
