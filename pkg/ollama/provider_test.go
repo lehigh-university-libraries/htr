@@ -159,7 +159,7 @@ func TestProvider_ExtractText(t *testing.T) {
 				Temperature: 0.3,
 			}
 
-			result, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdCBpbWFnZSBkYXRh") // "test image data" in base64
+			result, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdCBpbWFnZSBkYXRh") // "test image data" in base64
 
 			if tt.expectError {
 				if err == nil {
@@ -201,7 +201,7 @@ func TestProvider_ExtractText_DefaultURL(t *testing.T) {
 	}
 
 	// This will fail to connect, but we're testing that it tries the default URL
-	_, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
+	_, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
 
 	// We expect an error (connection refused), but we want to make sure it's trying the right URL
 	if err == nil {
@@ -276,7 +276,7 @@ func TestProvider_ExtractText_ModelDefaulting(t *testing.T) {
 				Prompt:   "Extract text",
 			}
 
-			_, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
+			_, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
 			if err != nil {
 				t.Errorf("Unexpected error: %v", err)
 			}

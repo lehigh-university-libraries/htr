@@ -137,7 +137,7 @@ TEXT:`
 	maxRetries := 2
 
 	for attempt := 0; attempt <= maxRetries; attempt++ {
-		result, lastErr = provider.ExtractText(context.Background(), wordConfig, imagePath, imageBase64)
+		result, _, lastErr = provider.ExtractText(context.Background(), wordConfig, imagePath, imageBase64)
 		if lastErr == nil {
 			// Clean up common OCR response issues
 			result = strings.TrimSpace(result)
@@ -295,7 +295,7 @@ INSTRUCTIONS:
 TEXT:`
 
 	// Transcribe the line
-	result, err := provider.ExtractText(context.Background(), lineConfig, lineImagePath, imageBase64)
+	result, _, err := provider.ExtractText(context.Background(), lineConfig, lineImagePath, imageBase64)
 	if err != nil {
 		return "", err
 	}

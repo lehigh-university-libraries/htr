@@ -25,6 +25,10 @@ type Response struct {
 		Type string `json:"type"`
 	} `json:"content"`
 	StopReason string `json:"stop_reason"`
+	Usage      struct {
+		InputTokens  int `json:"input_tokens"`
+		OutputTokens int `json:"output_tokens"`
+	} `json:"usage"`
 }
 
 // New creates a new Claude provider
@@ -47,10 +51,10 @@ func (p *Provider) ValidateConfig(config providers.Config) error {
 }
 
 // ExtractText extracts text from an image using Claude's vision API
-func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, error) {
+func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
 	apiKey := os.Getenv("ANTHROPIC_API_KEY")
 	if apiKey == "" {
-		return "", fmt.Errorf("ANTHROPIC_API_KEY environment variable not set")
+		return "", providers.UsageInfo{}, fmt.Errorf("ANTHROPIC_API_KEY environment variable not set")
 	}
 
 	// Determine media type (Claude uses "media_type" instead of "mime_type")
@@ -91,13 +95,13 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 	requestJSON, err := json.Marshal(requestBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	// Make API request
 	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(requestJSON))
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -107,22 +111,22 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	client := &http.Client{Timeout: 120 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("claude API error: %d - %s", resp.StatusCode, string(body))
+		return "", providers.UsageInfo{}, fmt.Errorf("claude API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var claudeResp Response
 	if err := json.NewDecoder(resp.Body).Decode(&claudeResp); err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	if len(claudeResp.Content) == 0 {
-		return "", fmt.Errorf("no response from Claude")
+		return "", providers.UsageInfo{}, fmt.Errorf("no response from Claude")
 	}
 
 	// Extract text from the first text content block
@@ -135,8 +139,13 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	if extractedText == "" {
-		return "", fmt.Errorf("no text content in Claude response")
+		return "", providers.UsageInfo{}, fmt.Errorf("no text content in Claude response")
 	}
 
-	return providers.ProcessResponse(p, extractedText), nil
+	usage := providers.UsageInfo{
+		InputTokens:  claudeResp.Usage.InputTokens,
+		OutputTokens: claudeResp.Usage.OutputTokens,
+	}
+
+	return providers.ProcessResponse(p, extractedText), usage, nil
 }

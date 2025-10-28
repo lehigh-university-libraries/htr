@@ -48,7 +48,7 @@ The HTR tool supports multiple providers for text extraction from images. Set th
 #### Google Gemini
 - Provider: `gemini`
 - Environment variable: `GEMINI_API_KEY`
-- Models: `gemini-pro-vision`, `gemini-1.5-pro`, `gemini-1.5-flash`
+- Models: `gemini-2.5-flash`
 
 #### Ollama (local)
 - Provider: `ollama`
@@ -83,7 +83,7 @@ htr eval \
 ```bash
 htr eval \
   --provider gemini \
-  --model gemini-pro-vision \
+  --model gemini-2.5-flash \
   --prompt "Extract all text from this image" \
   --temperature 0.0 \
   --csv fixtures/images.csv \
@@ -332,6 +332,90 @@ htr summary eval_2025-07-24_07-44-38.yaml
 # Or just use the filename without extension
 htr summary eval_2025-07-24_07-44-38
 ```
+
+### Cost Estimation
+
+Estimate costs for large-scale document transcription based on token usage data from evaluation runs. The `cost` command analyzes token consumption from an evaluation file and projects costs for transcribing a larger number of documents.
+
+#### How It Works
+
+1. **Token Tracking**: When you run an evaluation, HTR automatically captures input and output token counts from API responses (OpenAI, Claude, Gemini, Ollama)
+2. **Average Calculation**: The cost command calculates average tokens per document from your evaluation
+3. **Cost Projection**: Estimates total cost for transcribing N documents based on your specified pricing
+
+#### Usage
+
+```bash
+# Calculate cost estimate for an evaluation
+htr cost gpt-4o --input-price 1.25 --output-price 10.0 --doc-count 1000
+```
+
+**Required flags:**
+- `--input-price`: Cost per million input tokens (e.g., `1.25` for $1.25/1M tokens)
+- `--output-price`: Cost per million output tokens (e.g., `10.0` for $10.00/1M tokens)
+
+**Optional flags:**
+- `--doc-count`: Number of documents to estimate (default: `1000`)
+
+#### Example Workflow
+
+```bash
+# 1. Run an evaluation to collect token usage data
+htr eval \
+  --provider openai \
+  --model gpt-4o \
+  --prompt "Extract all text from this image" \
+  --csv sample_docs.csv \
+  --dir ./images
+
+# 2. Calculate cost for 5000 documents using GPT-4o pricing
+# Input: $2.50/1M tokens, Output: $10.00/1M tokens
+htr cost gpt-4o --input-price 2.50 --output-price 10.0 --doc-count 5000
+```
+
+#### Example Output
+
+```
+=== COST ESTIMATION ===
+File: gpt-4o.yaml
+Provider: openai
+Model: gpt-4o
+
+=== Token Usage Statistics ===
+Documents analyzed: 50
+Average input tokens per document: 1847.32
+Average output tokens per document: 456.18
+Average total tokens per document: 2303.50
+
+=== Pricing Configuration ===
+Input token price: $2.50 per 1M tokens
+Output token price: $10.00 per 1M tokens
+
+=== Per Document Cost ===
+Input cost: $0.004618
+Output cost: $0.004562
+Total cost: $0.009180
+
+=== Estimated Cost for 5000 Documents ===
+Input cost: $23.09
+Output cost: $22.81
+Total cost: $45.90
+```
+
+#### Token Support by Provider
+
+- **OpenAI**: ✅ Full token tracking (input/output)
+- **Claude**: ✅ Full token tracking (input/output)
+- **Gemini**: ✅ Full token tracking (input/output)
+- **Ollama**: ✅ Full token tracking (input/output)
+- **Azure OCR**: ❌ No token data (service doesn't provide usage info)
+
+#### Notes
+
+- Token counts are captured directly from API responses, not calculated by HTR
+- Evaluation YAML files store token data as `inputtokens` and `outputtokens` fields
+- Cost estimates are based on averages across all documents in the evaluation
+- Use a representative sample of documents for more accurate cost projections
 
 ## Testing Individual Items
 

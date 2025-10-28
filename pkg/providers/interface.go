@@ -14,10 +14,17 @@ type Config struct {
 	Temperature float64
 }
 
+// UsageInfo represents token usage information from a provider
+type UsageInfo struct {
+	InputTokens  int
+	OutputTokens int
+}
+
 // Provider interface that all OCR/vision providers must implement
 type Provider interface {
 	// ExtractText extracts text from an image using the provider's API
-	ExtractText(ctx context.Context, config Config, imagePath, imageBase64 string) (string, error)
+	// Returns the extracted text and usage information (tokens used)
+	ExtractText(ctx context.Context, config Config, imagePath, imageBase64 string) (string, UsageInfo, error)
 	// Name returns the provider's name
 	Name() string
 	// ValidateConfig validates the provider-specific configuration

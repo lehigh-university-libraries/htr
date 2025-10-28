@@ -268,7 +268,7 @@ func TestProvider_ExtractText(t *testing.T) {
 			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 			defer cancel()
 
-			result, err := p.ExtractText(ctx, config, "test.jpg", "dGVzdCBpbWFnZSBkYXRh") // "test image data" in base64
+			result, _, err := p.ExtractText(ctx, config, "test.jpg", "dGVzdCBpbWFnZSBkYXRh") // "test image data" in base64
 
 			if tt.expectError {
 				if err == nil {

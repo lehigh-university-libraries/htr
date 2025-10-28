@@ -34,7 +34,7 @@ func (p *Provider) ValidateConfig(config providers.Config) error {
 }
 
 // ExtractText extracts text from an image using Ollama local API
-func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, error) {
+func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
 	ollamaURL := os.Getenv("OLLAMA_URL")
 	if ollamaURL == "" {
 		ollamaURL = "http://localhost:11434" // Default Ollama URL
@@ -59,14 +59,14 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 	requestJSON, err := json.Marshal(requestBody)
 	if err != nil {
-		return "", fmt.Errorf("failed to marshal request: %w", err)
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	// Make API request
 	url := fmt.Sprintf("%s/api/generate", strings.TrimSuffix(ollamaURL, "/"))
 	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(requestJSON))
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	req.Header.Set("Content-Type", "application/json")
@@ -74,25 +74,34 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	client := &http.Client{Timeout: 300 * time.Second} // Longer timeout for local inference
 	resp, err := client.Do(req)
 	if err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
 		body, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf("ollama API error: %d - %s", resp.StatusCode, string(body))
+		return "", providers.UsageInfo{}, fmt.Errorf("ollama API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var ollamaResp map[string]interface{}
 	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
-		return "", err
+		return "", providers.UsageInfo{}, err
 	}
 
 	// Extract response from Ollama
 	response, ok := ollamaResp["response"].(string)
 	if !ok {
-		return "", fmt.Errorf("no response from Ollama")
+		return "", providers.UsageInfo{}, fmt.Errorf("no response from Ollama")
 	}
 
-	return providers.ProcessResponse(p, response), nil
+	// Extract token usage if available (Ollama provides prompt_eval_count and eval_count)
+	usage := providers.UsageInfo{}
+	if promptEvalCount, ok := ollamaResp["prompt_eval_count"].(float64); ok {
+		usage.InputTokens = int(promptEvalCount)
+	}
+	if evalCount, ok := ollamaResp["eval_count"].(float64); ok {
+		usage.OutputTokens = int(evalCount)
+	}
+
+	return providers.ProcessResponse(p, response), usage, nil
 }

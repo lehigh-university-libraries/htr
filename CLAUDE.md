@@ -60,6 +60,9 @@ make deps
 
 # Export results as CSV
 ./htr csv
+
+# Estimate costs based on token usage
+./htr cost gpt-4o --input-price 2.50 --output-price 10.0 --doc-count 1000
 ```
 
 ---
