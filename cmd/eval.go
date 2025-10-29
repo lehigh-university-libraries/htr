@@ -75,6 +75,9 @@ type ModelSummary struct {
 	AvgWordSimilarity float64
 	AvgWordAccuracy   float64
 	AvgWordErrorRate  float64
+	AvgInputTokens    float64
+	AvgOutputTokens   float64
+	PageCost          float64
 }
 
 // Provider registry for managing all providers
@@ -125,7 +128,9 @@ var csvCmd = &cobra.Command{
 	Short: "Export evaluation results as CSV sorted by model performance",
 	Long: `Scan all YAML files in the evals directory and export summary statistics as CSV.
 
-Results are sorted by word accuracy (best to worst) and printed to terminal.`,
+Results are sorted by word accuracy (best to worst) and printed to terminal.
+
+If --input-price and --output-price are provided, a PageCost column will be included.`,
 	RunE: runCSV,
 	Args: cobra.NoArgs,
 }
@@ -183,6 +188,10 @@ var (
 	costInputPrice  float64
 	costOutputPrice float64
 	costDocCount    int
+
+	// CSV command flags
+	csvInputPrice  float64
+	csvOutputPrice float64
 )
 
 func init() {
@@ -227,6 +236,10 @@ func init() {
 	costCmd.Flags().IntVar(&costDocCount, "doc-count", 1000, "Number of documents to estimate cost for")
 	_ = costCmd.MarkFlagRequired("input-price")
 	_ = costCmd.MarkFlagRequired("output-price")
+
+	// CSV command flags
+	csvCmd.Flags().Float64Var(&csvInputPrice, "input-price", 0.0, "Cost per million input tokens (optional)")
+	csvCmd.Flags().Float64Var(&csvOutputPrice, "output-price", 0.0, "Cost per million output tokens (optional)")
 }
 
 func runEval(cmd *cobra.Command, args []string) error {
@@ -388,6 +401,7 @@ func runCSV(cmd *cobra.Command, args []string) error {
 
 		// Calculate aggregated metrics
 		var totalCharSim, totalCharAcc, totalWordSim, totalWordAcc, totalWER float64
+		var totalInputTokens, totalOutputTokens int
 		for _, result := range summary.Results {
 			totalCharSim += result.CharacterSimilarity
 
@@ -406,9 +420,22 @@ func runCSV(cmd *cobra.Command, args []string) error {
 			totalWordSim += result.WordSimilarity
 			totalWordAcc += result.WordAccuracy
 			totalWER += result.WordErrorRate
+			totalInputTokens += result.InputTokens
+			totalOutputTokens += result.OutputTokens
 		}
 
 		count := float64(len(summary.Results))
+		avgInputTokens := float64(totalInputTokens) / count
+		avgOutputTokens := float64(totalOutputTokens) / count
+
+		// Calculate page cost if prices are provided
+		pageCost := 0.0
+		if csvInputPrice > 0 || csvOutputPrice > 0 {
+			inputCost := (avgInputTokens / 1_000_000) * csvInputPrice
+			outputCost := (avgOutputTokens / 1_000_000) * csvOutputPrice
+			pageCost = inputCost + outputCost
+		}
+
 		modelSummary := ModelSummary{
 			Model:             summary.Config.Model,
 			Provider:          summary.Config.Provider,
@@ -419,6 +446,9 @@ func runCSV(cmd *cobra.Command, args []string) error {
 			AvgWordSimilarity: totalWordSim / count,
 			AvgWordAccuracy:   totalWordAcc / count,
 			AvgWordErrorRate:  totalWER / count,
+			AvgInputTokens:    avgInputTokens,
+			AvgOutputTokens:   avgOutputTokens,
+			PageCost:          pageCost,
 		}
 
 		modelSummaries = append(modelSummaries, modelSummary)
@@ -440,19 +470,40 @@ func runCSV(cmd *cobra.Command, args []string) error {
 		return 0
 	})
 
+	// Determine if we should include PageCost column
+	includeCost := csvInputPrice > 0 || csvOutputPrice > 0
+
 	// Print TSV header
-	fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgCharAccuracy\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate")
+	if includeCost {
+		fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgCharAccuracy\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate\tAvgInputTokens\tAvgOutputTokens\tPageCost")
+	} else {
+		fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgCharAccuracy\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate")
+	}
 
 	// Print TSV data
 	for _, ms := range modelSummaries {
-		fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n",
-			ms.Model,
-			ms.TotalEvaluations,
-			ms.AvgCharSimilarity,
-			ms.AvgCharAccuracy,
-			ms.AvgWordSimilarity,
-			ms.AvgWordAccuracy,
-			ms.AvgWordErrorRate)
+		if includeCost {
+			fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\t%.2f\t%.2f\t%.6f\n",
+				ms.Model,
+				ms.TotalEvaluations,
+				ms.AvgCharSimilarity,
+				ms.AvgCharAccuracy,
+				ms.AvgWordSimilarity,
+				ms.AvgWordAccuracy,
+				ms.AvgWordErrorRate,
+				ms.AvgInputTokens,
+				ms.AvgOutputTokens,
+				ms.PageCost)
+		} else {
+			fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n",
+				ms.Model,
+				ms.TotalEvaluations,
+				ms.AvgCharSimilarity,
+				ms.AvgCharAccuracy,
+				ms.AvgWordSimilarity,
+				ms.AvgWordAccuracy,
+				ms.AvgWordErrorRate)
+		}
 	}
 
 	return nil

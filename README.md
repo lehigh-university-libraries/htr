@@ -333,6 +333,84 @@ htr summary eval_2025-07-24_07-44-38.yaml
 htr summary eval_2025-07-24_07-44-38
 ```
 
+### CSV Export
+
+Export aggregated evaluation results from all models as CSV/TSV format, sorted by performance:
+
+```bash
+# Export all evaluation results as TSV
+htr csv
+
+# Export with per-page cost calculation
+htr csv --input-price 2.50 --output-price 10.0
+```
+
+#### Basic Usage
+
+The `csv` command scans all YAML files in the `evals/` directory and aggregates performance metrics for each model:
+
+```bash
+htr csv
+```
+
+**Output columns:**
+- Model name and configuration
+- Total evaluations performed
+- Average character similarity (0-1)
+- Average character accuracy (0-1)
+- Average word similarity (0-1)
+- Average word accuracy (0-1)
+- Average word error rate (0-1)
+
+Results are sorted by word similarity (best to worst) and output in tab-separated format for easy import into spreadsheet software.
+
+#### Cost Analysis
+
+When you provide pricing information, the `csv` command includes per-page cost estimates:
+
+```bash
+htr csv --input-price 2.50 --output-price 10.0
+```
+
+**Additional columns with pricing:**
+- Average input tokens per page
+- Average output tokens per page
+- **PageCost**: Estimated cost per page in dollars
+
+**Example output:**
+```
+Model                          PageCost    AvgWordAccuracy
+gpt-4o                        0.011250    0.605094
+claude-sonnet-4-5-20250929    0.009845    0.598710
+gemini-2.5-flash              0.003420    0.572504
+```
+
+#### Example Workflow
+
+```bash
+# 1. Run evaluations with different providers
+htr eval --provider openai --model gpt-4o --prompt "Extract text" --csv images.csv
+htr eval --provider claude --model claude-sonnet-4-5 --prompt "Extract text" --csv images.csv
+htr eval --provider gemini --model gemini-2.5-flash --prompt "Extract text" --csv images.csv
+
+# 2. Compare all models (performance only)
+htr csv
+
+# 3. Compare models with cost analysis
+htr csv --input-price 2.50 --output-price 10.0
+
+# 4. Save results to a file
+htr csv --input-price 2.50 --output-price 10.0 > model_comparison.tsv
+```
+
+#### Pricing Notes
+
+- Prices are specified as cost per million tokens
+- Example: `--input-price 2.50` means $2.50 per 1M input tokens
+- PageCost is calculated as: `(avgInputTokens / 1,000,000) × inputPrice + (avgOutputTokens / 1,000,000) × outputPrice`
+- Only evaluations with token data will show cost information (OpenAI, Claude, Gemini, Ollama)
+- Azure OCR evaluations will show `0.00` for tokens and cost (no token tracking)
+
 ### Cost Estimation
 
 Estimate costs for large-scale document transcription based on token usage data from evaluation runs. The `cost` command analyzes token consumption from an evaluation file and projects costs for transcribing a larger number of documents.
