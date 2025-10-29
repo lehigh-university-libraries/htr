@@ -620,3 +620,149 @@ func TestCalculateAccuracyMetricsWithSingleLineNormalization(t *testing.T) {
 		})
 	}
 }
+
+func TestPageCostCalculation(t *testing.T) {
+	tests := []struct {
+		name              string
+		results           []EvalResult
+		inputPrice        float64
+		outputPrice       float64
+		expectedAvgInput  float64
+		expectedAvgOutput float64
+		expectedPageCost  float64
+		description       string
+	}{
+		{
+			name: "basic cost calculation",
+			results: []EvalResult{
+				{InputTokens: 1000, OutputTokens: 500},
+				{InputTokens: 2000, OutputTokens: 1000},
+				{InputTokens: 1500, OutputTokens: 750},
+			},
+			inputPrice:        2.50,     // $2.50 per 1M tokens
+			outputPrice:       10.0,     // $10.00 per 1M tokens
+			expectedAvgInput:  1500,     // (1000 + 2000 + 1500) / 3
+			expectedAvgOutput: 750,      // (500 + 1000 + 750) / 3
+			expectedPageCost:  0.011250, // (1500/1M * 2.50) + (750/1M * 10.0) = 0.00375 + 0.0075 = 0.01125
+			description:       "Calculate average tokens and page cost with standard pricing",
+		},
+		{
+			name: "zero tokens",
+			results: []EvalResult{
+				{InputTokens: 0, OutputTokens: 0},
+				{InputTokens: 0, OutputTokens: 0},
+			},
+			inputPrice:        2.50,
+			outputPrice:       10.0,
+			expectedAvgInput:  0,
+			expectedAvgOutput: 0,
+			expectedPageCost:  0.0,
+			description:       "No tokens results in zero cost",
+		},
+		{
+			name: "only input tokens",
+			results: []EvalResult{
+				{InputTokens: 1000, OutputTokens: 0},
+				{InputTokens: 2000, OutputTokens: 0},
+			},
+			inputPrice:        5.0,
+			outputPrice:       10.0,
+			expectedAvgInput:  1500,
+			expectedAvgOutput: 0,
+			expectedPageCost:  0.0075, // (1500/1M * 5.0)
+			description:       "Cost calculation with only input tokens",
+		},
+		{
+			name: "only output tokens",
+			results: []EvalResult{
+				{InputTokens: 0, OutputTokens: 1000},
+				{InputTokens: 0, OutputTokens: 2000},
+			},
+			inputPrice:        2.50,
+			outputPrice:       15.0,
+			expectedAvgInput:  0,
+			expectedAvgOutput: 1500,
+			expectedPageCost:  0.0225, // (1500/1M * 15.0)
+			description:       "Cost calculation with only output tokens",
+		},
+		{
+			name: "zero input price",
+			results: []EvalResult{
+				{InputTokens: 1000, OutputTokens: 500},
+				{InputTokens: 2000, OutputTokens: 1000},
+			},
+			inputPrice:        0.0,
+			outputPrice:       10.0,
+			expectedAvgInput:  1500,
+			expectedAvgOutput: 750,
+			expectedPageCost:  0.0075, // (750/1M * 10.0)
+			description:       "Cost calculation with zero input price",
+		},
+		{
+			name: "zero output price",
+			results: []EvalResult{
+				{InputTokens: 1000, OutputTokens: 500},
+				{InputTokens: 2000, OutputTokens: 1000},
+			},
+			inputPrice:        2.50,
+			outputPrice:       0.0,
+			expectedAvgInput:  1500,
+			expectedAvgOutput: 750,
+			expectedPageCost:  0.00375, // (1500/1M * 2.50)
+			description:       "Cost calculation with zero output price",
+		},
+		{
+			name: "single evaluation",
+			results: []EvalResult{
+				{InputTokens: 5000, OutputTokens: 2500},
+			},
+			inputPrice:        3.0,
+			outputPrice:       12.0,
+			expectedAvgInput:  5000,
+			expectedAvgOutput: 2500,
+			expectedPageCost:  0.045, // (5000/1M * 3.0) + (2500/1M * 12.0) = 0.015 + 0.03 = 0.045
+			description:       "Cost calculation with single evaluation",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			// Calculate totals
+			var totalInputTokens, totalOutputTokens int
+			for _, result := range tt.results {
+				totalInputTokens += result.InputTokens
+				totalOutputTokens += result.OutputTokens
+			}
+
+			count := float64(len(tt.results))
+			avgInputTokens := float64(totalInputTokens) / count
+			avgOutputTokens := float64(totalOutputTokens) / count
+
+			// Calculate page cost
+			pageCost := 0.0
+			if tt.inputPrice > 0 || tt.outputPrice > 0 {
+				inputCost := (avgInputTokens / 1_000_000) * tt.inputPrice
+				outputCost := (avgOutputTokens / 1_000_000) * tt.outputPrice
+				pageCost = inputCost + outputCost
+			}
+
+			// Verify average input tokens
+			if diff := avgInputTokens - tt.expectedAvgInput; diff > 0.01 || diff < -0.01 {
+				t.Errorf("AvgInputTokens = %.2f, want %.2f\n  description: %s",
+					avgInputTokens, tt.expectedAvgInput, tt.description)
+			}
+
+			// Verify average output tokens
+			if diff := avgOutputTokens - tt.expectedAvgOutput; diff > 0.01 || diff < -0.01 {
+				t.Errorf("AvgOutputTokens = %.2f, want %.2f\n  description: %s",
+					avgOutputTokens, tt.expectedAvgOutput, tt.description)
+			}
+
+			// Verify page cost
+			if diff := pageCost - tt.expectedPageCost; diff > 0.000001 || diff < -0.000001 {
+				t.Errorf("PageCost = %.6f, want %.6f\n  description: %s",
+					pageCost, tt.expectedPageCost, tt.description)
+			}
+		})
+	}
+}
