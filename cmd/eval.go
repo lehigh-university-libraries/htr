@@ -16,6 +16,7 @@ import (
 	"time"
 	"unicode"
 
+	"github.com/lehigh-university-libraries/htr/internal/utils"
 	"github.com/lehigh-university-libraries/htr/pkg/azure"
 	"github.com/lehigh-university-libraries/htr/pkg/claude"
 	"github.com/lehigh-university-libraries/htr/pkg/gemini"
@@ -702,7 +703,7 @@ func processEvaluation(config EvalConfig) ([]EvalResult, error) {
 
 		result, err := processRow(row, config)
 		if err != nil {
-			slog.Error("Error processing row", "row", i+1, "err", err)
+			slog.Error("Error processing row", "row", i+1, "err", utils.MaskSensitiveError(err))
 			continue
 		}
 
