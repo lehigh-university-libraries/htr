@@ -4,6 +4,7 @@ import (
 	"context"
 	"regexp"
 	"strings"
+	"time"
 )
 
 // Config represents the configuration for a provider
@@ -12,6 +13,7 @@ type Config struct {
 	Model       string
 	Prompt      string
 	Temperature float64
+	Timeout     time.Duration
 }
 
 // UsageInfo represents token usage information from a provider

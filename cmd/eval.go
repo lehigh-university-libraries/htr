@@ -27,15 +27,16 @@ import (
 )
 
 type EvalConfig struct {
-	Provider       string   `json:"provider"`
-	Model          string   `json:"model"`
-	Prompt         string   `json:"prompt"`
-	Temperature    float64  `json:"temperature"`
-	CSVPath        string   `json:"csv_path"`
-	TestRows       []int    `json:"rows"`
-	Timestamp      string   `json:"timestamp"`
-	IgnorePatterns []string `json:"ignore_patterns,omitempty"`
-	SingleLine     bool     `json:"single_line,omitempty"`
+	Provider       string        `json:"provider"`
+	Model          string        `json:"model"`
+	Prompt         string        `json:"prompt"`
+	Temperature    float64       `json:"temperature"`
+	Timeout        time.Duration `json:"timeout"`
+	CSVPath        string        `json:"csv_path"`
+	TestRows       []int         `json:"rows"`
+	Timestamp      string        `json:"timestamp"`
+	IgnorePatterns []string      `json:"ignore_patterns,omitempty"`
+	SingleLine     bool          `json:"single_line,omitempty"`
 }
 
 type EvalResult struct {
@@ -171,6 +172,7 @@ var (
 	evalModel       string
 	evalPrompt      string
 	evalTemperature float64
+	evalTimeout     time.Duration
 	evalCSVPath     string
 	evalConfigPath  string
 	evalTemplate    string
@@ -214,6 +216,7 @@ func init() {
 	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
 	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to the provider")
 	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for API")
+	evalCmd.Flags().DurationVar(&evalTimeout, "timeout", 5*time.Minute, "Timeout for API requests (e.g., 5m, 30s, 1h)")
 	evalCmd.Flags().StringVarP(&evalCSVPath, "csv", "c", "", "Path to CSV file with evaluation data")
 	evalCmd.Flags().StringVar(&evalConfigPath, "config", "", "Path to previous evaluation config file to rerun")
 	evalCmd.Flags().StringVar(&evalTemplate, "template", "", "Custom JSON template file for API (optional)")
@@ -259,6 +262,7 @@ func runEval(cmd *cobra.Command, args []string) error {
 			Model:          evalModel,
 			Prompt:         evalPrompt,
 			Temperature:    evalTemperature,
+			Timeout:        evalTimeout,
 			CSVPath:        evalCSVPath,
 			Timestamp:      time.Now().Format("2006-01-02_15-04-05"),
 			IgnorePatterns: ignorePatterns,
@@ -646,6 +650,11 @@ func loadEvalConfig(configPath string) (EvalConfig, error) {
 	// Update timestamp for rerun
 	summary.Config.Timestamp = time.Now().Format("2006-01-02_15-04-05")
 
+	// Set default timeout if not present (for backward compatibility)
+	if summary.Config.Timeout == 0 {
+		summary.Config.Timeout = 5 * time.Minute
+	}
+
 	return summary.Config, nil
 }
 
@@ -825,6 +834,7 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 		Model:       config.Model,
 		Prompt:      config.Prompt,
 		Temperature: config.Temperature,
+		Timeout:     config.Timeout,
 	}
 
 	// Validate configuration
