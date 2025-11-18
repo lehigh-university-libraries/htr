@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
@@ -92,7 +91,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 	req.Header.Set("Content-Type", "application/json")
 
-	client := &http.Client{Timeout: 60 * time.Second}
+	client := &http.Client{Timeout: config.Timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", providers.UsageInfo{}, err

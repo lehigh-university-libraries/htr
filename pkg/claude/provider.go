@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
@@ -108,7 +107,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	req.Header.Set("x-api-key", apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
-	client := &http.Client{Timeout: 120 * time.Second}
+	client := &http.Client{Timeout: config.Timeout}
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", providers.UsageInfo{}, err

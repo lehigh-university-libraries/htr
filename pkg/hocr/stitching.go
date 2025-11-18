@@ -12,6 +12,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lehigh-university-libraries/htr/internal/utils"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
@@ -46,7 +47,7 @@ func TranscribeWordsIndividually(imagePath string, response OCRResponse, provide
 					// Extract word image
 					wordImagePath, err := ExtractWordImage(imagePath, word.BoundingBox, tempDir, wordIndex)
 					if err != nil {
-						slog.Warn("Failed to extract word image", "wordIndex", wordIndex, "error", err)
+						slog.Warn("Failed to extract word image", "wordIndex", wordIndex, "error", utils.MaskSensitiveError(err))
 						continue
 					}
 
@@ -78,7 +79,7 @@ func TranscribeWordsIndividually(imagePath string, response OCRResponse, provide
 			// Single word - transcribe individually
 			text, err := transcribeWordImage(lineWords[0].ImagePath, provider, config)
 			if err != nil {
-				slog.Warn("Failed to transcribe word", "wordIndex", lineWords[0].Index, "error", err)
+				slog.Warn("Failed to transcribe word", "wordIndex", lineWords[0].Index, "error", utils.MaskSensitiveError(err))
 				lineWords[0].Text = ""
 			} else {
 				lineWords[0].Text = strings.TrimSpace(text)
@@ -87,7 +88,7 @@ func TranscribeWordsIndividually(imagePath string, response OCRResponse, provide
 			// Multiple words on same line - transcribe together for context
 			lineText, err := transcribeLineImage(imagePath, lineWords, provider, config, tempDir)
 			if err != nil {
-				slog.Warn("Failed to transcribe line", "wordCount", len(lineWords), "error", err)
+				slog.Warn("Failed to transcribe line", "wordCount", len(lineWords), "error", utils.MaskSensitiveError(err))
 				// Fall back to individual word transcription
 				for _, word := range lineWords {
 					text, err := transcribeWordImage(word.ImagePath, provider, config)
