@@ -114,18 +114,23 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 	defer resp.Body.Close()
 
+	// Read response body once for both parsing and error logging
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return "", providers.UsageInfo{}, fmt.Errorf("claude API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var claudeResp Response
-	if err := json.NewDecoder(resp.Body).Decode(&claudeResp); err != nil {
-		return "", providers.UsageInfo{}, err
+	if err := json.Unmarshal(body, &claudeResp); err != nil {
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(body))
 	}
 
 	if len(claudeResp.Content) == 0 {
-		return "", providers.UsageInfo{}, fmt.Errorf("no response from Claude")
+		return "", providers.UsageInfo{}, fmt.Errorf("no response from Claude - body: %s", providers.TruncateBody(body))
 	}
 
 	// Extract text from the first text content block
@@ -138,7 +143,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	if extractedText == "" {
-		return "", providers.UsageInfo{}, fmt.Errorf("no text content in Claude response")
+		return "", providers.UsageInfo{}, fmt.Errorf("no text content in Claude response - body: %s", providers.TruncateBody(body))
 	}
 
 	usage := providers.UsageInfo{

@@ -81,3 +81,18 @@ func ProcessResponse(provider Provider, response string) string {
 	}
 	return CleanResponse(response)
 }
+
+// TruncateBody truncates a response body to a maximum length for error messages.
+// This helps keep error logs readable while still providing context.
+// Default maxLen is 500 if not specified.
+func TruncateBody(body []byte, maxLen ...int) string {
+	limit := 500
+	if len(maxLen) > 0 && maxLen[0] > 0 {
+		limit = maxLen[0]
+	}
+	s := string(body)
+	if len(s) > limit {
+		return s[:limit] + "... (truncated)"
+	}
+	return s
+}
