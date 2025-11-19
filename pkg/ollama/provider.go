@@ -77,20 +77,25 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 	defer resp.Body.Close()
 
+	// Read response body once for both parsing and error logging
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return "", providers.UsageInfo{}, fmt.Errorf("ollama API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var ollamaResp map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&ollamaResp); err != nil {
-		return "", providers.UsageInfo{}, err
+	if err := json.Unmarshal(body, &ollamaResp); err != nil {
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(body))
 	}
 
 	// Extract response from Ollama
 	response, ok := ollamaResp["response"].(string)
 	if !ok {
-		return "", providers.UsageInfo{}, fmt.Errorf("no response from Ollama")
+		return "", providers.UsageInfo{}, fmt.Errorf("no response from Ollama - body: %s", providers.TruncateBody(body))
 	}
 
 	// Extract token usage if available (Ollama provides prompt_eval_count and eval_count)

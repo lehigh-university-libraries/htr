@@ -74,15 +74,20 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 	defer resp.Body.Close()
 
+	// Read initial response body for error logging
+	initialBody, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusAccepted {
-		body, _ := io.ReadAll(resp.Body)
-		return "", providers.UsageInfo{}, fmt.Errorf("azure OCR API error: %d - %s", resp.StatusCode, string(body))
+		return "", providers.UsageInfo{}, fmt.Errorf("azure OCR API error: %d - %s", resp.StatusCode, string(initialBody))
 	}
 
 	// Get the operation URL from the Operation-Location header
 	operationURL := resp.Header.Get("Operation-Location")
 	if operationURL == "" {
-		return "", providers.UsageInfo{}, fmt.Errorf("no operation location returned from Azure OCR")
+		return "", providers.UsageInfo{}, fmt.Errorf("no operation location returned from Azure OCR - body: %s", providers.TruncateBody(initialBody))
 	}
 
 	// Poll for results
@@ -100,21 +105,25 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 			return "", providers.UsageInfo{}, err
 		}
 
+		// Read polling response body for both parsing and error logging
+		pollBody, readErr := io.ReadAll(resp.Body)
+		resp.Body.Close()
+		if readErr != nil {
+			return "", providers.UsageInfo{}, fmt.Errorf("failed to read polling response body: %w", readErr)
+		}
+
 		if resp.StatusCode != http.StatusOK {
-			resp.Body.Close()
 			continue
 		}
 
 		var result map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
-			resp.Body.Close()
-			return "", providers.UsageInfo{}, err
+		if err := json.Unmarshal(pollBody, &result); err != nil {
+			return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(pollBody))
 		}
-		resp.Body.Close()
 
 		status, ok := result["status"].(string)
 		if !ok {
-			return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Azure OCR")
+			return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Azure OCR - body: %s", providers.TruncateBody(pollBody))
 		}
 
 		switch status {
@@ -122,7 +131,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 			// Azure OCR does not provide token usage information
 			return extractText(result), providers.UsageInfo{}, nil
 		case "failed":
-			return "", providers.UsageInfo{}, fmt.Errorf("azure OCR analysis failed")
+			return "", providers.UsageInfo{}, fmt.Errorf("azure OCR analysis failed - body: %s", providers.TruncateBody(pollBody))
 		}
 		// Continue polling if status is "running" or "notStarted"
 	}

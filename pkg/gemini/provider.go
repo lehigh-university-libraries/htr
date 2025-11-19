@@ -98,45 +98,50 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 	defer resp.Body.Close()
 
+	// Read response body once for both parsing and error logging
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
+	}
+
 	if resp.StatusCode != http.StatusOK {
-		body, _ := io.ReadAll(resp.Body)
 		return "", providers.UsageInfo{}, fmt.Errorf("gemini API error: %d - %s", resp.StatusCode, string(body))
 	}
 
 	var geminiResp map[string]interface{}
-	if err := json.NewDecoder(resp.Body).Decode(&geminiResp); err != nil {
-		return "", providers.UsageInfo{}, err
+	if err := json.Unmarshal(body, &geminiResp); err != nil {
+		return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(body))
 	}
 
 	// Extract text from Gemini response
 	candidates, ok := geminiResp["candidates"].([]interface{})
 	if !ok || len(candidates) == 0 {
-		return "", providers.UsageInfo{}, fmt.Errorf("no response from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("no response from Gemini - body: %s", providers.TruncateBody(body))
 	}
 
 	candidate, ok := candidates[0].(map[string]interface{})
 	if !ok {
-		return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Gemini - body: %s", providers.TruncateBody(body))
 	}
 
 	content, ok := candidate["content"].(map[string]interface{})
 	if !ok {
-		return "", providers.UsageInfo{}, fmt.Errorf("invalid content format from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("invalid content format from Gemini - body: %s", providers.TruncateBody(body))
 	}
 
 	parts, ok := content["parts"].([]interface{})
 	if !ok || len(parts) == 0 {
-		return "", providers.UsageInfo{}, fmt.Errorf("no parts in Gemini response")
+		return "", providers.UsageInfo{}, fmt.Errorf("no parts in Gemini response - body: %s", providers.TruncateBody(body))
 	}
 
 	part, ok := parts[0].(map[string]interface{})
 	if !ok {
-		return "", providers.UsageInfo{}, fmt.Errorf("invalid part format from Gemini")
+		return "", providers.UsageInfo{}, fmt.Errorf("invalid part format from Gemini - body: %s", providers.TruncateBody(body))
 	}
 
 	text, ok := part["text"].(string)
 	if !ok {
-		return "", providers.UsageInfo{}, fmt.Errorf("no text in Gemini response")
+		return "", providers.UsageInfo{}, fmt.Errorf("no text in Gemini response - body: %s", providers.TruncateBody(body))
 	}
 
 	// Extract usage metadata if available
