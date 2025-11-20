@@ -14,6 +14,7 @@ type Config struct {
 	Prompt      string
 	Temperature float64
 	Timeout     time.Duration
+	MaxResolution string
 }
 
 // UsageInfo represents token usage information from a provider

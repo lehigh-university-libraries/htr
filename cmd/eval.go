@@ -37,7 +37,9 @@ type EvalConfig struct {
 	TestRows       []int         `json:"rows"`
 	Timestamp      string        `json:"timestamp"`
 	IgnorePatterns []string      `json:"ignore_patterns,omitempty"`
+
 	SingleLine     bool          `json:"single_line,omitempty"`
+	MaxResolution  string        `json:"max_resolution,omitempty"`
 }
 
 type EvalResult struct {
@@ -181,6 +183,7 @@ var (
 	rows            []int
 	ignorePatterns  []string
 	singleLine      bool
+	maxResolution   string
 
 	// Backfill command flags
 	backfillIgnorePatterns []string
@@ -224,7 +227,9 @@ func init() {
 	evalCmd.Flags().StringVar(&dir, "dir", "./", "Prepend your CSV file paths with a directory")
 	evalCmd.Flags().IntSliceVar(&rows, "rows", []int{}, "A list of row numbers to run the test on")
 	evalCmd.Flags().StringSliceVar(&ignorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
+
 	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
+	evalCmd.Flags().StringVar(&maxResolution, "max-resolution", "", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -267,7 +272,9 @@ func runEval(cmd *cobra.Command, args []string) error {
 			CSVPath:        evalCSVPath,
 			Timestamp:      time.Now().Format("2006-01-02_15-04-05"),
 			IgnorePatterns: ignorePatterns,
+
 			SingleLine:     singleLine,
+			MaxResolution:  maxResolution,
 		}
 	}
 

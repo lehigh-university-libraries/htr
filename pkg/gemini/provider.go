@@ -71,6 +71,12 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		},
 	}
 
+	// Add MaxResolution if specified
+	if config.MaxResolution != "" {
+		genConfig := requestBody["generationConfig"].(map[string]interface{})
+		genConfig["media_resolution"] = config.MaxResolution
+	}
+
 	// Use the specified model, default to gemini-pro-vision if not specified
 	model := config.Model
 	if model == "gpt-4o" || model == "" {
