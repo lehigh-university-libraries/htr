@@ -50,15 +50,15 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	// Prepare request body for Gemini API
-	requestBody := map[string]interface{}{
-		"contents": []map[string]interface{}{
+	requestBody := map[string]any{
+		"contents": []map[string]any{
 			{
-				"parts": []map[string]interface{}{
+				"parts": []map[string]any{
 					{
 						"text": config.Prompt,
 					},
 					{
-						"inline_data": map[string]interface{}{
+						"inline_data": map[string]any{
 							"mime_type": mimeType,
 							"data":      imageBase64,
 						},
@@ -66,15 +66,10 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 				},
 			},
 		},
-		"generationConfig": map[string]interface{}{
-			"temperature": config.Temperature,
+		"generationConfig": map[string]any{
+			"temperature":     config.Temperature,
+			"mediaResolution": config.MaxResolution,
 		},
-	}
-
-	// Add MaxResolution if specified
-	if config.MaxResolution != "" {
-		genConfig := requestBody["generationConfig"].(map[string]interface{})
-		genConfig["media_resolution"] = config.MaxResolution
 	}
 
 	// Use the specified model, default to gemini-pro-vision if not specified
@@ -114,33 +109,33 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		return "", providers.UsageInfo{}, fmt.Errorf("gemini API error: %d - %s", resp.StatusCode, string(body))
 	}
 
-	var geminiResp map[string]interface{}
+	var geminiResp map[string]any
 	if err := json.Unmarshal(body, &geminiResp); err != nil {
 		return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(body))
 	}
 
 	// Extract text from Gemini response
-	candidates, ok := geminiResp["candidates"].([]interface{})
+	candidates, ok := geminiResp["candidates"].([]any)
 	if !ok || len(candidates) == 0 {
 		return "", providers.UsageInfo{}, fmt.Errorf("no response from Gemini - body: %s", providers.TruncateBody(body))
 	}
 
-	candidate, ok := candidates[0].(map[string]interface{})
+	candidate, ok := candidates[0].(map[string]any)
 	if !ok {
 		return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Gemini - body: %s", providers.TruncateBody(body))
 	}
 
-	content, ok := candidate["content"].(map[string]interface{})
+	content, ok := candidate["content"].(map[string]any)
 	if !ok {
 		return "", providers.UsageInfo{}, fmt.Errorf("invalid content format from Gemini - body: %s", providers.TruncateBody(body))
 	}
 
-	parts, ok := content["parts"].([]interface{})
+	parts, ok := content["parts"].([]any)
 	if !ok || len(parts) == 0 {
 		return "", providers.UsageInfo{}, fmt.Errorf("no parts in Gemini response - body: %s", providers.TruncateBody(body))
 	}
 
-	part, ok := parts[0].(map[string]interface{})
+	part, ok := parts[0].(map[string]any)
 	if !ok {
 		return "", providers.UsageInfo{}, fmt.Errorf("invalid part format from Gemini - body: %s", providers.TruncateBody(body))
 	}
@@ -152,7 +147,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 	// Extract usage metadata if available
 	usage := providers.UsageInfo{}
-	if usageMetadata, ok := geminiResp["usageMetadata"].(map[string]interface{}); ok {
+	if usageMetadata, ok := geminiResp["usageMetadata"].(map[string]any); ok {
 		if promptTokens, ok := usageMetadata["promptTokenCount"].(float64); ok {
 			usage.InputTokens = int(promptTokens)
 		}

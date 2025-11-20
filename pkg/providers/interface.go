@@ -9,11 +9,11 @@ import (
 
 // Config represents the configuration for a provider
 type Config struct {
-	Provider    string
-	Model       string
-	Prompt      string
-	Temperature float64
-	Timeout     time.Duration
+	Provider      string
+	Model         string
+	Prompt        string
+	Temperature   float64
+	Timeout       time.Duration
 	MaxResolution string
 }
 
