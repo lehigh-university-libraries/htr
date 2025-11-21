@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"mime"
 	"net/http"
 	"os"
@@ -64,13 +65,13 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	currentResolution := config.MaxResolution
-	
+
 	// Use the specified model, default to gemini-pro-vision if not specified
 	model := config.Model
 	if model == "gpt-4o" || model == "" {
 		model = "gemini-pro-vision"
 	}
-	
+
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
 
 	for i := 0; i < 4; i++ {
@@ -195,4 +196,6 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 		return providers.ProcessResponse(p, text), usage, nil
 	}
+
+	return "", providers.UsageInfo{}, fmt.Errorf("no response from gemini")
 }

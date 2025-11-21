@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/csv"
@@ -39,7 +40,7 @@ type EvalConfig struct {
 	Timestamp      string        `json:"timestamp"`
 	IgnorePatterns []string      `json:"ignore_patterns,omitempty"`
 
-	SingleLine    bool   `json:"single_line,omitempty"`
+	SingleLine            bool   `json:"single_line,omitempty"`
 	MaxResolution         string `json:"max_resolution,omitempty"`
 	MaxResolutionFallback bool   `json:"max_resolution_fallback,omitempty"`
 }
@@ -173,18 +174,18 @@ Optionally specify --doc-count to estimate cost for a specific number of documen
 }
 
 var (
-	evalProvider    string
-	evalModel       string
-	evalPrompt      string
-	evalTemperature float64
-	evalTimeout     time.Duration
-	evalCSVPath     string
-	evalConfigPath  string
-	evalTemplate    string
-	dir             string
-	rows            []int
-	ignorePatterns  []string
-	singleLine      bool
+	evalProvider          string
+	evalModel             string
+	evalPrompt            string
+	evalTemperature       float64
+	evalTimeout           time.Duration
+	evalCSVPath           string
+	evalConfigPath        string
+	evalTemplate          string
+	dir                   string
+	rows                  []int
+	ignorePatterns        []string
+	singleLine            bool
 	maxResolution         string
 	maxResolutionFallback bool
 
@@ -729,13 +730,20 @@ func processEvaluation(config EvalConfig) ([]EvalResult, error) {
 		result, err := processRow(row, config)
 		if err != nil {
 			errMsg := utils.MaskSensitiveError(err)
-			formattedErr := formatErrorToPlaintext(errMsg.Error())
+			formattedErr, formatErr := formatErrorToPlaintext(errMsg.Error())
+			if formatErr != nil {
+				slog.Error(fmt.Sprintf("%s error formatting error", row[0]),
+					"row_index", i+1,
+					"formatErr", formatErr,
+					"err", errMsg,
+				)
+			}
 
-			fmt.Fprintf(os.Stderr, "\n%s %s\n  level: ERROR\n  msg: Error processing row\n  row: %d\n  err: %s",
-				row[0],
-				time.Now().Format(time.RFC3339),
-				i+1,
-				formattedErr)
+			slog.Error(fmt.Sprintf("%s error processing row", row[0]),
+				"row_index", i+1,
+				"err", formattedErr,
+			)
+
 			continue
 		}
 
@@ -863,10 +871,10 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 
 	// Convert EvalConfig to providers.Config
 	providerConfig := providers.Config{
-		Provider:      config.Provider,
-		Model:         config.Model,
-		Prompt:        config.Prompt,
-		Temperature:   config.Temperature,
+		Provider:              config.Provider,
+		Model:                 config.Model,
+		Prompt:                config.Prompt,
+		Temperature:           config.Temperature,
 		Timeout:               config.Timeout,
 		MaxResolution:         config.MaxResolution,
 		MaxResolutionFallback: config.MaxResolutionFallback,
@@ -1365,57 +1373,11 @@ func max(a, b int) int {
 	return b
 }
 
-func formatErrorToPlaintext(errMsg string) string {
-	start := strings.Index(errMsg, "{")
-	end := strings.LastIndex(errMsg, "}")
-
-	if start != -1 && end != -1 && end > start {
-		jsonPart := errMsg[start : end+1]
-		var jsonObj interface{}
-		if err := json.Unmarshal([]byte(jsonPart), &jsonObj); err == nil {
-			var sb strings.Builder
-			recursiveFormat(jsonObj, 2, &sb)
-			return errMsg[:start] + "\n" + strings.TrimRight(sb.String(), "\n") + errMsg[end+1:]
-		}
+func formatErrorToPlaintext(minifiedJSON string) (string, error) {
+	var prettyJSON bytes.Buffer
+	err := json.Indent(&prettyJSON, []byte(minifiedJSON), "", "  ")
+	if err != nil {
+		return "", err
 	}
-	return errMsg
-}
-
-func recursiveFormat(v interface{}, indentLevel int, sb *strings.Builder) {
-	indent := strings.Repeat("  ", indentLevel)
-	switch val := v.(type) {
-	case map[string]interface{}:
-		keys := make([]string, 0, len(val))
-		for k := range val {
-			keys = append(keys, k)
-		}
-		slices.Sort(keys)
-
-		for _, k := range keys {
-			subVal := val[k]
-			isComplex := false
-			switch subVal.(type) {
-			case map[string]interface{}, []interface{}:
-				isComplex = true
-			}
-
-			sb.WriteString(fmt.Sprintf("%s%s:", indent, k))
-			if isComplex {
-				sb.WriteString("\n")
-				recursiveFormat(subVal, indentLevel+1, sb)
-			} else {
-				sb.WriteString(" ")
-				recursiveFormat(subVal, 0, sb)
-			}
-		}
-	case []interface{}:
-		for _, item := range val {
-			recursiveFormat(item, indentLevel, sb)
-		}
-	default:
-		if indentLevel > 0 {
-			sb.WriteString(indent)
-		}
-		sb.WriteString(fmt.Sprintf("%v\n", val))
-	}
+	return prettyJSON.String(), nil
 }
