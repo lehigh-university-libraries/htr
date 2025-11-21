@@ -156,7 +156,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		if finishReason == "MAX_TOKENS" && config.MaxResolutionFallback {
 			nextRes := getNextResolution(currentResolution)
 			if nextRes != "" {
-				fmt.Fprintf(os.Stderr, "\nHit MAX_TOKENS limit with resolution %s. Retrying with %s...\n", currentResolution, nextRes)
+				slog.Error("Hit MAX_TOKENS limit with resolution. Retrying", "currentResolution", currentResolution, "nextRes", nextRes)
 				currentResolution = nextRes
 				continue
 			}
