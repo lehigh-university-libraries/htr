@@ -9,12 +9,13 @@ import (
 
 // Config represents the configuration for a provider
 type Config struct {
-	Provider      string
-	Model         string
-	Prompt        string
-	Temperature   float64
-	Timeout       time.Duration
-	MaxResolution string
+	Provider              string
+	Model                 string
+	Prompt                string
+	Temperature           float64
+	Timeout               time.Duration
+	MaxResolution         string
+	MaxResolutionFallback bool
 }
 
 // UsageInfo represents token usage information from a provider

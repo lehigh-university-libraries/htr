@@ -1,9 +1,11 @@
 package cmd
 
 import (
+	"bytes"
 	"context"
 	"encoding/base64"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -38,8 +40,9 @@ type EvalConfig struct {
 	Timestamp      string        `json:"timestamp"`
 	IgnorePatterns []string      `json:"ignore_patterns,omitempty"`
 
-	SingleLine    bool   `json:"single_line,omitempty"`
-	MaxResolution string `json:"max_resolution,omitempty"`
+	SingleLine            bool   `json:"single_line,omitempty"`
+	MaxResolution         string `json:"max_resolution,omitempty"`
+	MaxResolutionFallback bool   `json:"max_resolution_fallback,omitempty"`
 }
 
 type EvalResult struct {
@@ -171,19 +174,20 @@ Optionally specify --doc-count to estimate cost for a specific number of documen
 }
 
 var (
-	evalProvider    string
-	evalModel       string
-	evalPrompt      string
-	evalTemperature float64
-	evalTimeout     time.Duration
-	evalCSVPath     string
-	evalConfigPath  string
-	evalTemplate    string
-	dir             string
-	rows            []int
-	ignorePatterns  []string
-	singleLine      bool
-	maxResolution   string
+	evalProvider          string
+	evalModel             string
+	evalPrompt            string
+	evalTemperature       float64
+	evalTimeout           time.Duration
+	evalCSVPath           string
+	evalConfigPath        string
+	evalTemplate          string
+	dir                   string
+	rows                  []int
+	ignorePatterns        []string
+	singleLine            bool
+	maxResolution         string
+	maxResolutionFallback bool
 
 	// from https://ai.google.dev/gemini-api/docs/media-resolution#available_resolution_values
 	allowedMediaResolutions = []string{
@@ -239,6 +243,7 @@ func init() {
 
 	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
 	evalCmd.Flags().StringVar(&maxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
+	evalCmd.Flags().BoolVar(&maxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -282,8 +287,9 @@ func runEval(cmd *cobra.Command, args []string) error {
 			Timestamp:      time.Now().Format("2006-01-02_15-04-05"),
 			IgnorePatterns: ignorePatterns,
 
-			SingleLine:    singleLine,
-			MaxResolution: maxResolution,
+			SingleLine:            singleLine,
+			MaxResolution:         maxResolution,
+			MaxResolutionFallback: maxResolutionFallback,
 		}
 	}
 
@@ -723,7 +729,21 @@ func processEvaluation(config EvalConfig) ([]EvalResult, error) {
 
 		result, err := processRow(row, config)
 		if err != nil {
-			slog.Error("Error processing row", "row", i+1, "err", utils.MaskSensitiveError(err))
+			errMsg := utils.MaskSensitiveError(err)
+			formattedErr, formatErr := formatErrorToPlaintext(errMsg.Error())
+			if formatErr != nil {
+				slog.Error(fmt.Sprintf("%s error formatting error", row[0]),
+					"row_index", i+1,
+					"formatErr", formatErr,
+					"err", errMsg,
+				)
+			}
+
+			slog.Error(fmt.Sprintf("%s error processing row", row[0]),
+				"row_index", i+1,
+				"err", formattedErr,
+			)
+
 			continue
 		}
 
@@ -851,11 +871,13 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 
 	// Convert EvalConfig to providers.Config
 	providerConfig := providers.Config{
-		Provider:    config.Provider,
-		Model:       config.Model,
-		Prompt:      config.Prompt,
-		Temperature: config.Temperature,
-		Timeout:     config.Timeout,
+		Provider:              config.Provider,
+		Model:                 config.Model,
+		Prompt:                config.Prompt,
+		Temperature:           config.Temperature,
+		Timeout:               config.Timeout,
+		MaxResolution:         config.MaxResolution,
+		MaxResolutionFallback: config.MaxResolutionFallback,
 	}
 
 	// Validate configuration
@@ -1349,4 +1371,13 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func formatErrorToPlaintext(minifiedJSON string) (string, error) {
+	var prettyJSON bytes.Buffer
+	err := json.Indent(&prettyJSON, []byte(minifiedJSON), "", "  ")
+	if err != nil {
+		return "", err
+	}
+	return prettyJSON.String(), nil
 }
