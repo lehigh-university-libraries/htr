@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/csv"
+	"encoding/json"
 	"fmt"
 	"io"
 	"log/slog"
@@ -39,7 +40,8 @@ type EvalConfig struct {
 	IgnorePatterns []string      `json:"ignore_patterns,omitempty"`
 
 	SingleLine    bool   `json:"single_line,omitempty"`
-	MaxResolution string `json:"max_resolution,omitempty"`
+	MaxResolution         string `json:"max_resolution,omitempty"`
+	MaxResolutionFallback bool   `json:"max_resolution_fallback,omitempty"`
 }
 
 type EvalResult struct {
@@ -183,7 +185,8 @@ var (
 	rows            []int
 	ignorePatterns  []string
 	singleLine      bool
-	maxResolution   string
+	maxResolution         string
+	maxResolutionFallback bool
 
 	// from https://ai.google.dev/gemini-api/docs/media-resolution#available_resolution_values
 	allowedMediaResolutions = []string{
@@ -239,6 +242,7 @@ func init() {
 
 	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
 	evalCmd.Flags().StringVar(&maxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
+	evalCmd.Flags().BoolVar(&maxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -282,8 +286,9 @@ func runEval(cmd *cobra.Command, args []string) error {
 			Timestamp:      time.Now().Format("2006-01-02_15-04-05"),
 			IgnorePatterns: ignorePatterns,
 
-			SingleLine:    singleLine,
-			MaxResolution: maxResolution,
+			SingleLine:            singleLine,
+			MaxResolution:         maxResolution,
+			MaxResolutionFallback: maxResolutionFallback,
 		}
 	}
 
@@ -723,7 +728,14 @@ func processEvaluation(config EvalConfig) ([]EvalResult, error) {
 
 		result, err := processRow(row, config)
 		if err != nil {
-			slog.Error("Error processing row", "row", i+1, "err", utils.MaskSensitiveError(err))
+			errMsg := utils.MaskSensitiveError(err)
+			formattedErr := formatErrorToPlaintext(errMsg.Error())
+
+			fmt.Fprintf(os.Stderr, "\n%s %s\n  level: ERROR\n  msg: Error processing row\n  row: %d\n  err: %s",
+				row[0],
+				time.Now().Format(time.RFC3339),
+				i+1,
+				formattedErr)
 			continue
 		}
 
@@ -851,11 +863,13 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 
 	// Convert EvalConfig to providers.Config
 	providerConfig := providers.Config{
-		Provider:    config.Provider,
-		Model:       config.Model,
-		Prompt:      config.Prompt,
-		Temperature: config.Temperature,
-		Timeout:     config.Timeout,
+		Provider:      config.Provider,
+		Model:         config.Model,
+		Prompt:        config.Prompt,
+		Temperature:   config.Temperature,
+		Timeout:               config.Timeout,
+		MaxResolution:         config.MaxResolution,
+		MaxResolutionFallback: config.MaxResolutionFallback,
 	}
 
 	// Validate configuration
@@ -1349,4 +1363,59 @@ func max(a, b int) int {
 		return a
 	}
 	return b
+}
+
+func formatErrorToPlaintext(errMsg string) string {
+	start := strings.Index(errMsg, "{")
+	end := strings.LastIndex(errMsg, "}")
+
+	if start != -1 && end != -1 && end > start {
+		jsonPart := errMsg[start : end+1]
+		var jsonObj interface{}
+		if err := json.Unmarshal([]byte(jsonPart), &jsonObj); err == nil {
+			var sb strings.Builder
+			recursiveFormat(jsonObj, 2, &sb)
+			return errMsg[:start] + "\n" + strings.TrimRight(sb.String(), "\n") + errMsg[end+1:]
+		}
+	}
+	return errMsg
+}
+
+func recursiveFormat(v interface{}, indentLevel int, sb *strings.Builder) {
+	indent := strings.Repeat("  ", indentLevel)
+	switch val := v.(type) {
+	case map[string]interface{}:
+		keys := make([]string, 0, len(val))
+		for k := range val {
+			keys = append(keys, k)
+		}
+		slices.Sort(keys)
+
+		for _, k := range keys {
+			subVal := val[k]
+			isComplex := false
+			switch subVal.(type) {
+			case map[string]interface{}, []interface{}:
+				isComplex = true
+			}
+
+			sb.WriteString(fmt.Sprintf("%s%s:", indent, k))
+			if isComplex {
+				sb.WriteString("\n")
+				recursiveFormat(subVal, indentLevel+1, sb)
+			} else {
+				sb.WriteString(" ")
+				recursiveFormat(subVal, 0, sb)
+			}
+		}
+	case []interface{}:
+		for _, item := range val {
+			recursiveFormat(item, indentLevel, sb)
+		}
+	default:
+		if indentLevel > 0 {
+			sb.WriteString(indent)
+		}
+		sb.WriteString(fmt.Sprintf("%v\n", val))
+	}
 }
