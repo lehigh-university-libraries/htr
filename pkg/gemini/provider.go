@@ -73,7 +73,7 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	
 	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
 
-	for {
+	for i := 0; i < 4; i++ {
 		generationConfig := map[string]any{
 			"temperature": config.Temperature,
 		}
