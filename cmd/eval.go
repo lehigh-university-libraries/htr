@@ -211,6 +211,8 @@ var (
 	// CSV command flags
 	csvInputPrice  float64
 	csvOutputPrice float64
+	csvPriceConfig string
+	csvDocCount    int
 )
 
 func init() {
@@ -263,6 +265,8 @@ func init() {
 	// CSV command flags
 	csvCmd.Flags().Float64Var(&csvInputPrice, "input-price", 0.0, "Cost per million input tokens (optional)")
 	csvCmd.Flags().Float64Var(&csvOutputPrice, "output-price", 0.0, "Cost per million output tokens (optional)")
+	csvCmd.Flags().StringVar(&csvPriceConfig, "price-config", "", "Path to pricing configuration YAML file")
+	csvCmd.Flags().IntVar(&csvDocCount, "doc-count", 0, "Total number of documents for project cost estimation")
 }
 
 func runEval(cmd *cobra.Command, args []string) error {
@@ -389,8 +393,30 @@ func runSummary(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// PricingConfig maps model names to their pricing
+type PricingConfig map[string]struct {
+	Input  float64 `yaml:"input"`
+	Output float64 `yaml:"output"`
+}
+
 func runCSV(cmd *cobra.Command, args []string) error {
 	evalsDir := "evals"
+
+	// Load pricing config if provided
+	var pricingConfig PricingConfig
+	if csvPriceConfig != "" {
+		data, err := os.ReadFile(csvPriceConfig)
+		if err != nil {
+			// Only error if the user explicitly provided a path that doesn't exist
+			// If it's the default and missing, just ignore it? 
+			// User requirement implies explicit config usage. 
+			// Let's error if provided path fails.
+			return fmt.Errorf("failed to read pricing config: %w", err)
+		}
+		if err := yaml.Unmarshal(data, &pricingConfig); err != nil {
+			return fmt.Errorf("failed to parse pricing config: %w", err)
+		}
+	}
 
 	// Find all YAML files
 	files, err := filepath.Glob(filepath.Join(evalsDir, "*.yaml"))
@@ -459,9 +485,18 @@ func runCSV(cmd *cobra.Command, args []string) error {
 		avgInputTokens := float64(totalInputTokens) / count
 		avgOutputTokens := float64(totalOutputTokens) / count
 
-		// Calculate page cost if prices are provided
+		// Calculate page cost
 		pageCost := 0.0
-		if csvInputPrice > 0 || csvOutputPrice > 0 {
+		
+		// Priority 1: Model-specific pricing from config
+		if pricingConfig != nil {
+			if prices, ok := pricingConfig[summary.Config.Model]; ok {
+				inputCost := (avgInputTokens / 1_000_000) * prices.Input
+				outputCost := (avgOutputTokens / 1_000_000) * prices.Output
+				pageCost = inputCost + outputCost
+			}
+		} else if csvInputPrice > 0 || csvOutputPrice > 0 {
+			// Priority 2: Global flags (backward compatibility)
 			inputCost := (avgInputTokens / 1_000_000) * csvInputPrice
 			outputCost := (avgOutputTokens / 1_000_000) * csvOutputPrice
 			pageCost = inputCost + outputCost
@@ -501,40 +536,44 @@ func runCSV(cmd *cobra.Command, args []string) error {
 		return 0
 	})
 
-	// Determine if we should include PageCost column
-	includeCost := csvInputPrice > 0 || csvOutputPrice > 0
+	// Determine columns to include
+	includePageCost := csvInputPrice > 0 || csvOutputPrice > 0 || pricingConfig != nil
+	includeProjectCost := includePageCost && csvDocCount > 0
 
 	// Print TSV header
-	if includeCost {
-		fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgCharAccuracy\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate\tAvgInputTokens\tAvgOutputTokens\tPageCost")
-	} else {
-		fmt.Println("Model\tTotalEvaluations\tAvgCharSimilarity\tAvgCharAccuracy\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate")
+	header := "Model\tTotalEvaluations\tAvgCharSimilarity\tAvgCharAccuracy\tAvgWordSimilarity\tAvgWordAccuracy\tAvgWordErrorRate\tAvgInputTokens\tAvgOutputTokens"
+	if includePageCost {
+		header += "\tPageCost"
 	}
+	if includeProjectCost {
+		header += "\tProjectCost"
+	}
+	fmt.Println(header)
 
 	// Print TSV data
 	for _, ms := range modelSummaries {
-		if includeCost {
-			fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\t%.2f\t%.2f\t%.6f\n",
-				ms.Model,
-				ms.TotalEvaluations,
-				ms.AvgCharSimilarity,
-				ms.AvgCharAccuracy,
-				ms.AvgWordSimilarity,
-				ms.AvgWordAccuracy,
-				ms.AvgWordErrorRate,
-				ms.AvgInputTokens,
-				ms.AvgOutputTokens,
-				ms.PageCost)
-		} else {
-			fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\n",
-				ms.Model,
-				ms.TotalEvaluations,
-				ms.AvgCharSimilarity,
-				ms.AvgCharAccuracy,
-				ms.AvgWordSimilarity,
-				ms.AvgWordAccuracy,
-				ms.AvgWordErrorRate)
+		fmt.Printf("%s\t%d\t%.6f\t%.6f\t%.6f\t%.6f\t%.6f\t%.2f\t%.2f",
+			ms.Model,
+			ms.TotalEvaluations,
+			ms.AvgCharSimilarity,
+			ms.AvgCharAccuracy,
+			ms.AvgWordSimilarity,
+			ms.AvgWordAccuracy,
+			ms.AvgWordErrorRate,
+			ms.AvgInputTokens,
+			ms.AvgOutputTokens,
+		)
+		
+		if includePageCost {
+			fmt.Printf("\t%.6f", ms.PageCost)
 		}
+		
+		if includeProjectCost {
+			projectCost := ms.PageCost * float64(csvDocCount)
+			fmt.Printf("\t%.2f", projectCost)
+		}
+		
+		fmt.Print("\n")
 	}
 
 	return nil
