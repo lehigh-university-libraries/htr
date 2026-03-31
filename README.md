@@ -55,6 +55,32 @@ The HTR tool supports multiple providers for text extraction from images. Set th
 - Environment variable: `OLLAMA_URL` (optional, defaults to `http://localhost:11434`)
 - Models: `llava`, `llava:13b`, `llava:34b`, `moondream`, etc.
 
+### OCR
+
+Extract text from a single image using one provider/model, without creating an eval file or comparing against ground truth.
+
+```bash
+# Print OCR text to stdout
+htr ocr \
+  --image path/to/image.jpg \
+  --provider openai \
+  --model gpt-4o
+
+# Save OCR text to a file
+htr ocr \
+  --image path/to/image.jpg \
+  --provider gemini \
+  --model gemini-2.5-flash \
+  --output page.txt
+
+# Override the prompt when needed
+htr ocr \
+  --image https://example.org/page.jpg \
+  --provider ollama \
+  --model mistral-small3.2:24b \
+  --prompt "Extract all handwritten and printed text. Return only the text."
+```
+
 ### Eval
 
 Evaluate OCR/HTR performance by sending images to AI vision models and comparing their output against ground truth transcripts.
