@@ -14,6 +14,7 @@ type Config struct {
 	Prompt                string
 	Temperature           float64
 	Timeout               time.Duration
+	Debug                 bool
 	MaxResolution         string
 	MaxResolutionFallback bool
 }

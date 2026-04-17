@@ -31,6 +31,7 @@ var (
 	ocrTemperature           float64
 	ocrTimeout               time.Duration
 	ocrOutputPath            string
+	ocrDebug                 bool
 	ocrMaxResolution         string
 	ocrMaxResolutionFallback bool
 )
@@ -45,6 +46,7 @@ func init() {
 	ocrCmd.Flags().Float64VarP(&ocrTemperature, "temperature", "t", 0.0, "Temperature for API")
 	ocrCmd.Flags().DurationVar(&ocrTimeout, "timeout", 5*time.Minute, "Timeout for API requests (e.g., 5m, 30s, 1h)")
 	ocrCmd.Flags().StringVarP(&ocrOutputPath, "output", "o", "", "Write OCR text to a file instead of stdout")
+	ocrCmd.Flags().BoolVar(&ocrDebug, "debug", false, "Print provider debug output when supported")
 	ocrCmd.Flags().StringVar(&ocrMaxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	ocrCmd.Flags().BoolVar(&ocrMaxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
 
@@ -90,6 +92,7 @@ func buildOCRConfig() (EvalConfig, error) {
 		Prompt:                ocrPrompt,
 		Temperature:           ocrTemperature,
 		Timeout:               ocrTimeout,
+		Debug:                 ocrDebug,
 		MaxResolution:         ocrMaxResolution,
 		MaxResolutionFallback: ocrMaxResolutionFallback,
 	}, nil

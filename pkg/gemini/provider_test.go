@@ -348,3 +348,70 @@ func TestCleanResponse(t *testing.T) {
 		})
 	}
 }
+
+func TestExtractGeminiResponseParts(t *testing.T) {
+	tests := []struct {
+		name          string
+		parts         []any
+		expectedText  string
+		expectedThink []string
+		expectError   bool
+	}{
+		{
+			name: "text and thought parts",
+			parts: []any{
+				map[string]any{"thought": "reasoning step"},
+				map[string]any{"text": "final answer"},
+			},
+			expectedText:  "final answer",
+			expectedThink: []string{"reasoning step"},
+		},
+		{
+			name: "multiple thoughts",
+			parts: []any{
+				map[string]any{"thought": "first"},
+				map[string]any{"thought": "second"},
+				map[string]any{"text": "answer"},
+			},
+			expectedText:  "answer",
+			expectedThink: []string{"first", "second"},
+		},
+		{
+			name: "invalid part",
+			parts: []any{
+				"bad",
+			},
+			expectError: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			text, thoughts, err := extractGeminiResponseParts(tt.parts)
+			if tt.expectError {
+				if err == nil {
+					t.Fatal("expected error, got nil")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unexpected error: %v", err)
+			}
+			if text != tt.expectedText {
+				t.Fatalf("text = %q, want %q", text, tt.expectedText)
+			}
+			if len(thoughts) != len(tt.expectedThink) {
+				t.Fatalf("thought count = %d, want %d", len(thoughts), len(tt.expectedThink))
+			}
+			for i := range thoughts {
+				if thoughts[i] != tt.expectedThink[i] {
+					t.Fatalf("thought[%d] = %q, want %q", i, thoughts[i], tt.expectedThink[i])
+				}
+			}
+		})
+	}
+}
+
+func TestPrintDebugResponseDoesNotPanic(t *testing.T) {
+	printDebugResponse([]byte(`{"finishReason":"RECITATION","index":0}`))
+}
