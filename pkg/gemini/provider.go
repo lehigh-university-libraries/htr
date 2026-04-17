@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
@@ -77,6 +78,11 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	for i := 0; i < 4; i++ {
 		generationConfig := map[string]any{
 			"temperature": config.Temperature,
+		}
+		if config.Debug {
+			generationConfig["thinkingConfig"] = map[string]any{
+				"includeThoughts": true,
+			}
 		}
 		if currentResolution != "" && currentResolution != "MEDIA_RESOLUTION_UNSPECIFIED" {
 			generationConfig["mediaResolution"] = currentResolution
@@ -170,17 +176,21 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 		parts, ok := content["parts"].([]any)
 		if !ok || len(parts) == 0 {
+			if config.Debug {
+				logGeminiDebugCandidate(candidate)
+			}
 			return "", providers.UsageInfo{}, fmt.Errorf("no parts in Gemini response - body: %s", providers.TruncateBody(body))
 		}
 
-		part, ok := parts[0].(map[string]any)
-		if !ok {
-			return "", providers.UsageInfo{}, fmt.Errorf("invalid part format from Gemini - body: %s", providers.TruncateBody(body))
+		text, thoughts, err := extractGeminiResponseParts(parts)
+		if err != nil {
+			return "", providers.UsageInfo{}, err
 		}
-
-		text, ok := part["text"].(string)
-		if !ok {
+		if text == "" {
 			return "", providers.UsageInfo{}, fmt.Errorf("no text in Gemini response - body: %s", providers.TruncateBody(body))
+		}
+		if config.Debug && len(thoughts) > 0 {
+			printThoughts(thoughts)
 		}
 
 		// Extract usage metadata if available
@@ -198,4 +208,49 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	return "", providers.UsageInfo{}, fmt.Errorf("no response from gemini")
+}
+
+func extractGeminiResponseParts(parts []any) (string, []string, error) {
+	var text string
+	var thoughts []string
+
+	for _, rawPart := range parts {
+		part, ok := rawPart.(map[string]any)
+		if !ok {
+			return "", nil, fmt.Errorf("invalid part format from Gemini response")
+		}
+
+		if thought, ok := part["thought"].(string); ok && strings.TrimSpace(thought) != "" {
+			thoughts = append(thoughts, thought)
+		}
+		if partText, ok := part["text"].(string); ok && strings.TrimSpace(partText) != "" && text == "" {
+			text = partText
+		}
+	}
+
+	return text, thoughts, nil
+}
+
+func printThoughts(thoughts []string) {
+	for _, thought := range thoughts {
+		fmt.Fprintf(os.Stderr, "[gemini thought]\n%s\n", strings.TrimSpace(thought))
+	}
+}
+
+func logGeminiDebugCandidate(candidate map[string]any) {
+	finishReason, _ := candidate["finishReason"].(string)
+	finishMessage, _ := candidate["finishMessage"].(string)
+	index, _ := candidate["index"].(float64)
+
+	if finishReason == "" && finishMessage == "" {
+		slog.Error("Gemini returned no content parts")
+		return
+	}
+
+	slog.Error(
+		"Gemini returned no content parts",
+		"finishReason", finishReason,
+		"finishMessage", finishMessage,
+		"candidateIndex", int(index),
+	)
 }

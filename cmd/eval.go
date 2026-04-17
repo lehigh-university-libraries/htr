@@ -41,6 +41,7 @@ type EvalConfig struct {
 	IgnorePatterns []string      `json:"ignore_patterns,omitempty"`
 
 	SingleLine            bool   `json:"single_line,omitempty"`
+	Debug                 bool   `json:"debug,omitempty"`
 	MaxResolution         string `json:"max_resolution,omitempty"`
 	MaxResolutionFallback bool   `json:"max_resolution_fallback,omitempty"`
 }
@@ -876,6 +877,7 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 		Prompt:                config.Prompt,
 		Temperature:           config.Temperature,
 		Timeout:               config.Timeout,
+		Debug:                 config.Debug,
 		MaxResolution:         config.MaxResolution,
 		MaxResolutionFallback: config.MaxResolutionFallback,
 	}

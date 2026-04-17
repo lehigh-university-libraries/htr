@@ -42,6 +42,7 @@ func TestBuildOCRConfigUsesDefaults(t *testing.T) {
 	originalPrompt := ocrPrompt
 	originalTemperature := ocrTemperature
 	originalTimeout := ocrTimeout
+	originalDebug := ocrDebug
 	originalMaxResolution := ocrMaxResolution
 	originalMaxResolutionFallback := ocrMaxResolutionFallback
 	t.Cleanup(func() {
@@ -51,6 +52,7 @@ func TestBuildOCRConfigUsesDefaults(t *testing.T) {
 		ocrPrompt = originalPrompt
 		ocrTemperature = originalTemperature
 		ocrTimeout = originalTimeout
+		ocrDebug = originalDebug
 		ocrMaxResolution = originalMaxResolution
 		ocrMaxResolutionFallback = originalMaxResolutionFallback
 	})
@@ -69,6 +71,7 @@ func TestBuildOCRConfigUsesDefaults(t *testing.T) {
 	ocrPrompt = defaultOCRPrompt
 	ocrTemperature = 0.3
 	ocrTimeout = 42 * time.Second
+	ocrDebug = true
 	ocrMaxResolution = "MEDIA_RESOLUTION_HIGH"
 	ocrMaxResolutionFallback = true
 
@@ -82,6 +85,9 @@ func TestBuildOCRConfigUsesDefaults(t *testing.T) {
 	}
 	if config.Prompt != defaultOCRPrompt {
 		t.Fatalf("config.Prompt = %q, want %q", config.Prompt, defaultOCRPrompt)
+	}
+	if !config.Debug {
+		t.Fatal("config.Debug = false, want true")
 	}
 	if config.MaxResolution != "MEDIA_RESOLUTION_HIGH" {
 		t.Fatalf("config.MaxResolution = %q, want %q", config.MaxResolution, "MEDIA_RESOLUTION_HIGH")
@@ -100,6 +106,7 @@ func TestRunOCRWritesExtractedTextToFile(t *testing.T) {
 	originalTemperature := ocrTemperature
 	originalTimeout := ocrTimeout
 	originalOutputPath := ocrOutputPath
+	originalDebug := ocrDebug
 	originalMaxResolution := ocrMaxResolution
 	originalMaxResolutionFallback := ocrMaxResolutionFallback
 	t.Cleanup(func() {
@@ -111,6 +118,7 @@ func TestRunOCRWritesExtractedTextToFile(t *testing.T) {
 		ocrTemperature = originalTemperature
 		ocrTimeout = originalTimeout
 		ocrOutputPath = originalOutputPath
+		ocrDebug = originalDebug
 		ocrMaxResolution = originalMaxResolution
 		ocrMaxResolutionFallback = originalMaxResolutionFallback
 	})
@@ -134,6 +142,7 @@ func TestRunOCRWritesExtractedTextToFile(t *testing.T) {
 	ocrTemperature = 0.0
 	ocrTimeout = 5 * time.Second
 	ocrOutputPath = outputPath
+	ocrDebug = false
 	ocrMaxResolution = "MEDIA_RESOLUTION_UNSPECIFIED"
 	ocrMaxResolutionFallback = false
 
