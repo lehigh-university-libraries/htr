@@ -412,10 +412,6 @@ func TestExtractGeminiResponseParts(t *testing.T) {
 	}
 }
 
-func TestLogGeminiDebugCandidateDoesNotPanic(t *testing.T) {
-	logGeminiDebugCandidate(map[string]any{
-		"finishReason":  "RECITATION",
-		"finishMessage": "filtered",
-		"index":         float64(0),
-	})
+func TestPrintDebugResponseDoesNotPanic(t *testing.T) {
+	printDebugResponse([]byte(`{"finishReason":"RECITATION","index":0}`))
 }

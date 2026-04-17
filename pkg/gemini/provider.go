@@ -131,6 +131,9 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		if err != nil {
 			return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
 		}
+		if config.Debug {
+			printDebugResponse(body)
+		}
 
 		if resp.StatusCode != http.StatusOK {
 			return "", providers.UsageInfo{}, fmt.Errorf("gemini API error: %d - %s", resp.StatusCode, string(body))
@@ -176,9 +179,6 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 
 		parts, ok := content["parts"].([]any)
 		if !ok || len(parts) == 0 {
-			if config.Debug {
-				logGeminiDebugCandidate(candidate)
-			}
 			return "", providers.UsageInfo{}, fmt.Errorf("no parts in Gemini response - body: %s", providers.TruncateBody(body))
 		}
 
@@ -237,20 +237,11 @@ func printThoughts(thoughts []string) {
 	}
 }
 
-func logGeminiDebugCandidate(candidate map[string]any) {
-	finishReason, _ := candidate["finishReason"].(string)
-	finishMessage, _ := candidate["finishMessage"].(string)
-	index, _ := candidate["index"].(float64)
-
-	if finishReason == "" && finishMessage == "" {
-		slog.Error("Gemini returned no content parts")
+func printDebugResponse(body []byte) {
+	var pretty bytes.Buffer
+	if err := json.Indent(&pretty, body, "", "  "); err != nil {
+		fmt.Fprintf(os.Stderr, "[gemini debug response]\n%s\n", string(body))
 		return
 	}
-
-	slog.Error(
-		"Gemini returned no content parts",
-		"finishReason", finishReason,
-		"finishMessage", finishMessage,
-		"candidateIndex", int(index),
-	)
+	fmt.Fprintf(os.Stderr, "[gemini debug response]\n%s\n", pretty.String())
 }
