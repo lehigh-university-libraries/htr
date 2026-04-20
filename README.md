@@ -50,10 +50,16 @@ The HTR tool supports multiple providers for text extraction from images. Set th
 - Environment variable: `GEMINI_API_KEY`
 - Models: `gemini-2.5-flash`
 
-#### Ollama (local)
+#### Ollama
 - Provider: `ollama`
 - Environment variable: `OLLAMA_URL` (optional, defaults to `http://localhost:11434`)
+- Environment variable: `OLLAMA_AUDIENCE` (optional, required only when invoking a private Cloud Run Ollama service that needs an explicit audience)
 - Models: `llava`, `llava:13b`, `llava:34b`, `moondream`, etc.
+
+When `OLLAMA_URL` points at a private `*.run.app` Cloud Run service, HTR
+automatically requests a Google identity token from the metadata server and
+attaches it to the Ollama request. Set `OLLAMA_AUDIENCE` only if the service
+uses a custom audience instead of its default Cloud Run URL.
 
 ### OCR
 
