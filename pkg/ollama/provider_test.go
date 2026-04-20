@@ -2,12 +2,15 @@ package ollama
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
@@ -210,6 +213,67 @@ func TestProvider_ExtractText_DefaultURL(t *testing.T) {
 	// The error should be a connection error, not an API parsing error
 	if strings.Contains(err.Error(), "no response from Ollama") {
 		t.Error("Got parsing error instead of connection error - indicates wrong URL format")
+	}
+}
+
+func TestProvider_ExtractText_UsesConfiguredBaseURLAndCloudRunToken(t *testing.T) {
+	metadataCalls := 0
+	originalMetadataURL := metadataIdentityTokenURL
+	originalURL := os.Getenv("OLLAMA_URL")
+	originalAudience := os.Getenv("OLLAMA_AUDIENCE")
+	defer func() {
+		metadataIdentityTokenURL = originalMetadataURL
+		identityTokenCacheMu.Lock()
+		identityTokenCache = map[string]cachedIdentityToken{}
+		identityTokenCacheMu.Unlock()
+		_ = os.Setenv("OLLAMA_URL", originalURL)
+		_ = os.Setenv("OLLAMA_AUDIENCE", originalAudience)
+	}()
+	_ = os.Unsetenv("OLLAMA_URL")
+	_ = os.Unsetenv("OLLAMA_AUDIENCE")
+
+	exp := time.Now().Add(1 * time.Hour).Unix()
+	tokenPayload := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"exp":%d}`, exp)))
+	token := "header." + tokenPayload + ".sig"
+
+	metadataServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		metadataCalls++
+		if got := r.Header.Get("Metadata-Flavor"); got != "Google" {
+			t.Fatalf("expected Metadata-Flavor header, got %q", got)
+		}
+		if got := r.URL.Query().Get("audience"); got != "https://service-abc-us-east4.a.run.app" {
+			t.Fatalf("expected audience query, got %q", got)
+		}
+		_, _ = w.Write([]byte(token))
+	}))
+	defer metadataServer.Close()
+	metadataIdentityTokenURL = metadataServer.URL
+
+	var authHeader string
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		authHeader = r.Header.Get("Authorization")
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte(`{"response":"authenticated response","done":true}`))
+	}))
+	defer server.Close()
+	p := New()
+	config := providers.Config{
+		Provider: "ollama",
+		Model:    "llava",
+		Prompt:   "Extract text",
+		BaseURL:  server.URL,
+		Audience: "https://service-abc-us-east4.a.run.app",
+	}
+
+	_, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if authHeader != "Bearer "+token {
+		t.Fatalf("expected Authorization bearer token, got %q", authHeader)
+	}
+	if metadataCalls != 1 {
+		t.Fatalf("expected one metadata call, got %d", metadataCalls)
 	}
 }
 

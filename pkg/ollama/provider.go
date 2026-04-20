@@ -3,18 +3,33 @@ package ollama
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"sync"
+	"time"
 
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
 // Provider implements the Ollama local provider
 type Provider struct{}
+
+type cachedIdentityToken struct {
+	token     string
+	expiresAt time.Time
+}
+
+var (
+	metadataIdentityTokenURL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity"
+	identityTokenCacheMu     sync.Mutex
+	identityTokenCache       = map[string]cachedIdentityToken{}
+)
 
 // New creates a new Ollama provider
 func New() *Provider {
@@ -34,10 +49,7 @@ func (p *Provider) ValidateConfig(config providers.Config) error {
 
 // ExtractText extracts text from an image using Ollama local API
 func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
-	ollamaURL := os.Getenv("OLLAMA_URL")
-	if ollamaURL == "" {
-		ollamaURL = "http://localhost:11434" // Default Ollama URL
-	}
+	ollamaURL := resolveBaseURL(config)
 
 	// Use the specified model, default to llava if not specified
 	model := config.Model
@@ -69,6 +81,13 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	req.Header.Set("Content-Type", "application/json")
+	if audience := resolveAudience(config, ollamaURL); audience != "" {
+		token, err := identityToken(ctx, audience)
+		if err != nil {
+			return "", providers.UsageInfo{}, fmt.Errorf("fetch identity token for ollama audience %q: %w", audience, err)
+		}
+		req.Header.Set("Authorization", "Bearer "+token)
+	}
 
 	client := &http.Client{Timeout: config.Timeout}
 	resp, err := client.Do(req)
@@ -108,4 +127,108 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	return providers.ProcessResponse(p, response), usage, nil
+}
+
+func resolveBaseURL(config providers.Config) string {
+	if baseURL := strings.TrimSpace(config.BaseURL); baseURL != "" {
+		return strings.TrimRight(baseURL, "/")
+	}
+	if envURL := strings.TrimSpace(os.Getenv("OLLAMA_URL")); envURL != "" {
+		return strings.TrimRight(envURL, "/")
+	}
+	return "http://localhost:11434"
+}
+
+func resolveAudience(config providers.Config, baseURL string) string {
+	if audience := strings.TrimSpace(config.Audience); audience != "" {
+		return audience
+	}
+	if envAudience := strings.TrimSpace(os.Getenv("OLLAMA_AUDIENCE")); envAudience != "" {
+		return envAudience
+	}
+
+	parsed, err := url.Parse(baseURL)
+	if err != nil {
+		return ""
+	}
+	if !strings.EqualFold(parsed.Scheme, "https") {
+		return ""
+	}
+
+	host := strings.ToLower(parsed.Hostname())
+	if strings.HasSuffix(host, ".run.app") {
+		return fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
+	}
+	return ""
+}
+
+func identityToken(ctx context.Context, audience string) (string, error) {
+	identityTokenCacheMu.Lock()
+	if cached, ok := identityTokenCache[audience]; ok && time.Until(cached.expiresAt) > 2*time.Minute {
+		identityTokenCacheMu.Unlock()
+		return cached.token, nil
+	}
+	identityTokenCacheMu.Unlock()
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, metadataIdentityTokenURL, nil)
+	if err != nil {
+		return "", err
+	}
+	query := req.URL.Query()
+	query.Set("audience", audience)
+	query.Set("format", "full")
+	req.URL.RawQuery = query.Encode()
+	req.Header.Set("Metadata-Flavor", "Google")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return "", fmt.Errorf("read metadata response: %w", err)
+	}
+	if resp.StatusCode != http.StatusOK {
+		return "", fmt.Errorf("metadata server error: %d - %s", resp.StatusCode, providers.TruncateBody(body))
+	}
+
+	token := strings.TrimSpace(string(body))
+	if token == "" {
+		return "", fmt.Errorf("metadata server returned an empty identity token")
+	}
+	expiry, err := identityTokenExpiry(token)
+	if err != nil {
+		expiry = time.Now().Add(45 * time.Minute)
+	}
+
+	identityTokenCacheMu.Lock()
+	identityTokenCache[audience] = cachedIdentityToken{
+		token:     token,
+		expiresAt: expiry,
+	}
+	identityTokenCacheMu.Unlock()
+	return token, nil
+}
+
+func identityTokenExpiry(token string) (time.Time, error) {
+	parts := strings.Split(token, ".")
+	if len(parts) < 2 {
+		return time.Time{}, fmt.Errorf("invalid jwt")
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
+	if err != nil {
+		return time.Time{}, fmt.Errorf("decode jwt payload: %w", err)
+	}
+	var claims struct {
+		Exp int64 `json:"exp"`
+	}
+	if err := json.Unmarshal(payload, &claims); err != nil {
+		return time.Time{}, fmt.Errorf("parse jwt payload: %w", err)
+	}
+	if claims.Exp == 0 {
+		return time.Time{}, fmt.Errorf("jwt missing exp claim")
+	}
+	return time.Unix(claims.Exp, 0), nil
 }

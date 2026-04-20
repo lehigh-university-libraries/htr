@@ -17,6 +17,8 @@ type Config struct {
 	Debug                 bool
 	MaxResolution         string
 	MaxResolutionFallback bool
+	BaseURL               string
+	Audience              string
 }
 
 // UsageInfo represents token usage information from a provider
