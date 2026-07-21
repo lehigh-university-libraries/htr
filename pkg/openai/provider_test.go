@@ -1,279 +1,187 @@
 package openai
 
 import (
+	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
 
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
-func TestProvider_Name(t *testing.T) {
-	p := New()
-	if p.Name() != "openai" {
-		t.Errorf("Expected name 'openai', got '%s'", p.Name())
+var _ providers.Client = (*Client)(nil)
+
+func TestClientExtract(t *testing.T) {
+	t.Parallel()
+	image := []byte("encoded-image")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.Method != http.MethodPost || request.URL.RawQuery != "" {
+			t.Errorf("unexpected request target: %s %s", request.Method, request.URL.String())
+		}
+		if got := request.Header.Get("Authorization"); got != "Bearer test-key" {
+			t.Errorf("Authorization = %q", got)
+		}
+		var body chatRequest
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Model != "gpt-4o" || len(body.Messages) != 1 || body.Messages[0].Role != "user" {
+			t.Fatalf("unexpected chat request: %#v", body)
+		}
+		if len(body.Messages[0].Content) != 2 || body.Messages[0].Content[0].Text != "Transcribe café" {
+			t.Fatalf("unexpected request content: %#v", body.Messages[0].Content)
+		}
+		wantURL := "data:image/png;base64," + base64.StdEncoding.EncodeToString(image)
+		if got := body.Messages[0].Content[1].ImageURL.URL; got != wantURL {
+			t.Errorf("image URL = %q, want %q", got, wantURL)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`{"model":"gpt-4o-2026","choices":[{"message":{"content":"The text in the image reads: café 世界"}}],"usage":{"prompt_tokens":12,"completion_tokens":4}}`))
+	}))
+	defer server.Close()
+
+	client, err := NewClient(Options{Endpoint: server.URL, APIKey: staticKey("test-key")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	result, err := client.Extract(context.Background(), testRequest(image))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if result.Text != "café 世界" || result.Usage.InputTokens != 12 || result.Usage.OutputTokens != 4 || result.EffectiveModel != "gpt-4o-2026" {
+		t.Fatalf("unexpected result: %#v", result)
 	}
 }
 
-func TestProvider_ValidateConfig(t *testing.T) {
-	p := New()
-
-	tests := []struct {
-		name          string
-		apiKey        string
-		expectError   bool
-		errorContains string
-	}{
-		{
-			name:        "valid API key",
-			apiKey:      "sk-test-key",
-			expectError: false,
-		},
-		{
-			name:          "missing API key",
-			apiKey:        "",
-			expectError:   true,
-			errorContains: "OPENAI_API_KEY",
-		},
+func TestClientErrorsAreTypedBoundedAndRedacted(t *testing.T) {
+	t.Parallel()
+	secretBody := "credential=upstream-secret"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusTooManyRequests)
+		_, _ = w.Write([]byte(secretBody))
+	}))
+	defer server.Close()
+	client, err := NewClient(Options{Endpoint: server.URL, APIKey: staticKey("private-key")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Extract(context.Background(), testRequest([]byte("image")))
+	var providerError *providers.Error
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorRateLimited || !providerError.Retryable {
+		t.Fatalf("unexpected error: %#v", err)
+	}
+	if strings.Contains(err.Error(), secretBody) || strings.Contains(err.Error(), "private-key") || strings.Contains(err.Error(), server.URL) {
+		t.Fatalf("error leaked sensitive data: %q", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Set environment variable
-			original := os.Getenv("OPENAI_API_KEY")
-			defer os.Setenv("OPENAI_API_KEY", original)
-			os.Setenv("OPENAI_API_KEY", tt.apiKey)
-
-			config := providers.Config{
-				Provider: "openai",
-				Model:    "gpt-4o",
-				Prompt:   "Extract text",
-			}
-
-			err := p.ValidateConfig(config)
-
-			if tt.expectError && err == nil {
-				t.Error("Expected error but got none")
-			}
-			if !tt.expectError && err != nil {
-				t.Errorf("Expected no error but got: %v", err)
-			}
-			if tt.expectError && err != nil && !strings.Contains(err.Error(), tt.errorContains) {
-				t.Errorf("Expected error to contain '%s', got: %v", tt.errorContains, err)
-			}
-		})
+	largeServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(strings.Repeat("x", 65)))
+	}))
+	defer largeServer.Close()
+	limited, err := NewClient(Options{Endpoint: largeServer.URL, APIKey: staticKey("key"), MaxResponseBytes: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = limited.Extract(context.Background(), testRequest([]byte("image")))
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorResponseTooLarge {
+		t.Fatalf("expected response limit error, got %v", err)
 	}
 }
 
-func TestProvider_ExtractText(t *testing.T) {
-	tests := []struct {
-		name           string
-		serverResponse string
-		statusCode     int
-		expectedText   string
-		expectError    bool
-		errorContains  string
-	}{
-		{
-			name:       "successful response",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"choices": [
-					{
-						"message": {
-							"content": "This is extracted text from the image"
-						}
-					}
-				]
-			}`,
-			expectedText: "This is extracted text from the image",
-			expectError:  false,
-		},
-		{
-			name:       "response with cleaning needed",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"choices": [
-					{
-						"message": {
-							"content": "Here's the text extracted from the image: \"Cleaned text\""
-						}
-					}
-				]
-			}`,
-			expectedText: "Cleaned text",
-			expectError:  false,
-		},
-		{
-			name:       "API error response",
-			statusCode: http.StatusBadRequest,
-			serverResponse: `{
-				"error": {
-					"message": "Invalid request"
-				}
-			}`,
-			expectError:   true,
-			errorContains: "openAI API error",
-		},
-		{
-			name:       "empty choices",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"choices": []
-			}`,
-			expectError:   true,
-			errorContains: "no response from OpenAI",
-		},
-		{
-			name:       "malformed JSON",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"invalid": json
-			}`,
-			expectError: true,
-		},
+func TestClientBlocksRedirectWithoutLeakingAuthorization(t *testing.T) {
+	t.Parallel()
+	var destinationCalls atomic.Int32
+	destination := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, request *http.Request) {
+		destinationCalls.Add(1)
+		if request.Header.Get("Authorization") != "" {
+			t.Error("authorization leaked to redirect target")
+		}
+	}))
+	defer destination.Close()
+	source := httptest.NewServer(http.RedirectHandler(destination.URL, http.StatusTemporaryRedirect))
+	defer source.Close()
+	client, err := NewClient(Options{Endpoint: source.URL, APIKey: staticKey("private-key")})
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create mock server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Verify request method and headers
-				if r.Method != http.MethodPost {
-					t.Errorf("Expected POST request, got %s", r.Method)
-				}
-				if r.Header.Get("Content-Type") != "application/json" {
-					t.Errorf("Expected application/json content type")
-				}
-				if !strings.HasPrefix(r.Header.Get("Authorization"), "Bearer ") {
-					t.Errorf("Expected Bearer authorization header")
-				}
-
-				// Verify request body structure
-				var reqBody map[string]interface{}
-				if err := json.NewDecoder(r.Body).Decode(&reqBody); err == nil {
-					if model, ok := reqBody["model"].(string); !ok || model == "" {
-						t.Error("Expected model in request body")
-					}
-					if messages, ok := reqBody["messages"].([]interface{}); !ok || len(messages) == 0 {
-						t.Error("Expected messages in request body")
-					}
-				}
-
-				w.WriteHeader(tt.statusCode)
-				if _, err := w.Write([]byte(tt.serverResponse)); err != nil {
-					t.Errorf("Failed to write response: %v", err)
-				}
-			}))
-			defer server.Close()
-
-			// Set environment variable
-			original := os.Getenv("OPENAI_API_KEY")
-			defer os.Setenv("OPENAI_API_KEY", original)
-			os.Setenv("OPENAI_API_KEY", "sk-test-key")
-
-			if tt.statusCode == http.StatusOK && !tt.expectError {
-				p := New()
-				cleaned := providers.ProcessResponse(p, tt.expectedText)
-				if cleaned != tt.expectedText {
-					t.Logf("Response cleaning changed text from '%s' to '%s'", tt.expectedText, cleaned)
-				}
-			}
-		})
+	_, err = client.Extract(context.Background(), testRequest([]byte("image")))
+	var providerError *providers.Error
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorTransport {
+		t.Fatalf("expected transport error, got %v", err)
+	}
+	if destinationCalls.Load() != 0 {
+		t.Fatal("redirect destination was contacted")
 	}
 }
 
-func TestCleanResponse(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "no cleaning needed",
-			input:    "Simple text",
-			expected: "Simple text",
-		},
-		{
-			name:     "remove quotes",
-			input:    `"Quoted text"`,
-			expected: "Quoted text",
-		},
-		{
-			name:     "remove code blocks",
-			input:    "```\nCode block text\n```",
-			expected: "Code block text",
-		},
-		{
-			name:     "remove common prefixes",
-			input:    "Certainly! Here's the text extracted from the image: Actual content",
-			expected: "Actual content",
-		},
-		{
-			name:     "remove extracted text prefix",
-			input:    "Here's the extracted text from the image: Important content",
-			expected: "Important content",
-		},
-		{
-			name:     "trim whitespace",
-			input:    "   Spaced text   ",
-			expected: "Spaced text",
-		},
-		{
-			name:     "complex cleaning",
-			input:    "   \"```Here's the text extracted from the image: Real content```\"   ",
-			expected: "Here's the text extracted from the image: Real content",
-		},
+func TestClientRejectsInvalidInputBeforeNetwork(t *testing.T) {
+	t.Parallel()
+	var calls atomic.Int32
+	server := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { calls.Add(1) }))
+	defer server.Close()
+	client, err := NewClient(Options{Endpoint: server.URL, APIKey: staticKey("key"), MaxImageBytes: 4})
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := New()
-			result := providers.ProcessResponse(p, tt.input)
-			if result != tt.expected {
-				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
-			}
-		})
+	request := testRequest([]byte("12345"))
+	_, err = client.Extract(context.Background(), request)
+	var providerError *providers.Error
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorInvalidRequest {
+		t.Fatalf("expected invalid request, got %v", err)
+	}
+	if calls.Load() != 0 {
+		t.Fatal("network called for invalid input")
 	}
 }
 
-func TestJsonEscape(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "simple string",
-			input:    "hello world",
-			expected: "hello world",
-		},
-		{
-			name:     "string with quotes",
-			input:    `He said "hello"`,
-			expected: `He said \"hello\"`,
-		},
-		{
-			name:     "string with newlines",
-			input:    "line1\nline2",
-			expected: "line1\\nline2",
-		},
-		{
-			name:     "string with backslashes",
-			input:    "path\\to\\file",
-			expected: "path\\\\to\\\\file",
-		},
+func TestClientPreservesCancellation(t *testing.T) {
+	t.Parallel()
+	client, err := NewClient(Options{APIKey: staticKey("key")})
+	if err != nil {
+		t.Fatal(err)
 	}
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	_, err = client.Extract(ctx, testRequest([]byte("image")))
+	var providerError *providers.Error
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorCanceled || !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation identity, got %v", err)
+	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			result := jsonEscape(tt.input)
-			if result != tt.expected {
-				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
-			}
-		})
+func TestLegacyProviderValidation(t *testing.T) {
+	provider := New()
+	if provider.Name() != "openai" {
+		t.Fatalf("Name() = %q", provider.Name())
 	}
+	t.Setenv("OPENAI_API_KEY", "")
+	if err := provider.ValidateConfig(providers.Config{}); err == nil {
+		t.Fatal("expected missing key error")
+	}
+	t.Setenv("OPENAI_API_KEY", "key")
+	if err := provider.ValidateConfig(providers.Config{}); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func testRequest(image []byte) providers.Request {
+	return providers.Request{
+		Model:       "gpt-4o",
+		Prompt:      "Transcribe café",
+		Temperature: 0.2,
+		Image: providers.Image{
+			Data:      image,
+			MediaType: "image/png",
+			Filename:  "page.png",
+		},
+	}
+}
+
+func staticKey(value string) CredentialSource {
+	return func(context.Context) (string, error) { return value, nil }
 }

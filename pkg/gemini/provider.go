@@ -1,247 +1,319 @@
+// Package gemini provides a Google Gemini vision transcription client.
 package gemini
 
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"io"
-	"log/slog"
-	"mime"
+	"errors"
 	"net/http"
 	"os"
-	"path/filepath"
 	"strings"
+	"time"
 
+	"github.com/lehigh-university-libraries/htr/pkg/httpclient"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
-// Provider implements the Google Gemini vision provider
+const (
+	defaultEndpoint         = "https://generativelanguage.googleapis.com/v1beta"
+	defaultTimeout          = 2 * time.Minute
+	defaultMaxImageBytes    = 50 << 20
+	defaultMaxRequestBytes  = 70 << 20
+	defaultMaxResponseBytes = 8 << 20
+)
+
+// CredentialSource returns an API credential for one request.
+type CredentialSource func(context.Context) (string, error)
+
+// Options configures a Client. Constructors do not read environment variables.
+type Options struct {
+	HTTPClient              *http.Client
+	Endpoint                string
+	APIKey                  CredentialSource
+	Timeout                 time.Duration
+	MaxImageBytes           int64
+	MaxRequestBytes         int64
+	MaxResponseBytes        int64
+	MediaResolution         string
+	MediaResolutionFallback bool
+	IncludeThoughts         bool
+}
+
+// Client is a byte-oriented Gemini transcription client.
+type Client struct {
+	httpClient              *http.Client
+	endpoint                string
+	apiKey                  CredentialSource
+	maxImageBytes           int64
+	maxRequestBytes         int64
+	maxResponseBytes        int64
+	mediaResolution         string
+	mediaResolutionFallback bool
+	includeThoughts         bool
+}
+
+// Provider is the historical CLI adapter. New integrations should use Client.
 type Provider struct{}
 
-// New creates a new Gemini provider
-func New() *Provider {
-	return &Provider{}
+type generateRequest struct {
+	Contents         []content        `json:"contents"`
+	GenerationConfig generationConfig `json:"generationConfig"`
 }
 
-// Name returns the provider name
-func (p *Provider) Name() string {
-	return "gemini"
+type content struct {
+	Parts []part `json:"parts"`
 }
 
-// ValidateConfig validates the Gemini configuration
-func (p *Provider) ValidateConfig(config providers.Config) error {
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		return fmt.Errorf("GEMINI_API_KEY environment variable not set")
+type part struct {
+	Text       string      `json:"text,omitempty"`
+	InlineData *inlineData `json:"inline_data,omitempty"`
+}
+
+type inlineData struct {
+	MediaType string `json:"mime_type"`
+	Data      string `json:"data"`
+}
+
+type generationConfig struct {
+	Temperature     float64         `json:"temperature"`
+	MediaResolution string          `json:"mediaResolution,omitempty"`
+	ThinkingConfig  *thinkingConfig `json:"thinkingConfig,omitempty"`
+}
+
+type thinkingConfig struct {
+	IncludeThoughts bool `json:"includeThoughts"`
+}
+
+type generateResponse struct {
+	ModelVersion string `json:"modelVersion"`
+	Candidates   []struct {
+		FinishReason string `json:"finishReason"`
+		Content      struct {
+			Parts []struct {
+				Text    string `json:"text"`
+				Thought bool   `json:"thought"`
+			} `json:"parts"`
+		} `json:"content"`
+	} `json:"candidates"`
+	Usage struct {
+		PromptTokens    int `json:"promptTokenCount"`
+		CandidateTokens int `json:"candidatesTokenCount"`
+	} `json:"usageMetadata"`
+}
+
+// NewClient constructs a secure Gemini client from explicit dependencies.
+func NewClient(options Options) (*Client, error) {
+	endpoint := options.Endpoint
+	if endpoint == "" {
+		endpoint = defaultEndpoint
+	}
+	parsed, err := httpclient.ParseEndpoint(endpoint)
+	if err != nil || options.APIKey == nil || !validResolution(options.MediaResolution) {
+		return nil, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	return &Client{
+		httpClient:              httpclient.Secure(options.HTTPClient, durationOr(options.Timeout, defaultTimeout)),
+		endpoint:                parsed.String(),
+		apiKey:                  options.APIKey,
+		maxImageBytes:           positiveOr(options.MaxImageBytes, defaultMaxImageBytes),
+		maxRequestBytes:         positiveOr(options.MaxRequestBytes, defaultMaxRequestBytes),
+		maxResponseBytes:        positiveOr(options.MaxResponseBytes, defaultMaxResponseBytes),
+		mediaResolution:         options.MediaResolution,
+		mediaResolutionFallback: options.MediaResolutionFallback,
+		includeThoughts:         options.IncludeThoughts,
+	}, nil
+}
+
+// Name returns the provider name.
+func (c *Client) Name() string { return "gemini" }
+
+// Extract transcribes an encoded image.
+func (c *Client) Extract(ctx context.Context, request providers.Request) (providers.Result, error) {
+	if err := providers.ValidateRequest(request, c.maxImageBytes); err != nil {
+		return providers.Result{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return providers.Result{}, providers.ErrorForRequest(ctx, err)
+	}
+	mediaType, err := providers.CanonicalMediaType(request.Image.MediaType)
+	if err != nil {
+		return providers.Result{}, err
+	}
+	credential, err := c.apiKey(ctx)
+	if err != nil {
+		return providers.Result{}, providers.ErrorForAuthentication(ctx, err)
+	}
+	if err := httpclient.SetHeader(make(http.Header), "x-goog-api-key", credential); err != nil {
+		return providers.Result{}, providers.ErrorForAuthentication(ctx, err)
+	}
+	endpoint, err := httpclient.AppendPathSegment(c.endpoint, "/models/", request.Model, ":generateContent")
+	if err != nil {
+		return providers.Result{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	resolution := c.mediaResolution
+	for attempts := 0; attempts < 4; attempts++ {
+		result, finishReason, err := c.extractOnce(ctx, endpoint, credential, request, mediaType, resolution)
+		if err != nil {
+			return providers.Result{}, err
+		}
+		if finishReason == "MAX_TOKENS" && c.mediaResolutionFallback {
+			next := nextResolution(resolution)
+			if next != "" {
+				resolution = next
+				continue
+			}
+		}
+		if strings.TrimSpace(result.Text) == "" {
+			return providers.Result{}, providers.NewError(providers.ErrorInvalidResponse, http.StatusOK, false, nil)
+		}
+		return result, nil
+	}
+	return providers.Result{}, providers.NewError(providers.ErrorInvalidResponse, 0, false, nil)
+}
+
+func (c *Client) extractOnce(ctx context.Context, endpoint, credential string, request providers.Request, mediaType, resolution string) (providers.Result, string, error) {
+	configuration := generationConfig{Temperature: request.Temperature, MediaResolution: resolution}
+	if c.includeThoughts {
+		configuration.ThinkingConfig = &thinkingConfig{IncludeThoughts: true}
+	}
+	payload := generateRequest{
+		Contents: []content{{Parts: []part{
+			{Text: request.Prompt},
+			{InlineData: &inlineData{MediaType: mediaType, Data: base64.StdEncoding.EncodeToString(request.Image.Data)}},
+		}}},
+		GenerationConfig: configuration,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil || int64(len(body)) > c.maxRequestBytes {
+		return providers.Result{}, "", providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint, bytes.NewReader(body))
+	if err != nil {
+		return providers.Result{}, "", providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	httpRequest.Header.Set("Content-Type", "application/json")
+	if err := httpclient.StaticHeader("x-goog-api-key", credential).Authorize(ctx, httpRequest); err != nil {
+		return providers.Result{}, "", providers.ErrorForAuthentication(ctx, err)
+	}
+
+	response, err := c.httpClient.Do(httpRequest)
+	if err != nil {
+		return providers.Result{}, "", providers.ErrorForRequest(ctx, err)
+	}
+	responseBody, readErr := httpclient.ReadAll(response.Body, c.maxResponseBytes)
+	_ = response.Body.Close()
+	if readErr != nil {
+		if errors.Is(readErr, httpclient.ErrResponseTooLarge) {
+			return providers.Result{}, "", providers.NewError(providers.ErrorResponseTooLarge, response.StatusCode, false, nil)
+		}
+		return providers.Result{}, "", providers.ErrorForRequest(ctx, readErr)
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return providers.Result{}, "", providers.ErrorForStatus(response.StatusCode)
+	}
+
+	var decoded generateResponse
+	if err := json.Unmarshal(responseBody, &decoded); err != nil || len(decoded.Candidates) == 0 {
+		return providers.Result{}, "", providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+	}
+	text := ""
+	for _, responsePart := range decoded.Candidates[0].Content.Parts {
+		if !responsePart.Thought && strings.TrimSpace(responsePart.Text) != "" {
+			text = responsePart.Text
+			break
+		}
+	}
+	effectiveModel := strings.TrimSpace(decoded.ModelVersion)
+	if effectiveModel == "" {
+		effectiveModel = request.Model
+	}
+	return providers.Result{
+		Text: providers.CleanResponse(text),
+		Usage: providers.UsageInfo{
+			InputTokens:  decoded.Usage.PromptTokens,
+			OutputTokens: decoded.Usage.CandidateTokens,
+		},
+		EffectiveModel: effectiveModel,
+	}, decoded.Candidates[0].FinishReason, nil
+}
+
+// New creates the historical CLI adapter.
+func New() *Provider { return &Provider{} }
+
+// Name returns the provider name.
+func (p *Provider) Name() string { return "gemini" }
+
+// ValidateConfig validates environment-backed CLI configuration.
+func (p *Provider) ValidateConfig(providers.Config) error {
+	if strings.TrimSpace(os.Getenv("GEMINI_API_KEY")) == "" {
+		return providers.NewError(providers.ErrorAuthentication, 0, false, nil)
 	}
 	return nil
 }
 
-// ExtractText extracts text from an image using Google Gemini Vision API
+// ExtractText adapts historical base64 CLI inputs to Client.
 func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
-	apiKey := os.Getenv("GEMINI_API_KEY")
-	if apiKey == "" {
-		return "", providers.UsageInfo{}, fmt.Errorf("GEMINI_API_KEY environment variable not set")
+	if config.Model == "" || config.Model == "gpt-4o" {
+		config.Model = "gemini-pro-vision"
 	}
-
-	// Determine MIME type
-	mimeType := mime.TypeByExtension(filepath.Ext(imagePath))
-	if mimeType == "" {
-		mimeType = "image/jpeg"
+	request, err := providers.LegacyRequest(config, imagePath, imageBase64, defaultMaxImageBytes)
+	if err != nil {
+		return "", providers.UsageInfo{}, err
 	}
-
-	// Helper to determine next resolution
-	getNextResolution := func(current string) string {
-		switch current {
-		case "", "MEDIA_RESOLUTION_UNSPECIFIED":
-			return "MEDIA_RESOLUTION_HIGH"
-		case "MEDIA_RESOLUTION_HIGH":
-			return "MEDIA_RESOLUTION_MEDIUM"
-		case "MEDIA_RESOLUTION_MEDIUM":
-			return "MEDIA_RESOLUTION_LOW"
-		default:
-			return ""
-		}
+	client, err := NewClient(Options{
+		APIKey: func(context.Context) (string, error) {
+			key := os.Getenv("GEMINI_API_KEY")
+			if strings.TrimSpace(key) == "" {
+				return "", providers.NewError(providers.ErrorAuthentication, 0, false, nil)
+			}
+			return key, nil
+		},
+		Timeout:                 config.Timeout,
+		MediaResolution:         config.MaxResolution,
+		MediaResolutionFallback: config.MaxResolutionFallback,
+		IncludeThoughts:         config.Debug,
+	})
+	if err != nil {
+		return "", providers.UsageInfo{}, err
 	}
-
-	currentResolution := config.MaxResolution
-
-	// Use the specified model, default to gemini-pro-vision if not specified
-	model := config.Model
-	if model == "gpt-4o" || model == "" {
-		model = "gemini-pro-vision"
-	}
-
-	url := fmt.Sprintf("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s", model, apiKey)
-
-	for i := 0; i < 4; i++ {
-		generationConfig := map[string]any{
-			"temperature": config.Temperature,
-		}
-		if config.Debug {
-			generationConfig["thinkingConfig"] = map[string]any{
-				"includeThoughts": true,
-			}
-		}
-		if currentResolution != "" && currentResolution != "MEDIA_RESOLUTION_UNSPECIFIED" {
-			generationConfig["mediaResolution"] = currentResolution
-		}
-
-		// Prepare request body for Gemini API
-		requestBody := map[string]any{
-			"contents": []map[string]any{
-				{
-					"parts": []map[string]any{
-						{
-							"text": config.Prompt,
-						},
-						{
-							"inline_data": map[string]any{
-								"mime_type": mimeType,
-								"data":      imageBase64,
-							},
-						},
-					},
-				},
-			},
-			"generationConfig": generationConfig,
-		}
-
-		requestJSON, err := json.Marshal(requestBody)
-		if err != nil {
-			return "", providers.UsageInfo{}, fmt.Errorf("failed to marshal request: %w", err)
-		}
-
-		req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(requestJSON))
-		if err != nil {
-			return "", providers.UsageInfo{}, err
-		}
-
-		req.Header.Set("Content-Type", "application/json")
-
-		client := &http.Client{Timeout: config.Timeout}
-		resp, err := client.Do(req)
-		if err != nil {
-			return "", providers.UsageInfo{}, err
-		}
-		defer resp.Body.Close()
-
-		body, err := io.ReadAll(resp.Body)
-		if err != nil {
-			return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
-		}
-		if config.Debug {
-			printDebugResponse(body)
-		}
-
-		if resp.StatusCode != http.StatusOK {
-			return "", providers.UsageInfo{}, fmt.Errorf("gemini API error: %d - %s", resp.StatusCode, string(body))
-		}
-
-		var geminiResp map[string]any
-		if err := json.Unmarshal(body, &geminiResp); err != nil {
-			return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(body))
-		}
-
-		// Extract text from Gemini response
-		candidates, ok := geminiResp["candidates"].([]any)
-		if !ok || len(candidates) == 0 {
-			// Check prompt feedback if no candidates
-			if promptFeedback, ok := geminiResp["promptFeedback"].(map[string]any); ok {
-				if blockReason, ok := promptFeedback["blockReason"]; ok {
-					return "", providers.UsageInfo{}, fmt.Errorf("blocked: %v", blockReason)
-				}
-			}
-			return "", providers.UsageInfo{}, fmt.Errorf("no response from Gemini - body: %s", providers.TruncateBody(body))
-		}
-
-		candidate, ok := candidates[0].(map[string]any)
-		if !ok {
-			return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Gemini - body: %s", providers.TruncateBody(body))
-		}
-
-		// Check finish reason for fallback
-		finishReason, _ := candidate["finishReason"].(string)
-		if finishReason == "MAX_TOKENS" && config.MaxResolutionFallback {
-			nextRes := getNextResolution(currentResolution)
-			if nextRes != "" {
-				slog.Error("Hit MAX_TOKENS limit with resolution. Retrying", "currentResolution", currentResolution, "nextRes", nextRes)
-				currentResolution = nextRes
-				continue
-			}
-		}
-
-		content, ok := candidate["content"].(map[string]any)
-		if !ok {
-			return "", providers.UsageInfo{}, fmt.Errorf("invalid content format from Gemini - body: %s", providers.TruncateBody(body))
-		}
-
-		parts, ok := content["parts"].([]any)
-		if !ok || len(parts) == 0 {
-			return "", providers.UsageInfo{}, fmt.Errorf("no parts in Gemini response - body: %s", providers.TruncateBody(body))
-		}
-
-		text, thoughts, err := extractGeminiResponseParts(parts)
-		if err != nil {
-			return "", providers.UsageInfo{}, err
-		}
-		if text == "" {
-			return "", providers.UsageInfo{}, fmt.Errorf("no text in Gemini response - body: %s", providers.TruncateBody(body))
-		}
-		if config.Debug && len(thoughts) > 0 {
-			printThoughts(thoughts)
-		}
-
-		// Extract usage metadata if available
-		usage := providers.UsageInfo{}
-		if usageMetadata, ok := geminiResp["usageMetadata"].(map[string]any); ok {
-			if promptTokens, ok := usageMetadata["promptTokenCount"].(float64); ok {
-				usage.InputTokens = int(promptTokens)
-			}
-			if candidatesTokens, ok := usageMetadata["candidatesTokenCount"].(float64); ok {
-				usage.OutputTokens = int(candidatesTokens)
-			}
-		}
-
-		return providers.ProcessResponse(p, text), usage, nil
-	}
-
-	return "", providers.UsageInfo{}, fmt.Errorf("no response from gemini")
+	result, err := client.Extract(ctx, request)
+	return result.Text, result.Usage, err
 }
 
-func extractGeminiResponseParts(parts []any) (string, []string, error) {
-	var text string
-	var thoughts []string
-
-	for _, rawPart := range parts {
-		part, ok := rawPart.(map[string]any)
-		if !ok {
-			return "", nil, fmt.Errorf("invalid part format from Gemini response")
-		}
-
-		if thought, ok := part["thought"].(string); ok && strings.TrimSpace(thought) != "" {
-			thoughts = append(thoughts, thought)
-		}
-		if partText, ok := part["text"].(string); ok && strings.TrimSpace(partText) != "" && text == "" {
-			text = partText
-		}
-	}
-
-	return text, thoughts, nil
-}
-
-func printThoughts(thoughts []string) {
-	for _, thought := range thoughts {
-		fmt.Fprintf(os.Stderr, "[gemini thought]\n%s\n", strings.TrimSpace(thought))
+func validResolution(value string) bool {
+	switch value {
+	case "", "MEDIA_RESOLUTION_UNSPECIFIED", "MEDIA_RESOLUTION_HIGH", "MEDIA_RESOLUTION_MEDIUM", "MEDIA_RESOLUTION_LOW":
+		return true
+	default:
+		return false
 	}
 }
 
-func printDebugResponse(body []byte) {
-	var pretty bytes.Buffer
-	if err := json.Indent(&pretty, body, "", "  "); err != nil {
-		fmt.Fprintf(os.Stderr, "[gemini debug response]\n%s\n", string(body))
-		return
+func nextResolution(current string) string {
+	switch current {
+	case "", "MEDIA_RESOLUTION_UNSPECIFIED":
+		return "MEDIA_RESOLUTION_HIGH"
+	case "MEDIA_RESOLUTION_HIGH":
+		return "MEDIA_RESOLUTION_MEDIUM"
+	case "MEDIA_RESOLUTION_MEDIUM":
+		return "MEDIA_RESOLUTION_LOW"
+	default:
+		return ""
 	}
-	fmt.Fprintf(os.Stderr, "[gemini debug response]\n%s\n", pretty.String())
+}
+
+func positiveOr(value, fallback int64) int64 {
+	if value > 0 {
+		return value
+	}
+	return fallback
+}
+
+func durationOr(value, fallback time.Duration) time.Duration {
+	if value > 0 {
+		return value
+	}
+	return fallback
 }
