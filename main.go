@@ -6,7 +6,7 @@ import (
 	"os"
 	"strings"
 
-	"github.com/charmbracelet/fang"
+	fang "charm.land/fang/v2"
 	"github.com/joho/godotenv"
 	"github.com/lehigh-university-libraries/htr/cmd"
 	"github.com/lehigh-university-libraries/htr/internal/utils"
