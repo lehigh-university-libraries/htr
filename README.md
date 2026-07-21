@@ -33,6 +33,10 @@ Then put the binary in a directory that is in your `$PATH`
 
 The HTR tool supports multiple providers for text extraction from images. Set the appropriate environment variables for your chosen provider or create them in a `.env` file.
 
+Embedding HTR in another Go service does not require environment variables or
+filesystem paths. Use the explicit byte-oriented clients documented in
+[Provider client library](docs/PROVIDER_CLIENTS.md).
+
 ### Supported Providers
 
 #### OpenAI (default)

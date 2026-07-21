@@ -2,421 +2,127 @@ package ollama
 
 import (
 	"context"
-	"encoding/base64"
 	"encoding/json"
-	"fmt"
+	"errors"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
+	"sync/atomic"
 	"testing"
-	"time"
 
+	"github.com/lehigh-university-libraries/htr/pkg/httpclient"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
-func TestProvider_Name(t *testing.T) {
-	p := New()
-	if p.Name() != "ollama" {
-		t.Errorf("Expected name 'ollama', got '%s'", p.Name())
-	}
-}
+var _ providers.Client = (*Client)(nil)
 
-func TestProvider_ValidateConfig(t *testing.T) {
-	p := New()
-
-	// Ollama validation is very simple - it just returns nil
-	config := providers.Config{
-		Provider: "ollama",
-		Model:    "llava",
-		Prompt:   "Extract text",
-	}
-
-	err := p.ValidateConfig(config)
-	if err != nil {
-		t.Errorf("Expected no error for Ollama validation, got: %v", err)
-	}
-}
-
-func TestProvider_ExtractText(t *testing.T) {
-	tests := []struct {
-		name           string
-		serverResponse string
-		statusCode     int
-		expectedText   string
-		expectError    bool
-		errorContains  string
-	}{
-		{
-			name:       "successful response",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"model": "llava",
-				"created_at": "2023-08-04T08:52:19.385406455Z",
-				"response": "This is text extracted by Ollama",
-				"done": true
-			}`,
-			expectedText: "This is text extracted by Ollama",
-			expectError:  false,
-		},
-		{
-			name:       "response with cleaning needed",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"model": "llava",
-				"response": "I can see text that says: Important document content",
-				"done": true
-			}`,
-			expectedText: "Important document content",
-			expectError:  false,
-		},
-		{
-			name:       "API error response",
-			statusCode: http.StatusInternalServerError,
-			serverResponse: `{
-				"error": "Model not found"
-			}`,
-			expectError:   true,
-			errorContains: "ollama API error",
-		},
-		{
-			name:       "missing response field",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"model": "llava",
-				"done": true
-			}`,
-			expectError:   true,
-			errorContains: "no response from Ollama",
-		},
-		{
-			name:       "malformed JSON",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"invalid": json
-			}`,
-			expectError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create mock server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Verify request method and headers
-				if r.Method != http.MethodPost {
-					t.Errorf("Expected POST request, got %s", r.Method)
-				}
-				if r.Header.Get("Content-Type") != "application/json" {
-					t.Errorf("Expected application/json content type")
-				}
-
-				// Verify request path
-				if !strings.Contains(r.URL.Path, "/api/generate") {
-					t.Errorf("Expected /api/generate path, got %s", r.URL.Path)
-				}
-
-				// Verify request body structure
-				var reqBody map[string]interface{}
-				if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-					t.Errorf("Failed to decode request body: %v", err)
-				} else {
-					if model, ok := reqBody["model"].(string); !ok || model == "" {
-						t.Error("Expected model in request body")
-					}
-					if prompt, ok := reqBody["prompt"].(string); !ok || prompt == "" {
-						t.Error("Expected prompt in request body")
-					}
-					if images, ok := reqBody["images"].([]interface{}); !ok || len(images) == 0 {
-						t.Error("Expected images array in request body")
-					}
-					if stream, ok := reqBody["stream"].(bool); !ok || stream != false {
-						t.Error("Expected stream to be false in request body")
-					}
-					if options, ok := reqBody["options"].(map[string]interface{}); !ok {
-						t.Error("Expected options in request body")
-					} else if temp, ok := options["temperature"]; !ok {
-						t.Error("Expected temperature in options")
-					} else if _, ok := temp.(float64); !ok {
-						t.Error("Expected temperature to be a number")
-					}
-				}
-
-				w.WriteHeader(tt.statusCode)
-				if _, err := w.Write([]byte(tt.serverResponse)); err != nil {
-					t.Errorf("Failed to write response: %v", err)
-				}
-			}))
-			defer server.Close()
-
-			// Set environment variable to use test server
-			original := os.Getenv("OLLAMA_URL")
-			defer os.Setenv("OLLAMA_URL", original)
-			os.Setenv("OLLAMA_URL", server.URL)
-
-			p := New()
-			config := providers.Config{
-				Provider:    "ollama",
-				Model:       "llava",
-				Prompt:      "Extract all text from this image",
-				Temperature: 0.3,
-			}
-
-			result, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdCBpbWFnZSBkYXRh") // "test image data" in base64
-
-			if tt.expectError {
-				if err == nil {
-					t.Error("Expected error but got none")
-				}
-				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
-					t.Errorf("Expected error to contain '%s', got: %v", tt.errorContains, err)
-				}
-			} else {
-				if err != nil {
-					t.Errorf("Expected no error but got: %v", err)
-				}
-				if result != tt.expectedText {
-					t.Errorf("Expected text '%s', got '%s'", tt.expectedText, result)
-				}
-			}
-		})
-	}
-}
-
-func TestProvider_ExtractText_DefaultURL(t *testing.T) {
-	// Test that default URL is used when OLLAMA_URL is not set
-	original := os.Getenv("OLLAMA_URL")
-	defer os.Setenv("OLLAMA_URL", original)
-	os.Setenv("OLLAMA_URL", "")
-
-	// Create a mock server that we won't actually hit
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		t.Error("Should not hit this server when testing default URL behavior")
+func TestClientExtract(t *testing.T) {
+	t.Parallel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, request *http.Request) {
+		if request.URL.Path != "/base/api/generate" || request.Header.Get("Authorization") != "Bearer token" {
+			t.Errorf("unexpected target or authorization")
+		}
+		var body generateRequest
+		if err := json.NewDecoder(request.Body).Decode(&body); err != nil {
+			t.Fatal(err)
+		}
+		if body.Model != "llava" || body.Prompt != "Transcribe café" || len(body.Images) != 1 || body.Stream {
+			t.Fatalf("unexpected request: %#v", body)
+		}
+		_, _ = w.Write([]byte(`{"model":"llava-v2","response":"The image contains text: café 世界","prompt_eval_count":9,"eval_count":3}`))
 	}))
 	defer server.Close()
-
-	p := New()
-	config := providers.Config{
-		Provider:    "ollama",
-		Model:       "llava",
-		Prompt:      "Extract all text from this image",
-		Temperature: 0.0,
+	client, err := NewClient(Options{Endpoint: server.URL + "/base", Authenticator: httpclient.StaticBearer("token")})
+	if err != nil {
+		t.Fatal(err)
 	}
-
-	// This will fail to connect, but we're testing that it tries the default URL
-	_, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
-
-	// We expect an error (connection refused), but we want to make sure it's trying the right URL
-	if err == nil {
-		t.Error("Expected connection error when trying to connect to default Ollama URL")
+	result, err := client.Extract(context.Background(), testRequest([]byte("image")))
+	if err != nil {
+		t.Fatal(err)
 	}
-	// The error should be a connection error, not an API parsing error
-	if strings.Contains(err.Error(), "no response from Ollama") {
-		t.Error("Got parsing error instead of connection error - indicates wrong URL format")
+	if result.Text != "café 世界" || result.Usage.InputTokens != 9 || result.Usage.OutputTokens != 3 || result.EffectiveModel != "llava-v2" {
+		t.Fatalf("unexpected result: %#v", result)
 	}
 }
 
-func TestProvider_ExtractText_UsesConfiguredBaseURLAndCloudRunToken(t *testing.T) {
-	metadataCalls := 0
-	originalMetadataURL := metadataIdentityTokenURL
-	originalURL := os.Getenv("OLLAMA_URL")
-	originalAudience := os.Getenv("OLLAMA_AUDIENCE")
-	defer func() {
-		metadataIdentityTokenURL = originalMetadataURL
-		identityTokenCacheMu.Lock()
-		identityTokenCache = map[string]cachedIdentityToken{}
-		identityTokenCacheMu.Unlock()
-		_ = os.Setenv("OLLAMA_URL", originalURL)
-		_ = os.Setenv("OLLAMA_AUDIENCE", originalAudience)
-	}()
-	_ = os.Unsetenv("OLLAMA_URL")
-	_ = os.Unsetenv("OLLAMA_AUDIENCE")
-
-	exp := time.Now().Add(1 * time.Hour).Unix()
-	tokenPayload := base64.RawURLEncoding.EncodeToString([]byte(fmt.Sprintf(`{"exp":%d}`, exp)))
-	token := "header." + tokenPayload + ".sig"
-
-	metadataServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		metadataCalls++
-		if got := r.Header.Get("Metadata-Flavor"); got != "Google" {
-			t.Fatalf("expected Metadata-Flavor header, got %q", got)
-		}
-		if got := r.URL.Query().Get("audience"); got != "https://service-abc-us-east4.a.run.app" {
-			t.Fatalf("expected audience query, got %q", got)
-		}
-		_, _ = w.Write([]byte(token))
-	}))
-	defer metadataServer.Close()
-	metadataIdentityTokenURL = metadataServer.URL
-
-	var authHeader string
-	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader = r.Header.Get("Authorization")
-		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write([]byte(`{"response":"authenticated response","done":true}`))
+func TestClientErrorsAreRedactedBoundedAndRedirectSafe(t *testing.T) {
+	t.Parallel()
+	secret := "secret error body"
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusInternalServerError)
+		_, _ = w.Write([]byte(secret))
 	}))
 	defer server.Close()
-	p := New()
-	config := providers.Config{
-		Provider: "ollama",
-		Model:    "llava",
-		Prompt:   "Extract text",
-		BaseURL:  server.URL,
-		Audience: "https://service-abc-us-east4.a.run.app",
-	}
-
-	_, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
+	client, err := NewClient(Options{Endpoint: server.URL, Authenticator: httpclient.StaticBearer("private-token")})
 	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = client.Extract(context.Background(), testRequest([]byte("image")))
+	var providerError *providers.Error
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorUpstream || !providerError.Retryable {
 		t.Fatalf("unexpected error: %v", err)
 	}
-	if authHeader != "Bearer "+token {
-		t.Fatalf("expected Authorization bearer token, got %q", authHeader)
-	}
-	if metadataCalls != 1 {
-		t.Fatalf("expected one metadata call, got %d", metadataCalls)
-	}
-}
-
-func TestProvider_ExtractText_ModelDefaulting(t *testing.T) {
-	// Test that model defaults to "llava" when gpt-4o or empty is provided
-	tests := []struct {
-		name          string
-		inputModel    string
-		expectedModel string
-	}{
-		{
-			name:          "gpt-4o should default to llava",
-			inputModel:    "gpt-4o",
-			expectedModel: "llava",
-		},
-		{
-			name:          "empty should default to llava",
-			inputModel:    "",
-			expectedModel: "llava",
-		},
-		{
-			name:          "llama should stay llama",
-			inputModel:    "llama",
-			expectedModel: "llama",
-		},
-		{
-			name:          "custom model should stay custom",
-			inputModel:    "custom-vision-model",
-			expectedModel: "custom-vision-model",
-		},
+	if strings.Contains(err.Error(), secret) || strings.Contains(err.Error(), "private-token") || strings.Contains(err.Error(), server.URL) {
+		t.Fatalf("error leaked sensitive data: %q", err)
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			var requestModel string
+	large := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(strings.Repeat("x", 65)))
+	}))
+	defer large.Close()
+	limited, err := NewClient(Options{Endpoint: large.URL, MaxResponseBytes: 64})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = limited.Extract(context.Background(), testRequest([]byte("image")))
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorResponseTooLarge {
+		t.Fatalf("expected response limit error, got %v", err)
+	}
 
-			// Create mock server to capture the request
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				var reqBody map[string]interface{}
-				if err := json.NewDecoder(r.Body).Decode(&reqBody); err != nil {
-					t.Errorf("Failed to decode request body: %v", err)
-					return
-				}
-				if model, ok := reqBody["model"].(string); ok {
-					requestModel = model
-				}
-
-				w.WriteHeader(http.StatusOK)
-				if _, err := w.Write([]byte(`{"response": "test response", "done": true}`)); err != nil {
-					t.Errorf("Failed to write response: %v", err)
-				}
-			}))
-			defer server.Close()
-
-			// Set environment variable to use test server
-			original := os.Getenv("OLLAMA_URL")
-			defer os.Setenv("OLLAMA_URL", original)
-			os.Setenv("OLLAMA_URL", server.URL)
-
-			p := New()
-			config := providers.Config{
-				Provider: "ollama",
-				Model:    tt.inputModel,
-				Prompt:   "Extract text",
-			}
-
-			_, _, err := p.ExtractText(context.Background(), config, "test.jpg", "dGVzdA==")
-			if err != nil {
-				t.Errorf("Unexpected error: %v", err)
-			}
-
-			if requestModel != tt.expectedModel {
-				t.Errorf("Expected model '%s' in request, got '%s'", tt.expectedModel, requestModel)
-			}
-		})
+	var destinationCalls atomic.Int32
+	destination := httptest.NewServer(http.HandlerFunc(func(http.ResponseWriter, *http.Request) { destinationCalls.Add(1) }))
+	defer destination.Close()
+	redirect := httptest.NewServer(http.RedirectHandler(destination.URL, http.StatusTemporaryRedirect))
+	defer redirect.Close()
+	redirectClient, err := NewClient(Options{Endpoint: redirect.URL, Authenticator: httpclient.StaticBearer("private-token")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = redirectClient.Extract(context.Background(), testRequest([]byte("image")))
+	if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorTransport || destinationCalls.Load() != 0 {
+		t.Fatalf("redirect was not safely blocked: error=%v calls=%d", err, destinationCalls.Load())
 	}
 }
 
-func TestCleanResponse(t *testing.T) {
-	tests := []struct {
-		name     string
-		input    string
-		expected string
-	}{
-		{
-			name:     "no cleaning needed",
-			input:    "Simple text content",
-			expected: "Simple text content",
-		},
-		{
-			name:     "remove text reading prefix",
-			input:    "I can see text that says: Important content",
-			expected: "Important content",
-		},
-		{
-			name:     "remove image text prefix",
-			input:    "The text in the image reads: Document text",
-			expected: "Document text",
-		},
-		{
-			name:     "remove image contains prefix",
-			input:    "The image contains text: Extracted content",
-			expected: "Extracted content",
-		},
-		{
-			name:     "remove here's text prefix",
-			input:    "Here's the text from the image: Final content",
-			expected: "Final content",
-		},
-		{
-			name:     "remove quotes",
-			input:    `"Quoted text content"`,
-			expected: "Quoted text content",
-		},
-		{
-			name:     "remove code blocks",
-			input:    "```\nCode block content\n```",
-			expected: "Code block content",
-		},
-		{
-			name:     "trim whitespace",
-			input:    "   Spaced content   ",
-			expected: "Spaced content",
-		},
-		{
-			name:     "complex cleaning",
-			input:    "   \"```I can see text reading: Real content```\"   ",
-			expected: "I can see text reading: Real content",
-		},
-		{
-			name:     "case insensitive prefix removal",
-			input:    "THE TEXT IN THE IMAGE IS: Upper case content",
-			expected: "Upper case content",
-		},
+func TestNewClientRejectsUnsafeEndpoint(t *testing.T) {
+	t.Parallel()
+	for _, endpoint := range []string{"ftp://example.test", "https://user:pass@example.test", "https://example.test?q=secret"} {
+		if _, err := NewClient(Options{Endpoint: endpoint}); err == nil {
+			t.Errorf("expected %q to be rejected", endpoint)
+		}
 	}
+}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			p := New()
-			result := providers.ProcessResponse(p, tt.input)
-			if result != tt.expected {
-				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
-			}
-		})
+func TestLegacyConfigurationResolution(t *testing.T) {
+	provider := New()
+	t.Setenv("OLLAMA_URL", "http://localhost:11434")
+	t.Setenv("OLLAMA_AUDIENCE", "")
+	if err := provider.ValidateConfig(providers.Config{}); err != nil {
+		t.Fatal(err)
+	}
+	if got := resolveAudience(providers.Config{}, "https://service-abc.run.app"); got != "https://service-abc.run.app" {
+		t.Fatalf("auto audience = %q", got)
+	}
+	if got := resolveAudience(providers.Config{}, "https://example.test"); got != "" {
+		t.Fatalf("unexpected audience = %q", got)
+	}
+}
+
+func testRequest(image []byte) providers.Request {
+	return providers.Request{
+		Model:       "llava",
+		Prompt:      "Transcribe café",
+		Temperature: 0.2,
+		Image:       providers.Image{Data: image, MediaType: "image/png", Filename: "page.png"},
 	}
 }

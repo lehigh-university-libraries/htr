@@ -16,12 +16,12 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"unicode"
 
 	"github.com/lehigh-university-libraries/htr/internal/utils"
 	"github.com/lehigh-university-libraries/htr/pkg/azure"
 	"github.com/lehigh-university-libraries/htr/pkg/claude"
 	"github.com/lehigh-university-libraries/htr/pkg/gemini"
+	htrmetrics "github.com/lehigh-university-libraries/htr/pkg/metrics"
 	"github.com/lehigh-university-libraries/htr/pkg/ollama"
 	"github.com/lehigh-university-libraries/htr/pkg/openai"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
@@ -946,332 +946,40 @@ func printSummaryStats(results []EvalResult) {
 	fmt.Printf("Average Word Error Rate: %.3f\n", totalWER/count)
 }
 
-// applyIgnorePatterns handles unknown characters in ground truth.
-//
-// When a character cannot be deciphered in the ground truth, it's marked with an ignore pattern (e.g., "|").
-// The image still contains some character, so the LLM will transcribe it as something.
-// This function:
-// 1. Counts all ignored pattern occurrences in ground truth
-// 2. Removes ignored patterns from ground truth
-// 3. Skips corresponding characters/words in the LLM transcription:
-//   - If ignore pattern is surrounded by spaces (standalone word): skip next word in transcription
-//   - If ignore pattern is within a word: skip next character in transcription
-//
-// Example 1 (standalone): GT="hello | world", Trans="hello foo world"
-//
-//	-> processedGT="hello world", processedTrans="hello world", ignoredCount=1
-//
-// Example 2 (within word): GT="hel|o", Trans="hello"
-//
-//	-> processedGT="helo", processedTrans="helo", ignoredCount=1
-//
-// Returns: (processedGroundTruth, processedTranscription, ignoredCharCount)
 func applyIgnorePatterns(groundTruth, transcription string, ignorePatterns []string) (string, string, int) {
-	if len(ignorePatterns) == 0 {
-		return groundTruth, transcription, 0
-	}
-
-	// Count total ignored characters in ground truth
-	ignoredCount := 0
-	for _, pattern := range ignorePatterns {
-		ignoredCount += strings.Count(groundTruth, pattern) * len(pattern)
-	}
-
-	// Process character by character and word by word
-	var processedGT strings.Builder
-	var processedTrans strings.Builder
-
-	gtRunes := []rune(groundTruth)
-	transRunes := []rune(transcription)
-
-	gtIdx := 0
-	transIdx := 0
-
-	for gtIdx < len(gtRunes) {
-		// Check if current position matches any ignore pattern
-		matchedPattern := ""
-		for _, pattern := range ignorePatterns {
-			patternRunes := []rune(pattern)
-			if gtIdx+len(patternRunes) <= len(gtRunes) {
-				match := true
-				for i, pr := range patternRunes {
-					if gtRunes[gtIdx+i] != pr {
-						match = false
-						break
-					}
-				}
-				if match {
-					matchedPattern = pattern
-					break
-				}
-			}
-		}
-
-		if matchedPattern != "" {
-			// Found an ignore pattern - determine if it's standalone or within a word
-			patternLen := len([]rune(matchedPattern))
-
-			// Check if pattern is surrounded by whitespace (or at boundaries)
-			beforeIsSpace := gtIdx == 0 || unicode.IsSpace(gtRunes[gtIdx-1])
-			afterIsSpace := gtIdx+patternLen >= len(gtRunes) || unicode.IsSpace(gtRunes[gtIdx+patternLen])
-
-			if beforeIsSpace && afterIsSpace {
-				// Standalone word - skip the pattern and skip next word in transcription
-				gtIdx += patternLen
-
-				// Skip whitespace in transcription
-				for transIdx < len(transRunes) && unicode.IsSpace(transRunes[transIdx]) {
-					transIdx++
-				}
-
-				// Skip the next word in transcription
-				for transIdx < len(transRunes) && !unicode.IsSpace(transRunes[transIdx]) {
-					transIdx++
-				}
-			} else {
-				// Pattern within a word - skip the pattern and skip next character in transcription
-				gtIdx += patternLen
-
-				// Skip one non-whitespace character in transcription
-				if transIdx < len(transRunes) {
-					transIdx++
-				}
-			}
-		} else {
-			// Normal character - copy to both outputs
-			currentChar := gtRunes[gtIdx]
-			processedGT.WriteRune(currentChar)
-
-			if transIdx < len(transRunes) {
-				processedTrans.WriteRune(transRunes[transIdx])
-				transIdx++
-			}
-
-			gtIdx++
-		}
-	}
-
-	return processedGT.String(), processedTrans.String(), ignoredCount
+	return htrmetrics.ApplyIgnorePatterns(groundTruth, transcription, ignorePatterns)
 }
 
 func normalizeSpaces(text string) string {
-	for strings.Contains(text, "  ") {
-		text = strings.ReplaceAll(text, "  ", " ")
-	}
-	return text
+	return htrmetrics.NormalizeSingleLine(text)
 }
 
 func levenshteinDistance(s1, s2 string) int {
-	len1, len2 := len(s1), len(s2)
-	if len1 == 0 {
-		return len2
-	}
-	if len2 == 0 {
-		return len1
-	}
-
-	matrix := make([][]int, len1+1)
-	for i := range matrix {
-		matrix[i] = make([]int, len2+1)
-	}
-
-	for i := 0; i <= len1; i++ {
-		matrix[i][0] = i
-	}
-	for j := 0; j <= len2; j++ {
-		matrix[0][j] = j
-	}
-
-	for i := 1; i <= len1; i++ {
-		for j := 1; j <= len2; j++ {
-			cost := 0
-			if s1[i-1] != s2[j-1] {
-				cost = 1
-			}
-			matrix[i][j] = min(
-				min(matrix[i-1][j]+1, matrix[i][j-1]+1), // deletion, insertion
-				matrix[i-1][j-1]+cost,                   // substitution
-			)
-		}
-	}
-
-	return matrix[len1][len2]
+	return htrmetrics.LevenshteinDistance(s1, s2)
 }
 
 func calculateSimilarity(s1, s2 string) float64 {
-	maxLen := max(len(s1), len(s2))
-	if maxLen == 0 {
-		return 1.0
-	}
-	distance := levenshteinDistance(s1, s2)
-	return 1.0 - float64(distance)/float64(maxLen)
-}
-
-func calculateWordSimilarity(words1, words2 []string) float64 {
-	maxLen := max(len(words1), len(words2))
-	if maxLen == 0 {
-		return 1.0
-	}
-	distance := wordLevelLevenshteinDistance(words1, words2)
-	return 1.0 - float64(distance)/float64(maxLen)
-}
-
-func wordLevelLevenshteinDistance(words1, words2 []string) int {
-	len1, len2 := len(words1), len(words2)
-	if len1 == 0 {
-		return len2
-	}
-	if len2 == 0 {
-		return len1
-	}
-
-	matrix := make([][]int, len1+1)
-	for i := range matrix {
-		matrix[i] = make([]int, len2+1)
-	}
-
-	for i := 0; i <= len1; i++ {
-		matrix[i][0] = i
-	}
-	for j := 0; j <= len2; j++ {
-		matrix[0][j] = j
-	}
-
-	for i := 1; i <= len1; i++ {
-		for j := 1; j <= len2; j++ {
-			cost := 0
-			if words1[i-1] != words2[j-1] {
-				cost = 1
-			}
-			matrix[i][j] = min(
-				min(matrix[i-1][j]+1, matrix[i][j-1]+1), // deletion, insertion
-				matrix[i-1][j-1]+cost,                   // substitution
-			)
-		}
-	}
-
-	return matrix[len1][len2]
-}
-
-func calculateWordLevelMetrics(orig, trans []string) (float64, int, int, int, int) {
-	m, n := len(orig), len(trans)
-	dp := make([][]int, m+1)
-	for i := range dp {
-		dp[i] = make([]int, n+1)
-	}
-
-	for i := 0; i <= m; i++ {
-		dp[i][0] = i
-	}
-	for j := 0; j <= n; j++ {
-		dp[0][j] = j
-	}
-
-	// Fill DP table
-	for i := 1; i <= m; i++ {
-		for j := 1; j <= n; j++ {
-			if orig[i-1] == trans[j-1] {
-				dp[i][j] = dp[i-1][j-1] // match
-			} else {
-				dp[i][j] = 1 + min(
-					min(dp[i-1][j], dp[i][j-1]), // deletion, insertion
-					dp[i-1][j-1],                // substitution
-				)
-			}
-		}
-	}
-
-	// Backtrack to count operations
-	i, j := m, n
-	substitutions, deletions, insertions, correct := 0, 0, 0, 0
-
-	for i > 0 || j > 0 {
-		if i > 0 && j > 0 && orig[i-1] == trans[j-1] {
-			correct++
-			i--
-			j--
-		} else if i > 0 && j > 0 && dp[i][j] == dp[i-1][j-1]+1 {
-			substitutions++
-			i--
-			j--
-		} else if i > 0 && dp[i][j] == dp[i-1][j]+1 {
-			deletions++
-			i--
-		} else if j > 0 && dp[i][j] == dp[i][j-1]+1 {
-			insertions++
-			j--
-		}
-	}
-
-	totalEdits := substitutions + deletions + insertions
-	wer := 0.0
-	if m > 0 {
-		wer = float64(totalEdits) / float64(m)
-	}
-	wordAccuracy := 1.0 - wer
-
-	return wordAccuracy, correct, substitutions, deletions, insertions
+	return htrmetrics.Similarity(s1, s2)
 }
 
 func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string, singleLine bool) EvalResult {
-	// Apply text transformations first
-	origTransformed := original
-	transTransformed := transcribed
-
-	// Convert to single line if requested
-	if singleLine {
-		slog.Debug("Applying --single-line transformation",
-			"original_ground_truth", original,
-			"original_transcription", transcribed)
-		origTransformed = strings.ReplaceAll(origTransformed, "\n", " ")
-		origTransformed = strings.ReplaceAll(origTransformed, "\r", " ")
-		origTransformed = strings.ReplaceAll(origTransformed, "\t", " ")
-		transTransformed = strings.ReplaceAll(transTransformed, "\n", " ")
-		transTransformed = strings.ReplaceAll(transTransformed, "\r", " ")
-		transTransformed = strings.ReplaceAll(transTransformed, "\t", " ")
-
-		// Normalize multiple spaces to single space
-		origTransformed = normalizeSpaces(origTransformed)
-		transTransformed = normalizeSpaces(transTransformed)
-
-		slog.Debug("After --single-line transformation",
-			"transformed_ground_truth", origTransformed,
-			"transformed_transcription", transTransformed)
-	}
-
-	// Apply ignore patterns to both texts
-	origProcessed, transProcessed, ignoredCount := applyIgnorePatterns(origTransformed, transTransformed, ignorePatterns)
-
-	charSim := calculateSimilarity(origProcessed, transProcessed)
-
-	// Calculate character accuracy (1 - CER)
-	origLen := len(origProcessed)
-	charDistance := levenshteinDistance(origProcessed, transProcessed)
-	charAcc := 1.0
-	if origLen > 0 {
-		charAcc = 1.0 - float64(charDistance)/float64(origLen)
-	}
-
-	origWords := strings.Fields(origProcessed)
-	transWords := strings.Fields(transProcessed)
-	wordSim := calculateWordSimilarity(origWords, transWords)
-	wordAcc, correct, subs, dels, ins := calculateWordLevelMetrics(origWords, transWords)
-
-	wer := 1.0 - wordAcc
-
+	result := htrmetrics.Evaluate(original, transcribed, htrmetrics.Options{
+		IgnorePatterns: ignorePatterns,
+		SingleLine:     singleLine,
+	})
 	return EvalResult{
-		CharacterSimilarity:   charSim,
-		CharacterAccuracy:     charAcc,
-		WordSimilarity:        wordSim,
-		WordAccuracy:          wordAcc,
-		WordErrorRate:         wer,
-		TotalWordsOriginal:    len(origWords),
-		TotalWordsTranscribed: len(transWords),
-		CorrectWords:          correct,
-		Substitutions:         subs,
-		Deletions:             dels,
-		Insertions:            ins,
-		IgnoredCharsCount:     ignoredCount,
+		CharacterSimilarity:   result.CharacterSimilarity,
+		CharacterAccuracy:     result.CharacterAccuracy,
+		WordSimilarity:        result.WordSimilarity,
+		WordAccuracy:          result.WordAccuracy,
+		WordErrorRate:         result.WordErrorRate,
+		TotalWordsOriginal:    result.TotalWordsOriginal,
+		TotalWordsTranscribed: result.TotalWordsTranscribed,
+		CorrectWords:          result.CorrectWords,
+		Substitutions:         result.Substitutions,
+		Deletions:             result.Deletions,
+		Insertions:            result.Insertions,
+		IgnoredCharsCount:     result.IgnoredCharsCount,
 	}
 }
 
@@ -1359,20 +1067,6 @@ func runCost(cmd *cobra.Command, args []string) error {
 	fmt.Printf("Total cost: $%.2f\n", estimatedTotalCost)
 
 	return nil
-}
-
-func min(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-func max(a, b int) int {
-	if a > b {
-		return a
-	}
-	return b
 }
 
 func formatErrorToPlaintext(minifiedJSON string) (string, error) {

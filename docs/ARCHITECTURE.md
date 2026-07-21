@@ -9,13 +9,26 @@
 ### Core Components
 
 **Provider System (`pkg/providers/`)**
-- `interface.go`: Defines the Provider interface that all vision providers must implement
-  - `UsageInfo` struct tracks input/output token counts from API responses
-  - `ExtractText` method returns text, usage info, and error
+- `interface.go`: Defines the byte-oriented `Client`, `Request`, `Result`, and
+  redacted typed-error contracts used by embedding applications.
+  - `UsageInfo` tracks input/output token counts from API responses.
+  - Requests contain encoded image bytes and an image media type; core clients
+    never open application paths.
+  - The historical `Provider`/`ExtractText` contract is a CLI compatibility
+    adapter.
 - `registry.go`: Manages registration and retrieval of providers
 - Each provider package (`openai/`, `azure/`, `claude/`, `gemini/`, `ollama/`) implements the Provider interface
   - Providers capture token usage from their respective API responses
   - Azure OCR returns empty usage info (service doesn't provide token data)
+- `httpclient/`: Owns bounded response reads, exact endpoint validation,
+  authentication primitives, injected-client cloning, and redirect rejection.
+- `auth/gcpidtoken/`: Provides bounded, per-audience Google identity-token
+  caching for registered private services.
+- `remoteocr/`: Provides byte-oriented multipart segmentation and
+  transcription operations for a generic remote OCR service.
+
+See [Provider client library](PROVIDER_CLIENTS.md) for the public integration
+contract and extension checklist.
 
 **Command Structure (`cmd/`)**
 - `root.go`: Root cobra command with logging configuration
@@ -62,33 +75,34 @@ Each provider requires specific environment variables:
 
 ### Adding New Providers
 
-1. Create new package in `pkg/providers/[name]/` implementing `providers.Provider` interface
-2. Register provider in `cmd/eval.go` init function
-3. Add provider-specific configuration validation
-4. Implement `ExtractText` method with context and configuration
-   - Return signature: `(string, providers.UsageInfo, error)`
-   - Extract token counts from API response and populate `UsageInfo`
-   - Return empty `UsageInfo{}` if provider doesn't support token tracking
-5. Optionally implement `CleanResponseProvider` for custom response cleaning
+1. Create a top-level provider package implementing `providers.Client`.
+2. Accept endpoint, credentials, injected HTTP client, timeout, and byte limits
+   as explicit constructor options.
+3. Add exact-payload, bounds, redirect, cancellation, redaction, and response
+   validation tests.
+4. If the CLI should expose the provider, add a legacy `providers.Provider`
+   adapter and register only that adapter with the CLI registry.
 
 Example provider structure:
 ```
-pkg/providers/newprovider/
+pkg/newprovider/
 ├── newprovider.go       # Provider implementation
 └── newprovider_test.go  # Table-driven tests
 ```
 
 **Token Tracking Example:**
 ```go
-func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
+func (c *Client) Extract(ctx context.Context, request providers.Request) (providers.Result, error) {
     // ... make API call ...
 
-    usage := providers.UsageInfo{
-        InputTokens:  apiResponse.Usage.InputTokens,
-        OutputTokens: apiResponse.Usage.OutputTokens,
+    return providers.Result{
+        Text: apiResponse.Text,
+        Usage: providers.UsageInfo{
+            InputTokens:  apiResponse.Usage.InputTokens,
+            OutputTokens: apiResponse.Usage.OutputTokens,
+        },
+        EffectiveModel: apiResponse.Model,
     }
-
-    return extractedText, usage, nil
 }
 ```
 

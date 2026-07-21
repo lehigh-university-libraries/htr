@@ -1,3 +1,4 @@
+// Package ollama provides an Ollama vision transcription client.
 package ollama
 
 import (
@@ -5,230 +6,239 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
-	"fmt"
-	"io"
+	"errors"
 	"net/http"
-	"net/url"
 	"os"
 	"strings"
-	"sync"
 	"time"
 
+	"github.com/lehigh-university-libraries/htr/pkg/auth/gcpidtoken"
+	"github.com/lehigh-university-libraries/htr/pkg/httpclient"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
-// Provider implements the Ollama local provider
-type Provider struct{}
-
-type cachedIdentityToken struct {
-	token     string
-	expiresAt time.Time
-}
-
-var (
-	metadataIdentityTokenURL = "http://metadata.google.internal/computeMetadata/v1/instance/service-accounts/default/identity"
-	identityTokenCacheMu     sync.Mutex
-	identityTokenCache       = map[string]cachedIdentityToken{}
+const (
+	defaultEndpoint         = "http://localhost:11434"
+	defaultTimeout          = 2 * time.Minute
+	defaultMaxImageBytes    = 50 << 20
+	defaultMaxRequestBytes  = 70 << 20
+	defaultMaxResponseBytes = 8 << 20
 )
 
-// New creates a new Ollama provider
+// Options configures a Client. Constructors do not read environment variables.
+type Options struct {
+	HTTPClient       *http.Client
+	Endpoint         string
+	Authenticator    httpclient.Authenticator
+	Timeout          time.Duration
+	MaxImageBytes    int64
+	MaxRequestBytes  int64
+	MaxResponseBytes int64
+}
+
+// Client is a byte-oriented Ollama transcription client.
+type Client struct {
+	httpClient       *http.Client
+	endpoint         string
+	authenticator    httpclient.Authenticator
+	maxImageBytes    int64
+	maxRequestBytes  int64
+	maxResponseBytes int64
+}
+
+// Provider is the historical CLI adapter. New integrations should use Client.
+type Provider struct {
+	identityTokens *gcpidtoken.Source
+}
+
+type generateRequest struct {
+	Model   string   `json:"model"`
+	Prompt  string   `json:"prompt"`
+	Images  []string `json:"images"`
+	Stream  bool     `json:"stream"`
+	Options struct {
+		Temperature float64 `json:"temperature"`
+	} `json:"options"`
+}
+
+type generateResponse struct {
+	Model           string `json:"model"`
+	Response        string `json:"response"`
+	PromptEvalCount int    `json:"prompt_eval_count"`
+	EvalCount       int    `json:"eval_count"`
+}
+
+// NewClient constructs a secure Ollama client from explicit dependencies.
+func NewClient(options Options) (*Client, error) {
+	endpoint := options.Endpoint
+	if endpoint == "" {
+		endpoint = defaultEndpoint
+	}
+	generateEndpoint, err := httpclient.AppendPath(endpoint, "/api/generate")
+	if err != nil {
+		return nil, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	authenticator := options.Authenticator
+	if authenticator == nil {
+		authenticator = httpclient.NoAuth{}
+	}
+	return &Client{
+		httpClient:       httpclient.Secure(options.HTTPClient, durationOr(options.Timeout, defaultTimeout)),
+		endpoint:         generateEndpoint,
+		authenticator:    authenticator,
+		maxImageBytes:    positiveOr(options.MaxImageBytes, defaultMaxImageBytes),
+		maxRequestBytes:  positiveOr(options.MaxRequestBytes, defaultMaxRequestBytes),
+		maxResponseBytes: positiveOr(options.MaxResponseBytes, defaultMaxResponseBytes),
+	}, nil
+}
+
+// Name returns the provider name.
+func (c *Client) Name() string { return "ollama" }
+
+// Extract transcribes an encoded image.
+func (c *Client) Extract(ctx context.Context, request providers.Request) (providers.Result, error) {
+	if err := providers.ValidateRequest(request, c.maxImageBytes); err != nil {
+		return providers.Result{}, err
+	}
+	if err := ctx.Err(); err != nil {
+		return providers.Result{}, providers.ErrorForRequest(ctx, err)
+	}
+	payload := generateRequest{
+		Model:  request.Model,
+		Prompt: request.Prompt,
+		Images: []string{base64.StdEncoding.EncodeToString(request.Image.Data)},
+		Stream: false,
+	}
+	payload.Options.Temperature = request.Temperature
+	body, err := json.Marshal(payload)
+	if err != nil || int64(len(body)) > c.maxRequestBytes {
+		return providers.Result{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	httpRequest, err := http.NewRequestWithContext(ctx, http.MethodPost, c.endpoint, bytes.NewReader(body))
+	if err != nil {
+		return providers.Result{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	httpRequest.Header.Set("Content-Type", "application/json")
+	if err := c.authenticator.Authorize(ctx, httpRequest); err != nil {
+		return providers.Result{}, providers.ErrorForAuthentication(ctx, err)
+	}
+	response, err := c.httpClient.Do(httpRequest)
+	if err != nil {
+		return providers.Result{}, providers.ErrorForRequest(ctx, err)
+	}
+	defer response.Body.Close()
+	responseBody, err := httpclient.ReadAll(response.Body, c.maxResponseBytes)
+	if err != nil {
+		if errors.Is(err, httpclient.ErrResponseTooLarge) {
+			return providers.Result{}, providers.NewError(providers.ErrorResponseTooLarge, response.StatusCode, false, nil)
+		}
+		return providers.Result{}, providers.ErrorForRequest(ctx, err)
+	}
+	if response.StatusCode < http.StatusOK || response.StatusCode >= http.StatusMultipleChoices {
+		return providers.Result{}, providers.ErrorForStatus(response.StatusCode)
+	}
+	var decoded generateResponse
+	if err := json.Unmarshal(responseBody, &decoded); err != nil || strings.TrimSpace(decoded.Response) == "" {
+		return providers.Result{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+	}
+	effectiveModel := strings.TrimSpace(decoded.Model)
+	if effectiveModel == "" {
+		effectiveModel = request.Model
+	}
+	return providers.Result{
+		Text: providers.CleanResponse(decoded.Response),
+		Usage: providers.UsageInfo{
+			InputTokens:  decoded.PromptEvalCount,
+			OutputTokens: decoded.EvalCount,
+		},
+		EffectiveModel: effectiveModel,
+	}, nil
+}
+
+// New creates the historical CLI adapter.
 func New() *Provider {
-	return &Provider{}
+	source, err := gcpidtoken.New(gcpidtoken.Options{})
+	if err != nil {
+		return &Provider{}
+	}
+	return &Provider{identityTokens: source}
 }
 
-// Name returns the provider name
-func (p *Provider) Name() string {
-	return "ollama"
-}
+// Name returns the provider name.
+func (p *Provider) Name() string { return "ollama" }
 
-// ValidateConfig validates the Ollama configuration
+// ValidateConfig validates the configured CLI endpoint without contacting it.
 func (p *Provider) ValidateConfig(config providers.Config) error {
-	// We could ping the API here, but for now just validate the URL format
+	_, err := httpclient.ParseEndpoint(resolveBaseURL(config))
+	if err != nil {
+		return providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
 	return nil
 }
 
-// ExtractText extracts text from an image using Ollama local API
+// ExtractText adapts historical base64 CLI inputs to Client.
 func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
-	ollamaURL := resolveBaseURL(config)
-
-	// Use the specified model, default to llava if not specified
-	model := config.Model
-	if model == "gpt-4o" || model == "" {
-		model = "llava"
+	if config.Model == "" || config.Model == "gpt-4o" {
+		config.Model = "llava"
 	}
-
-	// Prepare request body for Ollama API
-	requestBody := map[string]interface{}{
-		"model":  model,
-		"prompt": config.Prompt,
-		"images": []string{imageBase64},
-		"stream": false,
-		"options": map[string]interface{}{
-			"temperature": config.Temperature,
-		},
-	}
-
-	requestJSON, err := json.Marshal(requestBody)
-	if err != nil {
-		return "", providers.UsageInfo{}, fmt.Errorf("failed to marshal request: %w", err)
-	}
-
-	// Make API request
-	url := fmt.Sprintf("%s/api/generate", strings.TrimSuffix(ollamaURL, "/"))
-	req, err := http.NewRequestWithContext(ctx, "POST", url, bytes.NewBuffer(requestJSON))
+	request, err := providers.LegacyRequest(config, imagePath, imageBase64, defaultMaxImageBytes)
 	if err != nil {
 		return "", providers.UsageInfo{}, err
 	}
-
-	req.Header.Set("Content-Type", "application/json")
-	if audience := resolveAudience(config, ollamaURL); audience != "" {
-		token, err := identityToken(ctx, audience)
-		if err != nil {
-			return "", providers.UsageInfo{}, fmt.Errorf("fetch identity token for ollama audience %q: %w", audience, err)
+	baseURL := resolveBaseURL(config)
+	var authenticator httpclient.Authenticator = httpclient.NoAuth{}
+	if audience := resolveAudience(config, baseURL); audience != "" {
+		tokenSource := p.identityTokens
+		if tokenSource == nil {
+			tokenSource, err = gcpidtoken.New(gcpidtoken.Options{})
+			if err != nil {
+				return "", providers.UsageInfo{}, providers.NewError(providers.ErrorAuthentication, 0, false, nil)
+			}
 		}
-		req.Header.Set("Authorization", "Bearer "+token)
+		authenticator = httpclient.BearerAuthenticator{Source: tokenSource, Audience: audience}
 	}
-
-	client := &http.Client{Timeout: config.Timeout}
-	resp, err := client.Do(req)
+	client, err := NewClient(Options{Endpoint: baseURL, Authenticator: authenticator, Timeout: config.Timeout})
 	if err != nil {
 		return "", providers.UsageInfo{}, err
 	}
-	defer resp.Body.Close()
-
-	// Read response body once for both parsing and error logging
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return "", providers.UsageInfo{}, fmt.Errorf("ollama API error: %d - %s", resp.StatusCode, string(body))
-	}
-
-	var ollamaResp map[string]interface{}
-	if err := json.Unmarshal(body, &ollamaResp); err != nil {
-		return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(body))
-	}
-
-	// Extract response from Ollama
-	response, ok := ollamaResp["response"].(string)
-	if !ok {
-		return "", providers.UsageInfo{}, fmt.Errorf("no response from Ollama - body: %s", providers.TruncateBody(body))
-	}
-
-	// Extract token usage if available (Ollama provides prompt_eval_count and eval_count)
-	usage := providers.UsageInfo{}
-	if promptEvalCount, ok := ollamaResp["prompt_eval_count"].(float64); ok {
-		usage.InputTokens = int(promptEvalCount)
-	}
-	if evalCount, ok := ollamaResp["eval_count"].(float64); ok {
-		usage.OutputTokens = int(evalCount)
-	}
-
-	return providers.ProcessResponse(p, response), usage, nil
+	result, err := client.Extract(ctx, request)
+	return result.Text, result.Usage, err
 }
 
 func resolveBaseURL(config providers.Config) string {
 	if baseURL := strings.TrimSpace(config.BaseURL); baseURL != "" {
-		return strings.TrimRight(baseURL, "/")
+		return baseURL
 	}
-	if envURL := strings.TrimSpace(os.Getenv("OLLAMA_URL")); envURL != "" {
-		return strings.TrimRight(envURL, "/")
+	if environmentURL := strings.TrimSpace(os.Getenv("OLLAMA_URL")); environmentURL != "" {
+		return environmentURL
 	}
-	return "http://localhost:11434"
+	return defaultEndpoint
 }
 
 func resolveAudience(config providers.Config, baseURL string) string {
 	if audience := strings.TrimSpace(config.Audience); audience != "" {
 		return audience
 	}
-	if envAudience := strings.TrimSpace(os.Getenv("OLLAMA_AUDIENCE")); envAudience != "" {
-		return envAudience
+	if audience := strings.TrimSpace(os.Getenv("OLLAMA_AUDIENCE")); audience != "" {
+		return audience
 	}
-
-	parsed, err := url.Parse(baseURL)
-	if err != nil {
+	parsed, err := httpclient.ParseEndpoint(baseURL)
+	if err != nil || parsed.Scheme != "https" || !strings.HasSuffix(strings.ToLower(parsed.Hostname()), ".run.app") {
 		return ""
 	}
-	if !strings.EqualFold(parsed.Scheme, "https") {
-		return ""
-	}
-
-	host := strings.ToLower(parsed.Hostname())
-	if strings.HasSuffix(host, ".run.app") {
-		return fmt.Sprintf("%s://%s", parsed.Scheme, parsed.Host)
-	}
-	return ""
+	return parsed.Scheme + "://" + parsed.Host
 }
 
-func identityToken(ctx context.Context, audience string) (string, error) {
-	identityTokenCacheMu.Lock()
-	if cached, ok := identityTokenCache[audience]; ok && time.Until(cached.expiresAt) > 2*time.Minute {
-		identityTokenCacheMu.Unlock()
-		return cached.token, nil
+func positiveOr(value, fallback int64) int64 {
+	if value > 0 {
+		return value
 	}
-	identityTokenCacheMu.Unlock()
-
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, metadataIdentityTokenURL, nil)
-	if err != nil {
-		return "", err
-	}
-	query := req.URL.Query()
-	query.Set("audience", audience)
-	query.Set("format", "full")
-	req.URL.RawQuery = query.Encode()
-	req.Header.Set("Metadata-Flavor", "Google")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", fmt.Errorf("read metadata response: %w", err)
-	}
-	if resp.StatusCode != http.StatusOK {
-		return "", fmt.Errorf("metadata server error: %d - %s", resp.StatusCode, providers.TruncateBody(body))
-	}
-
-	token := strings.TrimSpace(string(body))
-	if token == "" {
-		return "", fmt.Errorf("metadata server returned an empty identity token")
-	}
-	expiry, err := identityTokenExpiry(token)
-	if err != nil {
-		expiry = time.Now().Add(45 * time.Minute)
-	}
-
-	identityTokenCacheMu.Lock()
-	identityTokenCache[audience] = cachedIdentityToken{
-		token:     token,
-		expiresAt: expiry,
-	}
-	identityTokenCacheMu.Unlock()
-	return token, nil
+	return fallback
 }
 
-func identityTokenExpiry(token string) (time.Time, error) {
-	parts := strings.Split(token, ".")
-	if len(parts) < 2 {
-		return time.Time{}, fmt.Errorf("invalid jwt")
+func durationOr(value, fallback time.Duration) time.Duration {
+	if value > 0 {
+		return value
 	}
-	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
-	if err != nil {
-		return time.Time{}, fmt.Errorf("decode jwt payload: %w", err)
-	}
-	var claims struct {
-		Exp int64 `json:"exp"`
-	}
-	if err := json.Unmarshal(payload, &claims); err != nil {
-		return time.Time{}, fmt.Errorf("parse jwt payload: %w", err)
-	}
-	if claims.Exp == 0 {
-		return time.Time{}, fmt.Errorf("jwt missing exp claim")
-	}
-	return time.Unix(claims.Exp, 0), nil
+	return fallback
 }
