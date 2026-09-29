@@ -2,6 +2,7 @@ package ollama
 
 import (
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"net/http"
@@ -15,6 +16,104 @@ import (
 )
 
 var _ providers.Client = (*Client)(nil)
+
+func TestRequestOptions(t *testing.T) {
+	t.Setenv("OLLAMA_AUDIENCE", "")
+	for _, legacy := range []bool{false, true} {
+		name := "client"
+		if legacy {
+			name = "legacy"
+		}
+		t.Run(name, func(t *testing.T) {
+			for _, tc := range []struct {
+				name    string
+				numCtx  int
+				format  json.RawMessage
+				think   *bool
+				invalid bool
+			}{
+				{name: "defaults"},
+				{name: "schema without thinking", numCtx: 16384, format: json.RawMessage(`{"type":"string"}`), think: new(bool)},
+				{name: "JSON with thinking", format: json.RawMessage(`"json"`), think: boolPointer(true)},
+				{name: "negative context", numCtx: -1, invalid: true},
+				{name: "invalid schema JSON", format: json.RawMessage(`{"type":`), invalid: true},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					var calls atomic.Int32
+					server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+						calls.Add(1)
+						var body map[string]json.RawMessage
+						if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+							t.Error(err)
+							return
+						}
+						var options map[string]json.RawMessage
+						if err := json.Unmarshal(body["options"], &options); err != nil {
+							t.Error(err)
+							return
+						}
+						var numCtx int
+						if raw, ok := options["num_ctx"]; ok {
+							if err := json.Unmarshal(raw, &numCtx); err != nil {
+								t.Error(err)
+							}
+							if tc.numCtx == 0 {
+								t.Error("default num_ctx must be omitted")
+							}
+						}
+						if numCtx != tc.numCtx || string(body["format"]) != string(tc.format) {
+							t.Errorf("unexpected context or format: %s", body)
+						}
+						wantThink := ""
+						if tc.think != nil {
+							wantThink = "false"
+							if *tc.think {
+								wantThink = "true"
+							}
+						}
+						if string(body["think"]) != wantThink {
+							t.Errorf("think = %s, want %q", body["think"], wantThink)
+						}
+						_ = json.NewEncoder(w).Encode(map[string]string{"response": `"The image contains text: café"`})
+					}))
+					defer server.Close()
+					request := testRequest([]byte("image"))
+					request.NumCtx, request.Format, request.Think = tc.numCtx, tc.format, tc.think
+					var text string
+					var err error
+					if legacy {
+						config := providers.Config{BaseURL: server.URL, Model: request.Model, Prompt: request.Prompt, NumCtx: tc.numCtx, Format: tc.format, Think: tc.think}
+						text, _, err = New().ExtractText(context.Background(), config, "page.png", base64.StdEncoding.EncodeToString(request.Image.Data))
+					} else {
+						client, clientErr := NewClient(Options{Endpoint: server.URL})
+						if clientErr != nil {
+							t.Fatal(clientErr)
+						}
+						var result providers.Result
+						result, err = client.Extract(context.Background(), request)
+						text = result.Text
+					}
+					if tc.invalid {
+						var providerError *providers.Error
+						if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorInvalidRequest || calls.Load() != 0 {
+							t.Fatalf("invalid options: error=%v calls=%d", err, calls.Load())
+						}
+						return
+					}
+					wantText := `"The image contains text: café"`
+					if len(tc.format) == 0 {
+						wantText = providers.CleanResponse(wantText)
+					}
+					if err != nil || text != wantText || calls.Load() != 1 {
+						t.Fatalf("text=%q error=%v calls=%d", text, err, calls.Load())
+					}
+				})
+			}
+		})
+	}
+}
+
+func boolPointer(value bool) *bool { return &value }
 
 func TestClientExtract(t *testing.T) {
 	t.Parallel()

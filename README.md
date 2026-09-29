@@ -37,6 +37,24 @@ Embedding HTR in another Go service does not require environment variables or
 filesystem paths. Use the explicit byte-oriented clients documented in
 [Provider client library](docs/PROVIDER_CLIENTS.md).
 
+For Ollama, both `providers.Request` (the byte-oriented client) and
+`providers.Config` (the historical `ExtractText` adapter) accept these optional
+per-request fields:
+
+```go
+request.NumCtx = 16384
+request.Format = json.RawMessage(`{"type":"object","properties":{"text":{"type":"string"}},"required":["text"]}`)
+request.Think = new(bool) // Explicitly disable thinking.
+```
+
+`NumCtx: 0`, an empty `Format`, and `Think: nil` omit their respective options
+and preserve Ollama's defaults. Negative context sizes are rejected.
+`Format` accepts a JSON schema object or the encoded JSON string `"json"` for JSON mode;
+when set, the response text is returned unchanged so prose cleanup cannot
+damage JSON. `Think` distinguishes omitted, false, and true. These fields
+are ignored by other providers and do not add CLI flags. See the
+[Ollama generate API](https://docs.ollama.com/api/generate) for the wire format.
+
 ### Supported Providers
 
 #### OpenAI (default)

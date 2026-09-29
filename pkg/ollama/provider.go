@@ -52,12 +52,15 @@ type Provider struct {
 }
 
 type generateRequest struct {
-	Model   string   `json:"model"`
-	Prompt  string   `json:"prompt"`
-	Images  []string `json:"images"`
-	Stream  bool     `json:"stream"`
+	Model   string          `json:"model"`
+	Prompt  string          `json:"prompt"`
+	Images  []string        `json:"images"`
+	Stream  bool            `json:"stream"`
+	Format  json.RawMessage `json:"format,omitempty"`
+	Think   *bool           `json:"think,omitempty"`
 	Options struct {
 		Temperature float64 `json:"temperature"`
+		NumCtx      int     `json:"num_ctx,omitempty"`
 	} `json:"options"`
 }
 
@@ -97,6 +100,9 @@ func (c *Client) Name() string { return "ollama" }
 
 // Extract transcribes an encoded image.
 func (c *Client) Extract(ctx context.Context, request providers.Request) (providers.Result, error) {
+	if request.NumCtx < 0 {
+		return providers.Result{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
 	if err := providers.ValidateRequest(request, c.maxImageBytes); err != nil {
 		return providers.Result{}, err
 	}
@@ -108,8 +114,11 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 		Prompt: request.Prompt,
 		Images: []string{base64.StdEncoding.EncodeToString(request.Image.Data)},
 		Stream: false,
+		Format: request.Format,
+		Think:  request.Think,
 	}
 	payload.Options.Temperature = request.Temperature
+	payload.Options.NumCtx = request.NumCtx
 	body, err := json.Marshal(payload)
 	if err != nil || int64(len(body)) > c.maxRequestBytes {
 		return providers.Result{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
@@ -145,8 +154,13 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 	if effectiveModel == "" {
 		effectiveModel = request.Model
 	}
+	text := decoded.Response
+	if len(request.Format) == 0 {
+		// Prose cleanup can corrupt structured output, such as JSON strings.
+		text = providers.CleanResponse(text)
+	}
 	return providers.Result{
-		Text: providers.CleanResponse(decoded.Response),
+		Text: text,
 		Usage: providers.UsageInfo{
 			InputTokens:  decoded.PromptEvalCount,
 			OutputTokens: decoded.EvalCount,
