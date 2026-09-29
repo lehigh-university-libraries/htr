@@ -3,6 +3,7 @@ package providers
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -44,6 +45,10 @@ type Config struct {
 	MaxResolutionFallback bool
 	BaseURL               string
 	Audience              string
+	// Ollama-only request options; zero/nil values preserve server defaults.
+	NumCtx int
+	Format json.RawMessage
+	Think  *bool
 }
 
 // UsageInfo represents token usage information from a provider
@@ -66,6 +71,11 @@ type Request struct {
 	Prompt      string
 	Temperature float64
 	Image       Image
+	// Ollama-only request options; zero/nil values preserve server defaults.
+	// Format accepts a JSON schema object or the JSON string "json".
+	NumCtx int
+	Format json.RawMessage
+	Think  *bool
 }
 
 // Result is the provider-neutral result of a transcription request.
@@ -246,6 +256,9 @@ func LegacyRequest(config Config, imagePath, imageBase64 string, maxImageBytes i
 		Model:       config.Model,
 		Prompt:      config.Prompt,
 		Temperature: config.Temperature,
+		NumCtx:      config.NumCtx,
+		Format:      config.Format,
+		Think:       config.Think,
 		Image: Image{
 			Data:      data,
 			MediaType: mediaType,
