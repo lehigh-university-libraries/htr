@@ -178,7 +178,7 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 			}
 		}
 		if finishReason == "MAX_TOKENS" {
-			return result, providers.NewError(providers.ErrorInvalidResponse, http.StatusOK, false, nil)
+			return result, providers.NewError(providers.ErrorOutputLimit, http.StatusOK, false, nil)
 		}
 		if strings.TrimSpace(result.Text) == "" {
 			return providers.Result{}, providers.NewError(providers.ErrorInvalidResponse, http.StatusOK, false, nil)

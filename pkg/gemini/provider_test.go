@@ -189,7 +189,8 @@ func TestThinkingSpendControls(t *testing.T) {
 				t.Fatal(err)
 			}
 			result, err := c.Extract(context.Background(), testRequest([]byte("image")))
-			if err == nil || calls != 1 || result.Usage.ThoughtTokens != 1021 || result.Usage.OutputTokens != 3 {
+			var providerError *providers.Error
+			if !errors.As(err, &providerError) || providerError.Kind != providers.ErrorOutputLimit || calls != 1 || result.Usage.ThoughtTokens != 1021 || result.Usage.OutputTokens != 3 {
 				t.Fatalf("result=%#v err=%v calls=%d", result, err, calls)
 			}
 		})

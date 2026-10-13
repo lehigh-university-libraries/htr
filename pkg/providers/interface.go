@@ -113,6 +113,8 @@ const (
 	ErrorRateLimited ErrorKind = "rate_limited"
 	// ErrorUpstream indicates an upstream service failure.
 	ErrorUpstream ErrorKind = "upstream"
+	// ErrorOutputLimit indicates a completed call exhausted its output budget.
+	ErrorOutputLimit ErrorKind = "output_limit"
 	// ErrorInvalidResponse indicates a malformed or incomplete upstream response.
 	ErrorInvalidResponse ErrorKind = "invalid_response"
 )
