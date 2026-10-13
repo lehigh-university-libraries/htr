@@ -212,7 +212,7 @@ func TestFullPageOCRValidation(t *testing.T) {
 				if err := r.ParseMultipartForm(1 << 20); err != nil {
 					t.Fatal(err)
 				}
-				defer r.MultipartForm.RemoveAll()
+				defer func() { _ = r.MultipartForm.RemoveAll() }()
 				if r.FormValue("model") != "catmus" {
 					t.Error("model missing")
 				}
