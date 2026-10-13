@@ -44,6 +44,7 @@ type Client struct {
 	httpClient         *http.Client
 	segmentEndpoint    string
 	transcribeEndpoint string
+	ocrEndpoint        string
 	authenticator      httpclient.Authenticator
 	maxImageBytes      int64
 	maxRequestBytes    int64
@@ -84,6 +85,10 @@ func NewClient(options Options) (*Client, error) {
 	if err != nil {
 		return nil, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
+	ocrEndpoint, err := httpclient.AppendPath(options.Endpoint, "/v1/ocr")
+	if err != nil {
+		return nil, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
 	authenticator := options.Authenticator
 	if authenticator == nil {
 		authenticator = httpclient.NoAuth{}
@@ -96,6 +101,7 @@ func NewClient(options Options) (*Client, error) {
 		httpClient:         httpclient.Secure(options.HTTPClient, durationOr(options.Timeout, defaultTimeout)),
 		segmentEndpoint:    segmentEndpoint,
 		transcribeEndpoint: transcribeEndpoint,
+		ocrEndpoint:        ocrEndpoint,
 		authenticator:      authenticator,
 		maxImageBytes:      positiveOr(options.MaxImageBytes, defaultMaxImageBytes),
 		maxRequestBytes:    positiveOr(options.MaxRequestBytes, defaultMaxRequestBytes),
@@ -261,4 +267,59 @@ func durationOr(value, fallback time.Duration) time.Duration {
 		return value
 	}
 	return fallback
+}
+
+// Line contains native recognized text and its words, in reading order.
+type Line struct {
+	Box
+	Words []Box `json:"words"`
+}
+
+// OCRResult contains a full page recognized by a registered model.
+type OCRResult struct {
+	Provider string `json:"provider"`
+	Model    string `json:"model"`
+	Lines    []Line `json:"lines"`
+}
+
+// OCR segments and recognizes an image in one bounded multipart request.
+func (c *Client) OCR(ctx context.Context, image providers.Image, model string) (OCRResult, error) {
+	if err := ctx.Err(); err != nil {
+		return OCRResult{}, providers.ErrorForRequest(ctx, err)
+	}
+	body, contentType, err := c.multipartBody(image, model)
+	if err != nil {
+		return OCRResult{}, err
+	}
+	data, status, err := c.post(ctx, c.ocrEndpoint, body, contentType)
+	if err != nil {
+		return OCRResult{}, err
+	}
+	var result OCRResult
+	invalid := func() (OCRResult, error) {
+		return OCRResult{}, providers.NewError(providers.ErrorInvalidResponse, status, false, nil)
+	}
+	if json.Unmarshal(data, &result) != nil || strings.TrimSpace(result.Provider) == "" || strings.TrimSpace(result.Model) == "" {
+		return invalid()
+	}
+	count := len(result.Lines)
+	if count > c.maxBoxes {
+		return invalid()
+	}
+	for _, line := range result.Lines {
+		if !validBox(line.Box) || len(line.Words) > c.maxBoxes-count {
+			return invalid()
+		}
+		count += len(line.Words)
+		for _, word := range line.Words {
+			if !validBox(word) || word.X < line.X || word.Y < line.Y || word.Width > line.Width || word.Height > line.Height || word.X-line.X > line.Width-word.Width || word.Y-line.Y > line.Height-word.Height {
+				return invalid()
+			}
+		}
+	}
+	return result, nil
+}
+
+func validBox(box Box) bool {
+	return box.X >= 0 && box.Y >= 0 && box.Width > 0 && box.Height > 0 && box.Confidence >= 0 && box.Confidence <= 1 && !math.IsNaN(box.Confidence) && !math.IsInf(box.Confidence, 0)
 }

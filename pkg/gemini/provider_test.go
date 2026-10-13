@@ -156,3 +156,48 @@ func testRequest(image []byte) providers.Request {
 func staticKey(value string) CredentialSource {
 	return func(context.Context) (string, error) { return value, nil }
 }
+
+func TestThinkingSpendControls(t *testing.T) {
+	for _, level := range []string{"minimal", "low", "medium", "high"} {
+		t.Run(level, func(t *testing.T) {
+			calls := 0
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls++
+				var body map[string]json.RawMessage
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Fatal(err)
+				}
+				var config map[string]json.RawMessage
+				if err := json.Unmarshal(body["generationConfig"], &config); err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := config["temperature"]; ok {
+					t.Error("temperature must be omitted")
+				}
+				if string(config["maxOutputTokens"]) != "1024" {
+					t.Error("missing token limit")
+				}
+				var thinking thinkingConfig
+				if err := json.Unmarshal(config["thinkingConfig"], &thinking); err != nil || thinking.ThinkingLevel != level {
+					t.Errorf("thinking = %#v, err=%v", thinking, err)
+				}
+				_, _ = w.Write([]byte(`{"candidates":[{"finishReason":"MAX_TOKENS","content":{"parts":[{"text":"partial"}]}}],"usageMetadata":{"promptTokenCount":8,"candidatesTokenCount":3,"thoughtsTokenCount":1021}}`))
+			}))
+			defer server.Close()
+			c, err := NewClient(Options{Endpoint: server.URL, APIKey: staticKey("key"), ThinkingLevel: level, MaxOutputTokens: 1024, OmitTemperature: true})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := c.Extract(context.Background(), testRequest([]byte("image")))
+			if err == nil || calls != 1 || result.Usage.ThoughtTokens != 1021 || result.Usage.OutputTokens != 3 {
+				t.Fatalf("result=%#v err=%v calls=%d", result, err, calls)
+			}
+		})
+	}
+	if _, err := NewClient(Options{APIKey: staticKey("key"), ThinkingLevel: "invalid"}); err == nil {
+		t.Fatal("invalid level accepted")
+	}
+	if _, err := NewClient(Options{APIKey: staticKey("key"), MaxOutputTokens: -1}); err == nil {
+		t.Fatal("negative limit accepted")
+	}
+}

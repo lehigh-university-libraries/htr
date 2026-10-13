@@ -147,3 +147,18 @@ The transcription response shape is:
 6. Add a legacy `providers.Provider` adapter only when the CLI must expose the
    provider. Environment access belongs in that adapter, not in the core
    constructor.
+
+### Gemini spend controls and full-page OCR (v0.21.0)
+
+`gemini.Options.ThinkingLevel` accepts `minimal`, `low`, `medium`, or `high`;
+empty retains the model default. `MaxOutputTokens` bounds thinking and candidate
+output together (zero omits it). `OmitTemperature` omits sampling natively.
+`UsageInfo.OutputTokens` counts candidates and `ThoughtTokens` counts reasoning;
+billed output is their sum. Without resolution fallback, `MAX_TOKENS` returns an
+invalid-response error and the usage result, so truncated text cannot be saved.
+
+`remoteocr.Client.OCR` sends the same bounded, authenticated multipart upload to
+`/v1/ocr`. It returns provider/model plus ordered lines with embedded boxes and
+words. All boxes have positive dimensions, nonnegative origins and probability
+confidence; words must fit their line. Both lines and words count toward
+`MaxBoxes`. Unicode text is preserved.

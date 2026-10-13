@@ -39,6 +39,9 @@ type Options struct {
 	MediaResolution         string
 	MediaResolutionFallback bool
 	IncludeThoughts         bool
+	ThinkingLevel           string
+	MaxOutputTokens         int
+	OmitTemperature         bool
 }
 
 // Client is a byte-oriented Gemini transcription client.
@@ -52,6 +55,9 @@ type Client struct {
 	mediaResolution         string
 	mediaResolutionFallback bool
 	includeThoughts         bool
+	thinkingLevel           string
+	maxOutputTokens         int
+	omitTemperature         bool
 }
 
 // Provider is the historical CLI adapter. New integrations should use Client.
@@ -77,13 +83,15 @@ type inlineData struct {
 }
 
 type generationConfig struct {
-	Temperature     float64         `json:"temperature"`
+	Temperature     *float64        `json:"temperature,omitempty"`
+	MaxOutputTokens int             `json:"maxOutputTokens,omitempty"`
 	MediaResolution string          `json:"mediaResolution,omitempty"`
 	ThinkingConfig  *thinkingConfig `json:"thinkingConfig,omitempty"`
 }
 
 type thinkingConfig struct {
-	IncludeThoughts bool `json:"includeThoughts"`
+	IncludeThoughts bool   `json:"includeThoughts,omitempty"`
+	ThinkingLevel   string `json:"thinkingLevel,omitempty"`
 }
 
 type generateResponse struct {
@@ -100,6 +108,7 @@ type generateResponse struct {
 	Usage struct {
 		PromptTokens    int `json:"promptTokenCount"`
 		CandidateTokens int `json:"candidatesTokenCount"`
+		ThoughtTokens   int `json:"thoughtsTokenCount"`
 	} `json:"usageMetadata"`
 }
 
@@ -110,7 +119,7 @@ func NewClient(options Options) (*Client, error) {
 		endpoint = defaultEndpoint
 	}
 	parsed, err := httpclient.ParseEndpoint(endpoint)
-	if err != nil || options.APIKey == nil || !validResolution(options.MediaResolution) {
+	if err != nil || options.APIKey == nil || !validResolution(options.MediaResolution) || !validThinkingLevel(options.ThinkingLevel) || options.MaxOutputTokens < 0 {
 		return nil, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
 	return &Client{
@@ -123,6 +132,9 @@ func NewClient(options Options) (*Client, error) {
 		mediaResolution:         options.MediaResolution,
 		mediaResolutionFallback: options.MediaResolutionFallback,
 		includeThoughts:         options.IncludeThoughts,
+		thinkingLevel:           options.ThinkingLevel,
+		maxOutputTokens:         options.MaxOutputTokens,
+		omitTemperature:         options.OmitTemperature,
 	}, nil
 }
 
@@ -156,7 +168,7 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 	for attempts := 0; attempts < 4; attempts++ {
 		result, finishReason, err := c.extractOnce(ctx, endpoint, credential, request, mediaType, resolution)
 		if err != nil {
-			return providers.Result{}, err
+			return result, err
 		}
 		if finishReason == "MAX_TOKENS" && c.mediaResolutionFallback {
 			next := nextResolution(resolution)
@@ -164,6 +176,9 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 				resolution = next
 				continue
 			}
+		}
+		if finishReason == "MAX_TOKENS" {
+			return result, providers.NewError(providers.ErrorInvalidResponse, http.StatusOK, false, nil)
 		}
 		if strings.TrimSpace(result.Text) == "" {
 			return providers.Result{}, providers.NewError(providers.ErrorInvalidResponse, http.StatusOK, false, nil)
@@ -174,9 +189,12 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 }
 
 func (c *Client) extractOnce(ctx context.Context, endpoint, credential string, request providers.Request, mediaType, resolution string) (providers.Result, string, error) {
-	configuration := generationConfig{Temperature: request.Temperature, MediaResolution: resolution}
-	if c.includeThoughts {
-		configuration.ThinkingConfig = &thinkingConfig{IncludeThoughts: true}
+	configuration := generationConfig{MediaResolution: resolution, MaxOutputTokens: c.maxOutputTokens}
+	if !c.omitTemperature {
+		configuration.Temperature = &request.Temperature
+	}
+	if c.includeThoughts || c.thinkingLevel != "" {
+		configuration.ThinkingConfig = &thinkingConfig{IncludeThoughts: c.includeThoughts, ThinkingLevel: c.thinkingLevel}
 	}
 	payload := generateRequest{
 		Contents: []content{{Parts: []part{
@@ -232,8 +250,9 @@ func (c *Client) extractOnce(ctx context.Context, endpoint, credential string, r
 	return providers.Result{
 		Text: providers.CleanResponse(text),
 		Usage: providers.UsageInfo{
-			InputTokens:  decoded.Usage.PromptTokens,
-			OutputTokens: decoded.Usage.CandidateTokens,
+			InputTokens:   decoded.Usage.PromptTokens,
+			OutputTokens:  decoded.Usage.CandidateTokens,
+			ThoughtTokens: decoded.Usage.ThoughtTokens,
 		},
 		EffectiveModel: effectiveModel,
 	}, decoded.Candidates[0].FinishReason, nil
@@ -316,4 +335,13 @@ func durationOr(value, fallback time.Duration) time.Duration {
 		return value
 	}
 	return fallback
+}
+
+func validThinkingLevel(value string) bool {
+	switch value {
+	case "", "minimal", "low", "medium", "high":
+		return true
+	default:
+		return false
+	}
 }

@@ -190,3 +190,46 @@ func errorKind(err error) providers.ErrorKind {
 	}
 	return ""
 }
+
+func TestFullPageOCRValidation(t *testing.T) {
+	const valid = `{"provider":"kraken","model":"catmus","lines":[{"X":10,"Y":20,"Width":100,"Height":30,"Text":"café 世界","Confidence":0.9,"words":[{"X":15,"Y":22,"Width":50,"Height":20,"Text":"café","Confidence":0.8}]}]}`
+	for _, tc := range []struct {
+		name, response string
+		max            int
+		invalid        bool
+	}{
+		{"unicode", valid, 2, false},
+		{"outside", strings.Replace(valid, `"X":15`, `"X":5`, 1), 2, true},
+		{"box limit", valid, 1, true},
+		{"confidence", strings.Replace(valid, `"Confidence":0.8`, `"Confidence":1.1`, 1), 2, true},
+		{"empty page", `{"provider":"kraken","model":"catmus","lines":[]}`, 2, false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.URL.Path != "/v1/ocr" || r.Header.Get("Authorization") != "Bearer token" {
+					t.Error("incorrect route or authentication")
+				}
+				if err := r.ParseMultipartForm(1 << 20); err != nil {
+					t.Fatal(err)
+				}
+				defer r.MultipartForm.RemoveAll()
+				if r.FormValue("model") != "catmus" {
+					t.Error("model missing")
+				}
+				_, _ = w.Write([]byte(tc.response))
+			}))
+			defer server.Close()
+			c, err := NewClient(Options{Endpoint: server.URL, Authenticator: httpclient.StaticBearer("token"), MaxBoxes: tc.max})
+			if err != nil {
+				t.Fatal(err)
+			}
+			result, err := c.OCR(context.Background(), testImage([]byte("image")), "catmus")
+			if (err != nil) != tc.invalid {
+				t.Fatalf("result=%#v err=%v", result, err)
+			}
+			if tc.name == "unicode" && result.Lines[0].Text != "café 世界" {
+				t.Error("lost unicode")
+			}
+		})
+	}
+}

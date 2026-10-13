@@ -53,8 +53,10 @@ type Config struct {
 
 // UsageInfo represents token usage information from a provider
 type UsageInfo struct {
-	InputTokens  int
-	OutputTokens int
+	// ThoughtTokens are billed output tokens in addition to candidate OutputTokens.
+	ThoughtTokens int
+	InputTokens   int
+	OutputTokens  int
 }
 
 // Image is an encoded image supplied to a transcription client.
