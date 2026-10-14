@@ -72,12 +72,12 @@ func TestSegmentTemplate(t *testing.T) {
 			if !strings.Contains(string(template), `imageFilename="page&amp;1.png"`) || !strings.Contains(string(template), `imageWidth="200" imageHeight="100"`) {
 				t.Fatalf("wrong page metadata: %s", template)
 			}
-			result, err := Merge(template, FormatPageXML, `<PcGts><TextLine id="line_2"><Coords points="0,0"/><TextEquiv><Unicode>Second</Unicode></TextEquiv></TextLine><TextLine id="line_1"><TextEquiv><Unicode>First</Unicode></TextEquiv></TextLine></PcGts>`)
+			result, err := Merge(template, FormatPageXML, `<PcGts><TextLine id="line_2"><Coords points="0,0"/><TextEquiv><Unicode>Second</Unicode></TextEquiv></TextLine><TextLine id="line_1"><Coords points="110,10 160,10 160,30 110,30"/><TextEquiv><Unicode>First</Unicode></TextEquiv></TextLine></PcGts>`)
 			if err != nil {
 				t.Fatal(err)
 			}
 			if result.Text != "First\nSecond" || result.Filled != 2 || len(result.GeometryChanged) != 1 {
-				t.Fatalf("merge=%+v", result)
+				t.Fatalf("text=%q filled=%d geometryChanged=%v", result.Text, result.Filled, result.GeometryChanged)
 			}
 			if !strings.Contains(string(result.Document), `points="110,10 160,10 160,30 110,30"`) {
 				t.Fatalf("service geometry lost: %s", result.Document)
