@@ -702,7 +702,7 @@ htr eval --provider claude --model claude-sonnet-5-5 --reasoning-effort low \
 Use the same CSV, rows and prompt for comparisons. `--max-output-tokens` applies
 to OpenAI, Claude and Gemini; `--gemini-max-output-tokens` remains an alias.
 Gemini still uses `--gemini-thinking-level`, while Ollama uses its server/model
-configuration. Eval output tokens include billed thinking tokens; `thought_tokens`
+configuration. Eval output tokens include billed thinking tokens; `thoughttokens` in saved YAML
 is an informational breakdown where the provider reports it separately.
 Capped OpenAI/Claude responses return an output-limit error with usage preserved.
 The current eval runner logs and skips failed rows, so its cost summary covers
