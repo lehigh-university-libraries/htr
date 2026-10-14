@@ -17,11 +17,16 @@ import (
 )
 
 const (
-	defaultEndpoint         = "https://generativelanguage.googleapis.com/v1beta"
-	defaultTimeout          = 2 * time.Minute
+	defaultEndpoint = "https://generativelanguage.googleapis.com/v1beta"
+	// Gemini 4 documents multi-minute latency for hard prompts and recommends
+	// client timeouts of at least 15 minutes.
+	defaultTimeout          = 15 * time.Minute
 	defaultMaxImageBytes    = 50 << 20
 	defaultMaxRequestBytes  = 70 << 20
 	defaultMaxResponseBytes = 8 << 20
+	// maxOutputTokensLimit is the largest value Gemini accepts; larger values
+	// return HTTP 400.
+	maxOutputTokensLimit = 1_048_576
 )
 
 // CredentialSource returns an API credential for one request.
@@ -58,6 +63,15 @@ type Client struct {
 	thinkingLevel           string
 	maxOutputTokens         int
 	omitTemperature         bool
+}
+
+// DefaultModel is the model the CLI adapter uses when none is configured.
+const DefaultModel = "gemini-4-argon"
+
+// IsGemini4 reports whether model belongs to the Gemini 4 family, such as
+// gemini-4-argon or gemini-4-argon-cyber-permissive.
+func IsGemini4(model string) bool {
+	return strings.HasPrefix(strings.TrimPrefix(model, "models/"), "gemini-4")
 }
 
 // Provider is the historical CLI adapter. New integrations should use Client.
@@ -119,7 +133,8 @@ func NewClient(options Options) (*Client, error) {
 		endpoint = defaultEndpoint
 	}
 	parsed, err := httpclient.ParseEndpoint(endpoint)
-	if err != nil || options.APIKey == nil || !validResolution(options.MediaResolution) || !validThinkingLevel(options.ThinkingLevel) || options.MaxOutputTokens < 0 {
+	if err != nil || options.APIKey == nil || !validResolution(options.MediaResolution) || !validThinkingLevel(options.ThinkingLevel) ||
+		options.MaxOutputTokens < 0 || options.MaxOutputTokens > maxOutputTokensLimit {
 		return nil, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
 	return &Client{
@@ -145,6 +160,10 @@ func (c *Client) Name() string { return "gemini" }
 func (c *Client) Extract(ctx context.Context, request providers.Request) (providers.Result, error) {
 	if err := providers.ValidateRequest(request, c.maxImageBytes); err != nil {
 		return providers.Result{}, err
+	}
+	// Gemini 4 rejects MINIMAL thinking with HTTP 400; fail before sending the image.
+	if IsGemini4(request.Model) && c.thinkingLevel == "minimal" {
+		return providers.Result{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
 	if err := ctx.Err(); err != nil {
 		return providers.Result{}, providers.ErrorForRequest(ctx, err)
@@ -190,11 +209,15 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 
 func (c *Client) extractOnce(ctx context.Context, endpoint, credential string, request providers.Request, mediaType, resolution string) (providers.Result, string, error) {
 	configuration := generationConfig{MediaResolution: resolution, MaxOutputTokens: c.maxOutputTokens}
-	if !c.omitTemperature {
+	// Gemini 4 ignores sampling parameters, so sending one only misstates the
+	// request that was actually run.
+	if !c.omitTemperature && !IsGemini4(request.Model) {
 		configuration.Temperature = &request.Temperature
 	}
 	if c.includeThoughts || c.thinkingLevel != "" {
-		configuration.ThinkingConfig = &thinkingConfig{IncludeThoughts: c.includeThoughts, ThinkingLevel: c.thinkingLevel}
+		// Upper case is the canonical ThinkingLevel enum name and is accepted by
+		// every Gemini generation.
+		configuration.ThinkingConfig = &thinkingConfig{IncludeThoughts: c.includeThoughts, ThinkingLevel: strings.ToUpper(c.thinkingLevel)}
 	}
 	payload := generateRequest{
 		Contents: []content{{Parts: []part{
@@ -236,11 +259,12 @@ func (c *Client) extractOnce(ctx context.Context, endpoint, credential string, r
 	if err := json.Unmarshal(responseBody, &decoded); err != nil || len(decoded.Candidates) == 0 {
 		return providers.Result{}, "", providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
 	}
-	text := ""
+	// Long outputs, such as filled PageXML documents, may arrive split across
+	// several text parts.
+	var text strings.Builder
 	for _, responsePart := range decoded.Candidates[0].Content.Parts {
-		if !responsePart.Thought && strings.TrimSpace(responsePart.Text) != "" {
-			text = responsePart.Text
-			break
+		if !responsePart.Thought {
+			text.WriteString(responsePart.Text)
 		}
 	}
 	effectiveModel := strings.TrimSpace(decoded.ModelVersion)
@@ -248,7 +272,7 @@ func (c *Client) extractOnce(ctx context.Context, endpoint, credential string, r
 		effectiveModel = request.Model
 	}
 	return providers.Result{
-		Text: providers.CleanResponse(text),
+		Text: providers.CleanResponse(text.String()),
 		Usage: providers.UsageInfo{
 			InputTokens:   decoded.Usage.PromptTokens,
 			OutputTokens:  decoded.Usage.CandidateTokens,
@@ -275,7 +299,7 @@ func (p *Provider) ValidateConfig(providers.Config) error {
 // ExtractText adapts historical base64 CLI inputs to Client.
 func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
 	if config.Model == "" || config.Model == "gpt-4o" {
-		config.Model = "gemini-pro-vision"
+		config.Model = DefaultModel
 	}
 	request, err := providers.LegacyRequest(config, imagePath, imageBase64, defaultMaxImageBytes)
 	if err != nil {
@@ -293,6 +317,8 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		MediaResolution:         config.MaxResolution,
 		MediaResolutionFallback: config.MaxResolutionFallback,
 		IncludeThoughts:         config.Debug,
+		ThinkingLevel:           strings.ToLower(config.ThinkingLevel),
+		MaxOutputTokens:         config.MaxOutputTokens,
 	})
 	if err != nil {
 		return "", providers.UsageInfo{}, err

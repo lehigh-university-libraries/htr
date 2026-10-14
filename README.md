@@ -70,7 +70,10 @@ are ignored by other providers and do not add CLI flags. See the
 #### Google Gemini
 - Provider: `gemini`
 - Environment variable: `GEMINI_API_KEY`
-- Models: `gemini-2.5-flash`
+- Models: `gemini-4-argon` (default), `gemini-4-argon-cyber-permissive`, `gemini-3-pro-preview`, `gemini-2.5-flash`
+- `--gemini-thinking-level low|medium|high` and `--gemini-max-output-tokens N` control
+  reasoning spend on `ocr`, `eval`, and `layout`. Gemini 4 ignores temperature, so
+  HTR omits it, and it rejects `minimal` thinking, so HTR refuses that locally.
 
 #### Ollama
 - Provider: `ollama`
@@ -181,7 +184,7 @@ htr eval \
 # Use multiple ignore patterns (pipe and comma)
 htr eval \
   --provider gemini \
-  --model gemini-1.5-flash \
+  --model gemini-4-argon \
   --prompt "Extract all text from this image" \
   --csv fixtures/images.csv \
   --ignore '|' \
@@ -258,10 +261,35 @@ htr create --image path/to/image.jpg --provider ollama --model llava
 htr create --image path/to/image.jpg --provider openai --model gpt-4o -o output.hocr
 
 # Use different providers
-htr create --image scan.png --provider gemini --model gemini-1.5-flash -o scan.hocr
+htr create --image scan.png --provider gemini --model gemini-4-argon -o scan.hocr
 ```
 
 **Note:** The `create` command requires ImageMagick to be installed on your system.
+
+### Layout
+
+Fill a blank PageXML or hOCR layout (for example, line or word boxes from a
+Kraken or Loghi segmentation) with text. The model gets the page image and the
+template and returns the template with each box transcribed. HTR matches the
+boxes by element ID and writes the text into your original template, so
+coordinates and IDs are never taken from the model. For PageXML, line and region
+text is derived from word text.
+
+```bash
+# Transcribe into the boxes
+htr layout --provider gemini --model gemini-4-argon \
+  --image page.jpg --template page.xml -o filled.xml
+
+# Align a known transcript into the boxes, keep the raw response, and score it
+htr layout --provider gemini --model gemini-4-argon --gemini-thinking-level low \
+  --image page.jpg --template page.hocr --transcript page.txt \
+  --response-output response.xml --ground-truth page.gt.txt -o filled.hocr
+```
+
+A report is printed to stderr: boxes filled, boxes missing from the response,
+boxes whose coordinates the model altered (the template's are kept), and token
+usage. Go programs can call the same flow with `layout.Fill`; see
+[Provider client library](docs/PROVIDER_CLIENTS.md#layout-templates).
 
 ### Eval External
 
@@ -558,7 +586,7 @@ You can test individual rows from your CSV to quickly evaluate a single provider
 htr eval --provider azure --prompt "Extract all text from this image" --csv fixtures/images.csv --rows 0 --dir /path/to/images
 
 # Test multiple specific rows
-htr eval --provider gemini --model gemini-pro-vision --prompt "Extract all text from this image" --csv fixtures/images.csv --rows 0,5,10 --dir /path/to/images
+htr eval --provider gemini --model gemini-4-argon --prompt "Extract all text from this image" --csv fixtures/images.csv --rows 0,5,10 --dir /path/to/images
 ```
 
 
@@ -585,3 +613,47 @@ tar -zxvf $ARCH
 mv htr /directory/in/path/binary/was/placed
 rm $ARCH
 ```
+
+#### Use Scribe Cloud Run segmentation with `htr layout`
+
+Generate a blank PageXML template from a page image, then fill every detected
+line with one full-page vision request:
+
+```bash
+# Local Google identity with run.routes.invoke permission on the segmentor.
+# Keep the token out of command arguments and shell history.
+umask 077
+gcloud auth print-identity-token > /tmp/htr-segmentor-token
+htr layout --image page.jpg \
+  --segmentor-url https://YOUR-SEGMENTOR.run.app \
+  --segmentor-token-file /tmp/htr-segmentor-token \
+  --segmentor-model kraken --template-output blank.xml \
+  --model gemini-4-argon --gemini-thinking-level low \
+  --response-output response.xml -o filled.xml
+rm /tmp/htr-segmentor-token
+```
+
+On Google Cloud, omit `--segmentor-token-file` to use the attached service
+account's metadata identity token, with the service URL origin as its audience.
+The Gemini API key still comes from the existing `.env`/provider configuration;
+it is never sent to the segmentor. Segmentation requests have a 240-second limit.
+`--timeout` bounds the whole segmentation and transcription operation (15 minutes
+by default). This path accepts JPEG, PNG and GIF images.
+
+Choose `--segmentor-model newspapers` for Scribe's PP-DocLayoutV3 reading order
+plus Kraken line segmentation, if that route is deployed. Other server-registered
+segmentation model IDs also work. The endpoint is the service base URL; HTR appends
+`/v1/segment`.
+
+Use exactly one of `--template` and `--segmentor-url`. Generated templates contain
+one page-sized region and line rectangles in the service's reading order. The
+current endpoint does not expose original baselines, polygons, region hierarchy,
+or word boxes; HTR does not invent those. Out-of-page and empty results fail
+before a vision call. `pkg/layout.Segment` exposes the same conversion to Go
+callers using `remoteocr.Client`, including custom authentication.
+
+For repeat cost/accuracy comparisons, reuse `--template blank.xml` and optionally
+add `--transcript page.txt`. The saved blank template survives a failed vision
+request. A full-template response can consume substantial output tokens; measure
+input, output, thinking tokens, truncation failures and accuracy against the
+crop-based approach before deciding whether this saves money.

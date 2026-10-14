@@ -34,6 +34,8 @@ var (
 	ocrDebug                 bool
 	ocrMaxResolution         string
 	ocrMaxResolutionFallback bool
+	ocrThinkingLevel         string
+	ocrMaxOutputTokens       int
 )
 
 func init() {
@@ -49,6 +51,7 @@ func init() {
 	ocrCmd.Flags().BoolVar(&ocrDebug, "debug", false, "Print provider debug output when supported")
 	ocrCmd.Flags().StringVar(&ocrMaxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	ocrCmd.Flags().BoolVar(&ocrMaxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
+	addGeminiSpendFlags(ocrCmd, &ocrThinkingLevel, &ocrMaxOutputTokens)
 
 	err := ocrCmd.MarkFlagRequired("image")
 	if err != nil {
@@ -74,6 +77,9 @@ func buildOCRConfig() (EvalConfig, error) {
 	if !slices.Contains(allowedMediaResolutions, ocrMaxResolution) {
 		return EvalConfig{}, fmt.Errorf("invalid --gemini-max-resolution value '%s'. Allowed values are: %s", ocrMaxResolution, strings.Join(allowedMediaResolutions, ", "))
 	}
+	if err := validateGeminiSpendFlags(ocrThinkingLevel, ocrMaxOutputTokens); err != nil {
+		return EvalConfig{}, err
+	}
 
 	if !isRemoteResource(ocrImagePath) {
 		if _, err := os.Stat(ocrImagePath); err != nil {
@@ -95,6 +101,8 @@ func buildOCRConfig() (EvalConfig, error) {
 		Debug:                 ocrDebug,
 		MaxResolution:         ocrMaxResolution,
 		MaxResolutionFallback: ocrMaxResolutionFallback,
+		ThinkingLevel:         ocrThinkingLevel,
+		MaxOutputTokens:       ocrMaxOutputTokens,
 	}, nil
 }
 

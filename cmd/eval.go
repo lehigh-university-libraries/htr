@@ -44,6 +44,8 @@ type EvalConfig struct {
 	Debug                 bool   `json:"debug,omitempty"`
 	MaxResolution         string `json:"max_resolution,omitempty"`
 	MaxResolutionFallback bool   `json:"max_resolution_fallback,omitempty"`
+	ThinkingLevel         string `json:"thinking_level,omitempty"`
+	MaxOutputTokens       int    `json:"max_output_tokens,omitempty"`
 }
 
 type EvalResult struct {
@@ -112,7 +114,7 @@ Examples:
   htr eval --provider openai --model gpt-4o --prompt "Extract text" --csv data.csv --ignore '|'
 
   # Use multiple ignore patterns
-  htr eval --provider gemini --model gemini-1.5-flash --prompt "Extract text" --csv data.csv --ignore '|' --ignore ','
+  htr eval --provider gemini --model gemini-4-argon --prompt "Extract text" --csv data.csv --ignore '|' --ignore ','
 
 Ground truth examples:
   GT: "The quick | fox"     Trans: "The quick brown fox"     -> Compares "The quick fox" (skips "brown")
@@ -189,6 +191,8 @@ var (
 	singleLine            bool
 	maxResolution         string
 	maxResolutionFallback bool
+	thinkingLevel         string
+	maxOutputTokens       int
 
 	// from https://ai.google.dev/gemini-api/docs/media-resolution#available_resolution_values
 	allowedMediaResolutions = []string{
@@ -245,6 +249,7 @@ func init() {
 	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
 	evalCmd.Flags().StringVar(&maxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	evalCmd.Flags().BoolVar(&maxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
+	addGeminiSpendFlags(evalCmd, &thinkingLevel, &maxOutputTokens)
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -291,11 +296,16 @@ func runEval(cmd *cobra.Command, args []string) error {
 			SingleLine:            singleLine,
 			MaxResolution:         maxResolution,
 			MaxResolutionFallback: maxResolutionFallback,
+			ThinkingLevel:         thinkingLevel,
+			MaxOutputTokens:       maxOutputTokens,
 		}
 	}
 
 	if !slices.Contains(allowedMediaResolutions, config.MaxResolution) {
 		return fmt.Errorf("invalid --gemini-max-resolution value '%s'. Allowed values are: %s", config.MaxResolution, strings.Join(allowedMediaResolutions, ", "))
+	}
+	if err := validateGeminiSpendFlags(config.ThinkingLevel, config.MaxOutputTokens); err != nil {
+		return err
 	}
 
 	testRows, err := cmd.Flags().GetIntSlice("rows")
@@ -880,6 +890,8 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 		Debug:                 config.Debug,
 		MaxResolution:         config.MaxResolution,
 		MaxResolutionFallback: config.MaxResolutionFallback,
+		ThinkingLevel:         config.ThinkingLevel,
+		MaxOutputTokens:       config.MaxOutputTokens,
 	}
 
 	// Validate configuration

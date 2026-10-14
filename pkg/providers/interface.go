@@ -49,6 +49,9 @@ type Config struct {
 	NumCtx int
 	Format json.RawMessage
 	Think  *bool
+	// Gemini-only spend controls; empty/zero values preserve model defaults.
+	ThinkingLevel   string
+	MaxOutputTokens int
 }
 
 // UsageInfo represents token usage information from a provider

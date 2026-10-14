@@ -140,7 +140,7 @@ func getDefaultModel(providerName string) string {
 		if model := os.Getenv("GEMINI_MODEL"); model != "" {
 			return model
 		}
-		return "gemini-1.5-flash"
+		return gemini.DefaultModel
 	case "ollama":
 		if model := os.Getenv("OLLAMA_MODEL"); model != "" {
 			return model

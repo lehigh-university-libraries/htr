@@ -178,7 +178,7 @@ func TestThinkingSpendControls(t *testing.T) {
 					t.Error("missing token limit")
 				}
 				var thinking thinkingConfig
-				if err := json.Unmarshal(config["thinkingConfig"], &thinking); err != nil || thinking.ThinkingLevel != level {
+				if err := json.Unmarshal(config["thinkingConfig"], &thinking); err != nil || thinking.ThinkingLevel != strings.ToUpper(level) {
 					t.Errorf("thinking = %#v, err=%v", thinking, err)
 				}
 				_, _ = w.Write([]byte(`{"candidates":[{"finishReason":"MAX_TOKENS","content":{"parts":[{"text":"partial"}]}}],"usageMetadata":{"promptTokenCount":8,"candidatesTokenCount":3,"thoughtsTokenCount":1021}}`))
@@ -200,5 +200,92 @@ func TestThinkingSpendControls(t *testing.T) {
 	}
 	if _, err := NewClient(Options{APIKey: staticKey("key"), MaxOutputTokens: -1}); err == nil {
 		t.Fatal("negative limit accepted")
+	}
+}
+
+func TestGemini4Requests(t *testing.T) {
+	t.Parallel()
+	tests := []struct {
+		name          string
+		model         string
+		thinkingLevel string
+		wantCalls     int32
+		wantErr       providers.ErrorKind
+	}{
+		{name: "argon omits temperature", model: "gemini-4-argon", thinkingLevel: "high", wantCalls: 1},
+		{name: "cyber permissive variant", model: "gemini-4-argon-cyber-permissive", thinkingLevel: "low", wantCalls: 1},
+		{name: "minimal rejected locally", model: "gemini-4-argon", thinkingLevel: "minimal", wantErr: providers.ErrorInvalidRequest},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+			var calls atomic.Int32
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				calls.Add(1)
+				if r.URL.Path != "/models/"+tt.model+":generateContent" {
+					t.Errorf("path = %s", r.URL.Path)
+				}
+				var body struct {
+					GenerationConfig map[string]json.RawMessage `json:"generationConfig"`
+				}
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Fatal(err)
+				}
+				if _, ok := body.GenerationConfig["temperature"]; ok {
+					t.Error("Gemini 4 requests must omit temperature")
+				}
+				if got, want := string(body.GenerationConfig["thinkingConfig"]), `{"thinkingLevel":"`+strings.ToUpper(tt.thinkingLevel)+`"}`; got != want {
+					t.Errorf("thinkingConfig = %s, want %s", got, want)
+				}
+				_, _ = w.Write([]byte(`{"modelVersion":"` + tt.model + `","candidates":[{"finishReason":"STOP","content":{"parts":[{"text":"<a>","thought":false},{"text":"x</a>"}]}}]}`))
+			}))
+			defer server.Close()
+			client, err := NewClient(Options{Endpoint: server.URL, APIKey: staticKey("key"), ThinkingLevel: tt.thinkingLevel})
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := testRequest([]byte("image"))
+			request.Model = tt.model
+			result, err := client.Extract(context.Background(), request)
+			if calls.Load() != tt.wantCalls {
+				t.Fatalf("calls = %d, want %d", calls.Load(), tt.wantCalls)
+			}
+			if tt.wantErr != "" {
+				var providerError *providers.Error
+				if !errors.As(err, &providerError) || providerError.Kind != tt.wantErr {
+					t.Fatalf("err = %v, want %s", err, tt.wantErr)
+				}
+				return
+			}
+			if err != nil || result.Text != "<a>x</a>" || result.EffectiveModel != tt.model {
+				t.Fatalf("result = %#v, err = %v", result, err)
+			}
+		})
+	}
+}
+
+func TestIsGemini4(t *testing.T) {
+	t.Parallel()
+	tests := map[string]bool{
+		"gemini-4-argon":                  true,
+		"models/gemini-4-argon":           true,
+		"gemini-4-argon-cyber-permissive": true,
+		"gemini-3-pro-preview":            false,
+		"gemini-2.5-pro":                  false,
+	}
+	for model, want := range tests {
+		if got := IsGemini4(model); got != want {
+			t.Errorf("IsGemini4(%q) = %v, want %v", model, got, want)
+		}
+	}
+}
+
+func TestNewClientRejectsOutputTokensAboveLimit(t *testing.T) {
+	t.Parallel()
+	if _, err := NewClient(Options{APIKey: staticKey("key"), MaxOutputTokens: maxOutputTokensLimit}); err != nil {
+		t.Fatalf("limit rejected: %v", err)
+	}
+	if _, err := NewClient(Options{APIKey: staticKey("key"), MaxOutputTokens: maxOutputTokensLimit + 1}); err == nil {
+		t.Fatal("limit + 1 accepted")
 	}
 }
