@@ -1,3 +1,4 @@
+// Package azure provides Azure Document Intelligence and legacy Read OCR.
 package azure
 
 import (
@@ -6,137 +7,154 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"time"
 
+	"github.com/lehigh-university-libraries/htr/pkg/httpclient"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
-// Provider implements the Azure OCR provider
-type Provider struct{}
+// DefaultModel is Microsoft's document-focused OCR model (GA API 2024-11-30).
+const DefaultModel = "prebuilt-read"
 
-// New creates a new Azure provider
-func New() *Provider {
-	return &Provider{}
+// Provider implements Azure OCR. Use read-v3.2 to retain the legacy Vision API.
+type Provider struct {
+	client       *http.Client
+	pollInterval time.Duration
 }
 
-// Name returns the provider name
-func (p *Provider) Name() string {
-	return "azure"
-}
+// New creates an Azure provider.
+func New() *Provider { return &Provider{} }
 
-// ValidateConfig validates the Azure configuration
+// Name returns the provider name.
+func (p *Provider) Name() string { return "azure" }
+
+// ValidateConfig validates environment-backed endpoint and key configuration.
 func (p *Provider) ValidateConfig(config providers.Config) error {
-	endpoint := os.Getenv("AZURE_OCR_ENDPOINT")
-	apiKey := os.Getenv("AZURE_OCR_API_KEY")
-
-	if endpoint == "" || apiKey == "" {
+	if strings.TrimSpace(os.Getenv("AZURE_OCR_ENDPOINT")) == "" || strings.TrimSpace(os.Getenv("AZURE_OCR_API_KEY")) == "" {
 		return fmt.Errorf("AZURE_OCR_ENDPOINT and AZURE_OCR_API_KEY environment variables must be set")
+	}
+	if _, err := httpclient.ParseEndpoint(os.Getenv("AZURE_OCR_ENDPOINT")); err != nil {
+		return providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
 	return nil
 }
 
-// ExtractText extracts text from an image using Azure Computer Vision Read API
+// ExtractText submits an image and polls the same origin under one deadline.
 func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
+	if err := p.ValidateConfig(config); err != nil {
+		return "", providers.UsageInfo{}, err
+	}
+	if config.Model == "" {
+		config.Model = DefaultModel
+	}
+	// Older eval files used gpt-4o even though Azure ignored that model field.
+	legacy := config.Model == "read-v3.2" || config.Model == "gpt-4o"
 	endpoint := os.Getenv("AZURE_OCR_ENDPOINT")
-	apiKey := os.Getenv("AZURE_OCR_API_KEY")
-
-	if endpoint == "" || apiKey == "" {
-		return "", providers.UsageInfo{}, fmt.Errorf("AZURE_OCR_ENDPOINT and AZURE_OCR_API_KEY environment variables must be set")
+	readURL, err := httpclient.AppendPathSegment(endpoint, "/documentintelligence/documentModels/", config.Model, ":analyze")
+	if legacy {
+		readURL, err = httpclient.AppendPath(endpoint, "/vision/v3.2/read/analyze")
 	}
-
-	// Decode base64 image data
+	if err != nil {
+		return "", providers.UsageInfo{}, err
+	}
+	if !legacy {
+		readURL += "?api-version=2024-11-30"
+	}
+	if base64.StdEncoding.DecodedLen(len(imageBase64)) > 50<<20 {
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
 	imageData, err := base64.StdEncoding.DecodeString(imageBase64)
-	if err != nil {
-		return "", providers.UsageInfo{}, fmt.Errorf("failed to decode base64 image: %w", err)
+	if err != nil || len(imageData) == 0 || len(imageData) > 50<<20 {
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
-
-	// Azure Computer Vision Read API 3.2 URL (more widely supported)
-	readURL := fmt.Sprintf("%s/vision/v3.2/read/analyze", strings.TrimSuffix(endpoint, "/"))
-
-	// Create request
-	req, err := http.NewRequestWithContext(ctx, "POST", readURL, bytes.NewReader(imageData))
+	timeout := config.Timeout
+	if timeout <= 0 {
+		timeout = 15 * time.Minute
+	}
+	ctx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+	client := httpclient.Secure(p.client, timeout)
+	request, err := http.NewRequestWithContext(ctx, http.MethodPost, readURL, bytes.NewReader(imageData))
 	if err != nil {
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+	}
+	request.Header.Set("Content-Type", "application/octet-stream")
+	auth := httpclient.StaticHeader("Ocp-Apim-Subscription-Key", os.Getenv("AZURE_OCR_API_KEY"))
+	if err := auth.Authorize(ctx, request); err != nil {
 		return "", providers.UsageInfo{}, err
 	}
-
-	// Set headers
-	req.Header.Set("Ocp-Apim-Subscription-Key", apiKey)
-	req.Header.Set("Content-Type", "application/octet-stream")
-
-	client := &http.Client{Timeout: config.Timeout}
-	resp, err := client.Do(req)
+	response, err := client.Do(request)
 	if err != nil {
-		return "", providers.UsageInfo{}, err
+		return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, err)
 	}
-	defer resp.Body.Close()
-
-	// Read initial response body for error logging
-	initialBody, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
+	_, readErr := httpclient.ReadAll(response.Body, 16<<20)
+	closeErr := response.Body.Close()
+	if readErr != nil {
+		return "", providers.UsageInfo{}, readErr
 	}
-
-	if resp.StatusCode != http.StatusAccepted {
-		return "", providers.UsageInfo{}, fmt.Errorf("azure OCR API error: %d - %s", resp.StatusCode, string(initialBody))
+	if closeErr != nil {
+		return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, closeErr)
 	}
-
-	// Get the operation URL from the Operation-Location header
-	operationURL := resp.Header.Get("Operation-Location")
-	if operationURL == "" {
-		return "", providers.UsageInfo{}, fmt.Errorf("no operation location returned from Azure OCR - body: %s", providers.TruncateBody(initialBody))
+	if response.StatusCode != http.StatusAccepted {
+		return "", providers.UsageInfo{}, providers.ErrorForStatus(response.StatusCode)
 	}
-
-	// Poll for results
-	for attempts := 0; attempts < 30; attempts++ {
-		time.Sleep(1 * time.Second)
-
-		req, err := http.NewRequestWithContext(ctx, "GET", operationURL, nil)
+	operation, err := url.Parse(response.Header.Get("Operation-Location"))
+	// Polling URLs are untrusted: never send the resource key to another origin.
+	if err != nil || operation.User != nil || operation.Fragment != "" || operation.Scheme != request.URL.Scheme || !strings.EqualFold(operation.Host, request.URL.Host) || operation.Path == "" {
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+	}
+	interval := p.pollInterval
+	if interval <= 0 {
+		interval = time.Second
+	}
+	for {
+		poll, err := http.NewRequestWithContext(ctx, http.MethodGet, operation.String(), nil)
 		if err != nil {
+			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, 0, false, nil)
+		}
+		if err := auth.Authorize(ctx, poll); err != nil {
 			return "", providers.UsageInfo{}, err
 		}
-		req.Header.Set("Ocp-Apim-Subscription-Key", apiKey)
-
-		resp, err := client.Do(req)
+		response, err := client.Do(poll)
 		if err != nil {
-			return "", providers.UsageInfo{}, err
+			return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, err)
 		}
-
-		// Read polling response body for both parsing and error logging
-		pollBody, readErr := io.ReadAll(resp.Body)
-		resp.Body.Close()
+		body, readErr := httpclient.ReadAll(response.Body, 16<<20)
+		closeErr := response.Body.Close()
 		if readErr != nil {
-			return "", providers.UsageInfo{}, fmt.Errorf("failed to read polling response body: %w", readErr)
+			return "", providers.UsageInfo{}, readErr
 		}
-
-		if resp.StatusCode != http.StatusOK {
-			continue
+		if closeErr != nil {
+			return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, closeErr)
 		}
-
+		if response.StatusCode != http.StatusOK {
+			return "", providers.UsageInfo{}, providers.ErrorForStatus(response.StatusCode)
+		}
 		var result map[string]interface{}
-		if err := json.Unmarshal(pollBody, &result); err != nil {
-			return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(pollBody))
+		if err := json.Unmarshal(body, &result); err != nil {
+			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
 		}
-
-		status, ok := result["status"].(string)
-		if !ok {
-			return "", providers.UsageInfo{}, fmt.Errorf("invalid response format from Azure OCR - body: %s", providers.TruncateBody(pollBody))
-		}
-
-		switch status {
+		switch result["status"] {
 		case "succeeded":
-			// Azure OCR does not provide token usage information
 			return extractText(result), providers.UsageInfo{}, nil
-		case "failed":
-			return "", providers.UsageInfo{}, fmt.Errorf("azure OCR analysis failed - body: %s", providers.TruncateBody(pollBody))
+		case "failed", "canceled":
+			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+		case "running", "notStarted":
+		default:
+			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
 		}
-		// Continue polling if status is "running" or "notStarted"
+		timer := time.NewTimer(interval)
+		select {
+		case <-ctx.Done():
+			timer.Stop()
+			return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, ctx.Err())
+		case <-timer.C:
+		}
 	}
-
-	return "", providers.UsageInfo{}, fmt.Errorf("azure OCR operation timed out")
 }
 
 // extractText extracts text from Azure OCR response (supports both v3.2 and v4.0 formats)
@@ -148,6 +166,9 @@ func extractText(result map[string]interface{}) string {
 		return ""
 	}
 
+	if content, ok := analyzeResult["content"].(string); ok {
+		return content
+	}
 	// Try v3.2 format first
 	readResults, ok := analyzeResult["readResults"].([]interface{})
 	if ok {

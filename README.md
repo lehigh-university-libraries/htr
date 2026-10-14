@@ -60,17 +60,37 @@ are ignored by other providers and do not add CLI flags. See the
 #### OpenAI (default)
 - Provider: `openai`
 - Environment variable: `OPENAI_API_KEY`
-- Models: `gpt-4o`, `gpt-4o-mini`, `gpt-4-vision-preview`
+- Default: `gpt-6.1-sol`. Also evaluate `gpt-6-astra` and `gpt-6-luna`.
+- `--reasoning-effort low|medium|high|xhigh|max` controls reasoning on current
+  models; the default is `low`. GPT-6.1 Sol and Astra reject `none`.
+- HTR omits temperature for reasoning requests. Older explicitly selected models
+  retain their sampling behavior; arbitrary API model IDs remain supported.
+
+#### Anthropic Claude
+- Provider: `claude`
+- Environment variable: `ANTHROPIC_API_KEY`
+- Default: `claude-sonnet-5-5`. Also evaluate `claude-opus-5-5`,
+  `claude-haiku-5-5`, and `claude-fable-5-1` where your account has access.
+- Current Claude models omit temperature, join all response text blocks, and
+  default to a 16,000-token output budget covering thinking and text. Use
+  `--reasoning-effort` to select effort explicitly; otherwise the model's default
+  applies. Older Claude models retain the 4,096-token default.
 
 #### Azure OCR
 - Provider: `azure`
 - Environment variables: `AZURE_OCR_ENDPOINT`, `AZURE_OCR_API_KEY`
-- Models: Uses Azure Computer Vision Read API 4.0
+- Default: `prebuilt-read` on Document Intelligence v4.0 (GA API `2024-11-30`).
+  Set the endpoint/key to a compatible Document Intelligence resource; a
+  Computer Vision-only resource may not serve this route.
+- Use `--model read-v3.2` with the old endpoint/key to reproduce legacy Computer
+  Vision Read evaluations. Older Azure configs labeled `gpt-4o` retain that route.
+- `AZURE_MODEL` can pin a different Document Intelligence model such as
+  `prebuilt-layout`. Azure OCR is billed by pages, not LLM tokens.
 
 #### Google Gemini
 - Provider: `gemini`
 - Environment variable: `GEMINI_API_KEY`
-- Models: `gemini-4-argon` (default), `gemini-4-argon-cyber-permissive`, `gemini-3-pro-preview`, `gemini-2.5-flash`
+- Models: `gemini-4-argon` (default), `gemini-4-argon-cyber-permissive`, `gemini-3.8-flash`
 - `--gemini-thinking-level low|medium|high` and `--gemini-max-output-tokens N` control
   reasoning spend on `ocr`, `eval`, and `layout`. Gemini 4 ignores temperature, so
   HTR omits it, and it rejects `minimal` thinking, so HTR refuses that locally.
@@ -79,7 +99,9 @@ are ignored by other providers and do not add CLI flags. See the
 - Provider: `ollama`
 - Environment variable: `OLLAMA_URL` (optional, defaults to `http://localhost:11434`)
 - Environment variable: `OLLAMA_AUDIENCE` (optional, required only when invoking a private Cloud Run Ollama service that needs an explicit audience)
-- Models: `llava`, `llava:13b`, `llava:34b`, `moondream`, etc.
+- Default: `gemma4:e4b`. Larger comparisons include `gemma4:12b`, `gemma4:31b`,
+  and `qwen3.5:9b`; use a model already installed on your chosen Ollama server.
+  HTR does not pull models or start a local inference server.
 
 When `OLLAMA_URL` points at a private `*.run.app` Cloud Run service, HTR
 automatically requests a Google identity token from the metadata server and
@@ -95,13 +117,13 @@ Extract text from a single image using one provider/model, without creating an e
 htr ocr \
   --image path/to/image.jpg \
   --provider openai \
-  --model gpt-4o
+  --model gpt-6.1-sol
 
 # Save OCR text to a file
 htr ocr \
   --image path/to/image.jpg \
   --provider gemini \
-  --model gemini-2.5-flash \
+  --model gemini-3.8-flash \
   --output page.txt
 
 # Override the prompt when needed
@@ -120,7 +142,7 @@ Evaluate OCR/HTR performance by sending images to AI vision models and comparing
 ```bash
 htr eval \
   --provider openai \
-  --model gpt-4o \
+  --model gpt-6.1-sol \
   --prompt "Extract all text from this image" \
   --temperature 0.0 \
   --csv fixtures/images.csv \
@@ -140,7 +162,7 @@ htr eval \
 ```bash
 htr eval \
   --provider gemini \
-  --model gemini-2.5-flash \
+  --model gemini-3.8-flash \
   --prompt "Extract all text from this image" \
   --temperature 0.0 \
   --csv fixtures/images.csv \
@@ -175,7 +197,7 @@ Sometimes ground truth transcripts contain characters that cannot be deciphered.
 # Use pipe (|) to mark unknown characters
 htr eval \
   --provider openai \
-  --model gpt-4o \
+  --model gpt-6.1-sol \
   --prompt "Extract all text from this image" \
   --csv fixtures/images.csv \
   --ignore '|' \
@@ -229,7 +251,7 @@ Removes all newlines, carriage returns, and tabs from ground truth and transcrip
 # Evaluate as single-line text
 htr eval \
   --provider openai \
-  --model gpt-4o \
+  --model gpt-6.1-sol \
   --prompt "Extract all text from this image" \
   --csv fixtures/images.csv \
   --single-line \
@@ -258,7 +280,7 @@ Create hOCR XML files from images using custom word detection and LLM transcript
 htr create --image path/to/image.jpg --provider ollama --model llava
 
 # Save output to a file
-htr create --image path/to/image.jpg --provider openai --model gpt-4o -o output.hocr
+htr create --image path/to/image.jpg --provider openai --model gpt-6.1-sol -o output.hocr
 
 # Use different providers
 htr create --image scan.png --provider gemini --model gemini-4-argon -o scan.hocr
@@ -657,3 +679,42 @@ add `--transcript page.txt`. The saved blank template survives a failed vision
 request. A full-template response can consume substantial output tokens; measure
 input, output, thinking tokens, truncation failures and accuracy against the
 crop-based approach before deciding whether this saves money.
+
+### Current-model evals (verified 2026-10-14)
+
+`eval`, `ocr`, `create` and `layout` resolve an omitted model from the selected
+provider. `OPENAI_MODEL`, `CLAUDE_MODEL`, `GEMINI_MODEL`, `OLLAMA_MODEL` and
+`AZURE_MODEL` override those defaults; an explicit `--model` wins. Existing eval
+files with pinned models keep those models when rerun with `--config`.
+
+```bash
+htr eval --provider openai --model gpt-6.1-sol --reasoning-effort low \
+  --max-output-tokens 16000 --timeout 15m \
+  --prompt "Transcribe all text, preserving spelling and line breaks." \
+  --csv fixtures/images.csv --dir /path/to/images
+
+htr eval --provider claude --model claude-sonnet-5-5 --reasoning-effort low \
+  --max-output-tokens 16000 --timeout 15m \
+  --prompt "Transcribe all text, preserving spelling and line breaks." \
+  --csv fixtures/images.csv --dir /path/to/images
+```
+
+Use the same CSV, rows and prompt for comparisons. `--max-output-tokens` applies
+to OpenAI, Claude and Gemini; `--gemini-max-output-tokens` remains an alias.
+Gemini still uses `--gemini-thinking-level`, while Ollama uses its server/model
+configuration. Eval output tokens include billed thinking tokens; `thought_tokens`
+is an informational breakdown where the provider reports it separately.
+Capped OpenAI/Claude responses return an output-limit error with usage preserved.
+The current eval runner logs and skips failed rows, so its cost summary covers
+successful rows only; inspect failures before comparing accuracy or total spend.
+Each run writes `evals/MODEL.yaml`; copy that file before rerunning the same model
+with a different effort or output budget. No historical eval results are migrated.
+
+Sources for the defaults and wire compatibility:
+[OpenAI models](https://developers.openai.com/api/docs/models),
+[GPT-6 migration](https://developers.openai.com/api/docs/guides/latest-model),
+[Claude models](https://platform.claude.com/docs/en/models/overview),
+[Claude migration](https://platform.claude.com/docs/en/models/sonnet-5-5/migration-guide),
+[Gemini models](https://ai.google.dev/gemini-api/docs/models),
+[Ollama Gemma 4](https://ollama.com/library/gemma4),
+[Azure Document Intelligence](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/whats-new).

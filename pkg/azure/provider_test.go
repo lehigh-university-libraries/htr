@@ -2,6 +2,8 @@ package azure
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -73,6 +75,7 @@ func TestProvider_ValidateConfig(t *testing.T) {
 
 			config := providers.Config{
 				Provider: "azure",
+				Model:    "read-v3.2",
 				Prompt:   "Extract text",
 			}
 
@@ -169,7 +172,7 @@ func TestProvider_ExtractText(t *testing.T) {
 				}
 			}`,
 			expectError:   true,
-			errorContains: "azure OCR API error",
+			errorContains: "invalid_request",
 		},
 		{
 			name:          "missing operation location",
@@ -179,7 +182,7 @@ func TestProvider_ExtractText(t *testing.T) {
 			}`,
 			operationLocation: "", // No Operation-Location header
 			expectError:       true,
-			errorContains:     "no operation location",
+			errorContains:     "invalid_response",
 		},
 		{
 			name:          "operation failed",
@@ -196,7 +199,7 @@ func TestProvider_ExtractText(t *testing.T) {
 				}
 			}`,
 			expectError:   true,
-			errorContains: "azure OCR analysis failed",
+			errorContains: "invalid_response",
 		},
 	}
 
@@ -261,6 +264,7 @@ func TestProvider_ExtractText(t *testing.T) {
 			p := New()
 			config := providers.Config{
 				Provider: "azure",
+				Model:    "read-v3.2",
 				Prompt:   "Extract all text from this image",
 			}
 
@@ -274,7 +278,7 @@ func TestProvider_ExtractText(t *testing.T) {
 				if err == nil {
 					t.Error("Expected error but got none")
 				}
-				if tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
+				if err != nil && tt.errorContains != "" && !strings.Contains(err.Error(), tt.errorContains) {
 					t.Errorf("Expected error to contain '%s', got: %v", tt.errorContains, err)
 				}
 			} else {
@@ -361,5 +365,87 @@ func TestExtractText(t *testing.T) {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestDocumentIntelligenceAndLegacyRoutes(t *testing.T) {
+	for _, model := range []string{DefaultModel, "read-v3.2", "gpt-4o"} {
+		t.Run(model, func(t *testing.T) {
+			legacy := model != DefaultModel
+			polls := 0
+			var server *httptest.Server
+			server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("Ocp-Apim-Subscription-Key") != "test-key" {
+					t.Error("missing resource key")
+				}
+				if r.Method == http.MethodPost {
+					if legacy {
+						if r.URL.Path != "/vision/v3.2/read/analyze" {
+							t.Errorf("path=%s", r.URL.Path)
+						}
+					} else if r.URL.Path != "/documentintelligence/documentModels/prebuilt-read:analyze" || r.URL.Query().Get("api-version") != "2024-11-30" {
+						t.Errorf("url=%s", r.URL)
+					}
+					w.Header().Set("Operation-Location", server.URL+"/results/1?api-version=2024-11-30")
+					w.WriteHeader(http.StatusAccepted)
+					return
+				}
+				polls++
+				if polls == 1 {
+					_, _ = w.Write([]byte(`{"status":"running"}`))
+					return
+				}
+				if legacy {
+					_, _ = w.Write([]byte(`{"status":"succeeded","analyzeResult":{"readResults":[{"lines":[{"text":"café"}]}]}}`))
+				} else {
+					_, _ = w.Write([]byte(`{"status":"succeeded","analyzeResult":{"content":"café"}}`))
+				}
+			}))
+			defer server.Close()
+			t.Setenv("AZURE_OCR_ENDPOINT", server.URL)
+			t.Setenv("AZURE_OCR_API_KEY", "test-key")
+			provider := &Provider{pollInterval: time.Millisecond}
+			text, _, err := provider.ExtractText(t.Context(), providers.Config{Model: model}, "page.png", base64.StdEncoding.EncodeToString([]byte("image")))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if text != "café" || polls != 2 {
+				t.Fatalf("text=%q polls=%d", text, polls)
+			}
+		})
+	}
+}
+
+func TestPollingCannotSendKeyToAnotherOrigin(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Operation-Location", "https://untrusted.invalid/result")
+		w.WriteHeader(http.StatusAccepted)
+	}))
+	defer server.Close()
+	t.Setenv("AZURE_OCR_ENDPOINT", server.URL)
+	t.Setenv("AZURE_OCR_API_KEY", "secret-key")
+	_, _, err := New().ExtractText(t.Context(), providers.Config{}, "page.png", base64.StdEncoding.EncodeToString([]byte("image")))
+	var providerErr *providers.Error
+	if !errors.As(err, &providerErr) || providerErr.Kind != providers.ErrorInvalidResponse {
+		t.Fatalf("error=%v", err)
+	}
+}
+
+func TestPollingRespectsCancellation(t *testing.T) {
+	var server *httptest.Server
+	server = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodPost {
+			w.Header().Set("Operation-Location", server.URL+"/results/1")
+			w.WriteHeader(http.StatusAccepted)
+			return
+		}
+		_, _ = w.Write([]byte(`{"status":"running"}`))
+	}))
+	defer server.Close()
+	t.Setenv("AZURE_OCR_ENDPOINT", server.URL)
+	t.Setenv("AZURE_OCR_API_KEY", "key")
+	_, _, err := New().ExtractText(t.Context(), providers.Config{Timeout: 20 * time.Millisecond}, "page.png", base64.StdEncoding.EncodeToString([]byte("image")))
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("error=%v", err)
 	}
 }

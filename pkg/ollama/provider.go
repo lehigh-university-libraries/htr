@@ -36,6 +36,9 @@ type Options struct {
 	MaxResponseBytes int64
 }
 
+// DefaultModel is a current vision model that fits a modest local GPU.
+const DefaultModel = "gemma4:e4b"
+
 // Client is a byte-oriented Ollama transcription client.
 type Client struct {
 	httpClient       *http.Client
@@ -192,8 +195,8 @@ func (p *Provider) ValidateConfig(config providers.Config) error {
 
 // ExtractText adapts historical base64 CLI inputs to Client.
 func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
-	if config.Model == "" || config.Model == "gpt-4o" {
-		config.Model = "llava"
+	if config.Model == "" {
+		config.Model = DefaultModel
 	}
 	request, err := providers.LegacyRequest(config, imagePath, imageBase64, defaultMaxImageBytes)
 	if err != nil {

@@ -298,7 +298,7 @@ func (p *Provider) ValidateConfig(providers.Config) error {
 
 // ExtractText adapts historical base64 CLI inputs to Client.
 func (p *Provider) ExtractText(ctx context.Context, config providers.Config, imagePath, imageBase64 string) (string, providers.UsageInfo, error) {
-	if config.Model == "" || config.Model == "gpt-4o" {
+	if config.Model == "" {
 		config.Model = DefaultModel
 	}
 	request, err := providers.LegacyRequest(config, imagePath, imageBase64, defaultMaxImageBytes)

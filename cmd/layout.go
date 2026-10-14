@@ -64,6 +64,7 @@ var (
 	layoutResponsePath       string
 	layoutDebug              bool
 	layoutMaxResolution      string
+	layoutReasoningEffort    string
 	layoutThinkingLevel      string
 	layoutMaxOutputTokens    int
 )
@@ -90,6 +91,7 @@ func init() {
 	layoutCmd.Flags().BoolVar(&layoutDebug, "debug", false, "Print provider debug output when supported")
 	layoutCmd.Flags().StringVar(&layoutMaxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	addGeminiSpendFlags(layoutCmd, &layoutThinkingLevel, &layoutMaxOutputTokens)
+	addReasoningFlag(layoutCmd, &layoutReasoningEffort)
 
 	for _, flag := range []string{"image"} {
 		if err := layoutCmd.MarkFlagRequired(flag); err != nil {
@@ -142,6 +144,7 @@ func runLayout(cmd *cobra.Command, args []string) error {
 		Timeout:         layoutTimeout,
 		Debug:           layoutDebug,
 		MaxResolution:   layoutMaxResolution,
+		ReasoningEffort: layoutReasoningEffort,
 		ThinkingLevel:   layoutThinkingLevel,
 		MaxOutputTokens: layoutMaxOutputTokens,
 	})
@@ -266,6 +269,7 @@ func (c *legacyClient) Extract(ctx context.Context, request providers.Request) (
 // addGeminiSpendFlags registers the Gemini thinking and output budget flags.
 func addGeminiSpendFlags(command *cobra.Command, thinkingLevel *string, maxOutputTokens *int) {
 	command.Flags().StringVar(thinkingLevel, "gemini-thinking-level", "", "Gemini thinking level: minimal, low, medium, high (Gemini 4 rejects minimal; empty uses the model default)")
+	command.Flags().IntVar(maxOutputTokens, "max-output-tokens", 0, "Output budget for OpenAI, Claude or Gemini (0 uses the provider default)")
 	command.Flags().IntVar(maxOutputTokens, "gemini-max-output-tokens", 0, "Gemini output budget covering thinking and response tokens (0 uses the model default)")
 }
 
@@ -328,4 +332,8 @@ func readLayoutTemplate(ctx context.Context, page providers.Image) ([]byte, erro
 		}
 	}
 	return template, nil
+}
+
+func addReasoningFlag(command *cobra.Command, effort *string) {
+	command.Flags().StringVar(effort, "reasoning-effort", "", "OpenAI/Claude reasoning effort: low, medium, high, xhigh, max (OpenAI also supports none on some models)")
 }

@@ -125,17 +125,17 @@ func getDefaultModel(providerName string) string {
 		if model := os.Getenv("OPENAI_MODEL"); model != "" {
 			return model
 		}
-		return "gpt-4o"
+		return openai.DefaultModel
 	case "azure":
 		if model := os.Getenv("AZURE_MODEL"); model != "" {
 			return model
 		}
-		return "gpt-4o"
+		return azure.DefaultModel
 	case "claude":
 		if model := os.Getenv("CLAUDE_MODEL"); model != "" {
 			return model
 		}
-		return "claude-sonnet-4-5-20250929"
+		return claude.DefaultModel
 	case "gemini":
 		if model := os.Getenv("GEMINI_MODEL"); model != "" {
 			return model
@@ -145,7 +145,7 @@ func getDefaultModel(providerName string) string {
 		if model := os.Getenv("OLLAMA_MODEL"); model != "" {
 			return model
 		}
-		return "mistral-small3.2:24b"
+		return ollama.DefaultModel
 	default:
 		return ""
 	}

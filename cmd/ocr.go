@@ -34,6 +34,7 @@ var (
 	ocrDebug                 bool
 	ocrMaxResolution         string
 	ocrMaxResolutionFallback bool
+	ocrReasoningEffort       string
 	ocrThinkingLevel         string
 	ocrMaxOutputTokens       int
 )
@@ -52,6 +53,7 @@ func init() {
 	ocrCmd.Flags().StringVar(&ocrMaxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	ocrCmd.Flags().BoolVar(&ocrMaxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
 	addGeminiSpendFlags(ocrCmd, &ocrThinkingLevel, &ocrMaxOutputTokens)
+	addReasoningFlag(ocrCmd, &ocrReasoningEffort)
 
 	err := ocrCmd.MarkFlagRequired("image")
 	if err != nil {
@@ -101,6 +103,7 @@ func buildOCRConfig() (EvalConfig, error) {
 		Debug:                 ocrDebug,
 		MaxResolution:         ocrMaxResolution,
 		MaxResolutionFallback: ocrMaxResolutionFallback,
+		ReasoningEffort:       ocrReasoningEffort,
 		ThinkingLevel:         ocrThinkingLevel,
 		MaxOutputTokens:       ocrMaxOutputTokens,
 	}, nil

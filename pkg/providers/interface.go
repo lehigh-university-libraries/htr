@@ -49,7 +49,9 @@ type Config struct {
 	NumCtx int
 	Format json.RawMessage
 	Think  *bool
-	// Gemini-only spend controls; empty/zero values preserve model defaults.
+	// ReasoningEffort configures OpenAI reasoning or Claude effort.
+	ReasoningEffort string
+	// ThinkingLevel is Gemini-only; MaxOutputTokens also applies to OpenAI/Claude.
 	ThinkingLevel   string
 	MaxOutputTokens int
 }

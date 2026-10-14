@@ -44,6 +44,7 @@ type EvalConfig struct {
 	Debug                 bool   `json:"debug,omitempty"`
 	MaxResolution         string `json:"max_resolution,omitempty"`
 	MaxResolutionFallback bool   `json:"max_resolution_fallback,omitempty"`
+	ReasoningEffort       string `json:"reasoning_effort,omitempty"`
 	ThinkingLevel         string `json:"thinking_level,omitempty"`
 	MaxOutputTokens       int    `json:"max_output_tokens,omitempty"`
 }
@@ -68,6 +69,7 @@ type EvalResult struct {
 	IgnoredCharsCount     int     `json:"ignored_chars_count"`
 	InputTokens           int     `json:"input_tokens,omitempty"`
 	OutputTokens          int     `json:"output_tokens,omitempty"`
+	ThoughtTokens         int     `json:"thought_tokens,omitempty"`
 }
 
 type EvalSummary struct {
@@ -193,6 +195,7 @@ var (
 	maxResolutionFallback bool
 	thinkingLevel         string
 	maxOutputTokens       int
+	reasoningEffort       string
 
 	// from https://ai.google.dev/gemini-api/docs/media-resolution#available_resolution_values
 	allowedMediaResolutions = []string{
@@ -235,7 +238,7 @@ func init() {
 
 	// Eval command flags
 	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, claude, gemini, ollama")
-	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "gpt-4o", "Model to use")
+	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "", "Model to use (uses the selected provider default)")
 	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to the provider")
 	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for API")
 	evalCmd.Flags().DurationVar(&evalTimeout, "timeout", 5*time.Minute, "Timeout for API requests (e.g., 5m, 30s, 1h)")
@@ -250,6 +253,7 @@ func init() {
 	evalCmd.Flags().StringVar(&maxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	evalCmd.Flags().BoolVar(&maxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
 	addGeminiSpendFlags(evalCmd, &thinkingLevel, &maxOutputTokens)
+	addReasoningFlag(evalCmd, &reasoningEffort)
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")
 	evalCmd.MarkFlagsMutuallyExclusive("csv", "config")
@@ -296,11 +300,15 @@ func runEval(cmd *cobra.Command, args []string) error {
 			SingleLine:            singleLine,
 			MaxResolution:         maxResolution,
 			MaxResolutionFallback: maxResolutionFallback,
+			ReasoningEffort:       reasoningEffort,
 			ThinkingLevel:         thinkingLevel,
 			MaxOutputTokens:       maxOutputTokens,
 		}
 	}
 
+	if config.Model == "" {
+		config.Model = getDefaultModel(config.Provider)
+	}
 	if !slices.Contains(allowedMediaResolutions, config.MaxResolution) {
 		return fmt.Errorf("invalid --gemini-max-resolution value '%s'. Allowed values are: %s", config.MaxResolution, strings.Join(allowedMediaResolutions, ", "))
 	}
@@ -815,7 +823,8 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		Insertions:            metrics.Insertions,
 		IgnoredCharsCount:     metrics.IgnoredCharsCount,
 		InputTokens:           usage.InputTokens,
-		OutputTokens:          usage.OutputTokens,
+		OutputTokens:          usage.OutputTokens + usage.ThoughtTokens,
+		ThoughtTokens:         usage.ThoughtTokens,
 	}
 
 	return result, nil
@@ -890,6 +899,7 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 		Debug:                 config.Debug,
 		MaxResolution:         config.MaxResolution,
 		MaxResolutionFallback: config.MaxResolutionFallback,
+		ReasoningEffort:       config.ReasoningEffort,
 		ThinkingLevel:         config.ThinkingLevel,
 		MaxOutputTokens:       config.MaxOutputTokens,
 	}

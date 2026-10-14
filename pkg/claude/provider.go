@@ -5,17 +5,23 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"mime"
 	"net/http"
 	"os"
-	"path/filepath"
+	"strings"
+	"time"
 
+	"github.com/lehigh-university-libraries/htr/pkg/httpclient"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
 )
 
 // Provider implements the Anthropic Claude vision provider
-type Provider struct{}
+type Provider struct {
+	client   *http.Client
+	endpoint string
+}
+
+// DefaultModel is the current balanced Claude vision model.
+const DefaultModel = "claude-sonnet-5-5"
 
 // Response represents an Anthropic API response
 type Response struct {
@@ -56,16 +62,29 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 		return "", providers.UsageInfo{}, fmt.Errorf("ANTHROPIC_API_KEY environment variable not set")
 	}
 
-	// Determine media type (Claude uses "media_type" instead of "mime_type")
-	mediaType := mime.TypeByExtension(filepath.Ext(imagePath))
-	if mediaType == "" {
-		mediaType = "image/jpeg"
+	if config.Model == "" {
+		config.Model = DefaultModel
+	}
+	imageRequest, err := providers.LegacyRequest(config, imagePath, imageBase64, 50<<20)
+	if err != nil {
+		return "", providers.UsageInfo{}, err
+	}
+	mediaType := imageRequest.Image.MediaType
+	limit := config.MaxOutputTokens
+	if limit == 0 {
+		limit = 4096
+		if modernModel(config.Model) {
+			limit = 16000
+		}
+	}
+	if limit < 0 {
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
 
 	// Prepare request body for Claude API
 	requestBody := map[string]interface{}{
 		"model":      config.Model,
-		"max_tokens": 4096,
+		"max_tokens": limit,
 		"messages": []map[string]interface{}{
 			{
 				"role": "user",
@@ -88,17 +107,29 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	}
 
 	// Add temperature if specified
-	if config.Temperature > 0 {
+	if !modernModel(config.Model) && config.Temperature > 0 {
 		requestBody["temperature"] = config.Temperature
 	}
 
+	if config.ReasoningEffort != "" {
+		switch config.ReasoningEffort {
+		case "low", "medium", "high", "xhigh", "max":
+		default:
+			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+		}
+		requestBody["output_config"] = map[string]string{"effort": config.ReasoningEffort}
+	}
 	requestJSON, err := json.Marshal(requestBody)
 	if err != nil {
 		return "", providers.UsageInfo{}, fmt.Errorf("failed to marshal request: %w", err)
 	}
 
 	// Make API request
-	req, err := http.NewRequestWithContext(ctx, "POST", "https://api.anthropic.com/v1/messages", bytes.NewBuffer(requestJSON))
+	endpoint := p.endpoint
+	if endpoint == "" {
+		endpoint = "https://api.anthropic.com/v1/messages"
+	}
+	req, err := http.NewRequestWithContext(ctx, "POST", endpoint, bytes.NewBuffer(requestJSON))
 	if err != nil {
 		return "", providers.UsageInfo{}, err
 	}
@@ -107,7 +138,11 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	req.Header.Set("x-api-key", apiKey)
 	req.Header.Set("anthropic-version", "2023-06-01")
 
-	client := &http.Client{Timeout: config.Timeout}
+	timeout := config.Timeout
+	if timeout <= 0 {
+		timeout = 15 * time.Minute
+	}
+	client := httpclient.Secure(p.client, timeout)
 	resp, err := client.Do(req)
 	if err != nil {
 		return "", providers.UsageInfo{}, err
@@ -115,41 +150,48 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	defer resp.Body.Close()
 
 	// Read response body once for both parsing and error logging
-	body, err := io.ReadAll(resp.Body)
+	body, err := httpclient.ReadAll(resp.Body, 8<<20)
 	if err != nil {
 		return "", providers.UsageInfo{}, fmt.Errorf("failed to read response body: %w", err)
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return "", providers.UsageInfo{}, fmt.Errorf("claude API error: %d - %s", resp.StatusCode, string(body))
+		return "", providers.UsageInfo{}, providers.ErrorForStatus(resp.StatusCode)
 	}
 
 	var claudeResp Response
 	if err := json.Unmarshal(body, &claudeResp); err != nil {
-		return "", providers.UsageInfo{}, fmt.Errorf("failed to parse JSON response: %w - body: %s", err, providers.TruncateBody(body))
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, resp.StatusCode, false, nil)
 	}
 
 	if len(claudeResp.Content) == 0 {
-		return "", providers.UsageInfo{}, fmt.Errorf("no response from Claude - body: %s", providers.TruncateBody(body))
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, resp.StatusCode, false, nil)
 	}
 
-	// Extract text from the first text content block
-	var extractedText string
+	// Join all text blocks, excluding adaptive thinking.
+	var extractedText strings.Builder
 	for _, content := range claudeResp.Content {
 		if content.Type == "text" {
-			extractedText = content.Text
-			break
+			extractedText.WriteString(content.Text)
 		}
 	}
 
-	if extractedText == "" {
-		return "", providers.UsageInfo{}, fmt.Errorf("no text content in Claude response - body: %s", providers.TruncateBody(body))
+	usage := providers.UsageInfo{InputTokens: claudeResp.Usage.InputTokens, OutputTokens: claudeResp.Usage.OutputTokens}
+	if claudeResp.StopReason == "max_tokens" {
+		return extractedText.String(), usage, providers.NewError(providers.ErrorOutputLimit, resp.StatusCode, false, nil)
+	}
+	if extractedText.Len() == 0 {
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, resp.StatusCode, false, nil)
 	}
 
-	usage := providers.UsageInfo{
-		InputTokens:  claudeResp.Usage.InputTokens,
-		OutputTokens: claudeResp.Usage.OutputTokens,
-	}
+	return providers.ProcessResponse(p, extractedText.String()), usage, nil
+}
 
-	return providers.ProcessResponse(p, extractedText), usage, nil
+func modernModel(model string) bool {
+	for _, prefix := range []string{"claude-sonnet-5", "claude-opus-5", "claude-haiku-5", "claude-fable-5", "claude-opus-4-7"} {
+		if strings.HasPrefix(model, prefix) {
+			return true
+		}
+	}
+	return false
 }

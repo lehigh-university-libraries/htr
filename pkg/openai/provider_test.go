@@ -185,3 +185,60 @@ func testRequest(image []byte) providers.Request {
 func staticKey(value string) CredentialSource {
 	return func(context.Context) (string, error) { return value, nil }
 }
+
+func TestCurrentVisionModels(t *testing.T) {
+	for _, model := range []string{"gpt-6.1-sol", "gpt-6-astra", "gpt-6-luna", "gpt-4o"} {
+		t.Run(model, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				var body map[string]json.RawMessage
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+					return
+				}
+				_, hasTemperature := body["temperature"]
+				if hasTemperature != (model == "gpt-4o") {
+					t.Errorf("temperature present=%v for %s", hasTemperature, model)
+				}
+				if model != "gpt-4o" && string(body["reasoning_effort"]) != `"low"` {
+					t.Errorf("effort=%s", body["reasoning_effort"])
+				}
+				if string(body["model"]) != `"`+model+`"` || string(body["max_completion_tokens"]) != "16000" {
+					t.Errorf("request=%s", body)
+				}
+				_, _ = w.Write([]byte(`{"choices":[{"finish_reason":"stop","message":{"content":"café"}}],"usage":{"prompt_tokens":20,"completion_tokens":12,"completion_tokens_details":{"reasoning_tokens":9}}}`))
+			}))
+			defer server.Close()
+			client, err := NewClient(Options{Endpoint: server.URL, APIKey: staticKey("key"), MaxOutputTokens: 16000})
+			if err != nil {
+				t.Fatal(err)
+			}
+			request := testRequest([]byte("image"))
+			request.Model = model
+			result, err := client.Extract(t.Context(), request)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if result.Text != "café" || result.Usage.OutputTokens != 3 || result.Usage.ThoughtTokens != 9 {
+				t.Fatalf("result=%+v", result)
+			}
+		})
+	}
+}
+
+func TestReasoningOutputLimitRetainsUsage(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"choices":[{"finish_reason":"length","message":{"content":""}}],"usage":{"prompt_tokens":20,"completion_tokens":12,"completion_tokens_details":{"reasoning_tokens":12}}}`))
+	}))
+	defer server.Close()
+	client, err := NewClient(Options{Endpoint: server.URL, APIKey: staticKey("key")})
+	if err != nil {
+		t.Fatal(err)
+	}
+	request := testRequest([]byte("image"))
+	request.Model = DefaultModel
+	result, err := client.Extract(t.Context(), request)
+	var providerErr *providers.Error
+	if !errors.As(err, &providerErr) || providerErr.Kind != providers.ErrorOutputLimit || result.Usage.ThoughtTokens != 12 {
+		t.Fatalf("result=%+v error=%v", result, err)
+	}
+}

@@ -1,7 +1,9 @@
 package claude
 
 import (
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -68,147 +70,6 @@ func TestProvider_ValidateConfig(t *testing.T) {
 	}
 }
 
-func TestProvider_ExtractText(t *testing.T) {
-	tests := []struct {
-		name           string
-		serverResponse string
-		statusCode     int
-		expectedText   string
-		expectError    bool
-		errorContains  string
-	}{
-		{
-			name:       "successful response",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"content": [
-					{
-						"type": "text",
-						"text": "This is extracted text from the image"
-					}
-				],
-				"stop_reason": "end_turn"
-			}`,
-			expectedText: "This is extracted text from the image",
-			expectError:  false,
-		},
-		{
-			name:       "response with cleaning needed",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"content": [
-					{
-						"type": "text",
-						"text": "Here's the text extracted from the image: \"Cleaned text\""
-					}
-				],
-				"stop_reason": "end_turn"
-			}`,
-			expectedText: "Cleaned text",
-			expectError:  false,
-		},
-		{
-			name:       "API error response",
-			statusCode: http.StatusBadRequest,
-			serverResponse: `{
-				"error": {
-					"type": "invalid_request_error",
-					"message": "Invalid request"
-				}
-			}`,
-			expectError:   true,
-			errorContains: "claude API error",
-		},
-		{
-			name:       "empty content",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"content": [],
-				"stop_reason": "end_turn"
-			}`,
-			expectError:   true,
-			errorContains: "no response from Claude",
-		},
-		{
-			name:       "no text content",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"content": [
-					{
-						"type": "other",
-						"text": "This should not be returned"
-					}
-				],
-				"stop_reason": "end_turn"
-			}`,
-			expectError:   true,
-			errorContains: "no text content in Claude response",
-		},
-		{
-			name:       "malformed JSON",
-			statusCode: http.StatusOK,
-			serverResponse: `{
-				"invalid": json
-			}`,
-			expectError: true,
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			// Create mock server
-			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-				// Verify request method and headers
-				if r.Method != http.MethodPost {
-					t.Errorf("Expected POST request, got %s", r.Method)
-				}
-				if r.Header.Get("Content-Type") != "application/json" {
-					t.Errorf("Expected application/json content type")
-				}
-				if r.Header.Get("x-api-key") == "" {
-					t.Errorf("Expected x-api-key header")
-				}
-				if r.Header.Get("anthropic-version") == "" {
-					t.Errorf("Expected anthropic-version header")
-				}
-
-				// Verify request body structure
-				var reqBody map[string]interface{}
-				if err := json.NewDecoder(r.Body).Decode(&reqBody); err == nil {
-					if model, ok := reqBody["model"].(string); !ok || model == "" {
-						t.Error("Expected model in request body")
-					}
-					if messages, ok := reqBody["messages"].([]interface{}); !ok || len(messages) == 0 {
-						t.Error("Expected messages in request body")
-					}
-					if maxTokens, ok := reqBody["max_tokens"].(float64); !ok || maxTokens <= 0 {
-						t.Error("Expected max_tokens in request body")
-					}
-				}
-
-				w.WriteHeader(tt.statusCode)
-				if _, err := w.Write([]byte(tt.serverResponse)); err != nil {
-					t.Errorf("Failed to write response: %v", err)
-				}
-			}))
-			defer server.Close()
-
-			// Set environment variable
-			original := os.Getenv("ANTHROPIC_API_KEY")
-			defer os.Setenv("ANTHROPIC_API_KEY", original)
-			os.Setenv("ANTHROPIC_API_KEY", "sk-ant-test-key")
-
-			if tt.statusCode == http.StatusOK && !tt.expectError {
-				p := New()
-				cleaned := providers.ProcessResponse(p, tt.expectedText)
-				if cleaned != tt.expectedText {
-					t.Logf("Response cleaning changed text from '%s' to '%s'", tt.expectedText, cleaned)
-				}
-			}
-		})
-	}
-}
-
 func TestCleanResponse(t *testing.T) {
 	tests := []struct {
 		name     string
@@ -260,5 +121,58 @@ func TestCleanResponse(t *testing.T) {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}
 		})
+	}
+}
+
+func TestCurrentModelsExtractText(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	for _, model := range []string{DefaultModel, "claude-opus-5-5", "claude-haiku-5-5", "claude-fable-5-1", "claude-sonnet-4-5-20250929"} {
+		t.Run(model, func(t *testing.T) {
+			server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if r.Header.Get("x-api-key") != "test-key" || r.Header.Get("anthropic-version") != "2023-06-01" {
+					t.Error("missing authentication/version")
+				}
+				var body map[string]any
+				if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+					t.Error(err)
+					return
+				}
+				_, hasTemperature := body["temperature"]
+				if hasTemperature == modernModel(model) {
+					t.Errorf("temperature present=%v for %s", hasTemperature, model)
+				}
+				limit := float64(4096)
+				if modernModel(model) {
+					limit = 16000
+				}
+				if body["max_tokens"] != limit || body["model"] != model {
+					t.Errorf("body=%v", body)
+				}
+				_, _ = w.Write([]byte(`{"content":[{"type":"thinking","thinking":"private"},{"type":"text","text":"café "},{"type":"text","text":"世界"}],"stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":12}}`))
+			}))
+			defer server.Close()
+			provider := &Provider{endpoint: server.URL}
+			text, usage, err := provider.ExtractText(t.Context(), providers.Config{Model: model, Prompt: "Transcribe", Temperature: 0.5}, "page.png", base64.StdEncoding.EncodeToString([]byte("image")))
+			if err != nil {
+				t.Fatal(err)
+			}
+			if text != "café 世界" || usage.OutputTokens != 12 {
+				t.Fatalf("text=%q usage=%+v", text, usage)
+			}
+		})
+	}
+}
+
+func TestOutputLimitRetainsUsage(t *testing.T) {
+	t.Setenv("ANTHROPIC_API_KEY", "test-key")
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte(`{"content":[{"type":"thinking","thinking":"private"}],"stop_reason":"max_tokens","usage":{"input_tokens":10,"output_tokens":16000}}`))
+	}))
+	defer server.Close()
+	provider := &Provider{endpoint: server.URL}
+	_, usage, err := provider.ExtractText(t.Context(), providers.Config{Model: DefaultModel, Prompt: "Transcribe"}, "page.png", base64.StdEncoding.EncodeToString([]byte("image")))
+	var providerErr *providers.Error
+	if !errors.As(err, &providerErr) || providerErr.Kind != providers.ErrorOutputLimit || usage.OutputTokens != 16000 {
+		t.Fatalf("usage=%+v error=%v", usage, err)
 	}
 }
