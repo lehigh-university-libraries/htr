@@ -52,7 +52,7 @@ func init() {
 	ocrCmd.Flags().BoolVar(&ocrDebug, "debug", false, "Print provider debug output when supported")
 	ocrCmd.Flags().StringVar(&ocrMaxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	ocrCmd.Flags().BoolVar(&ocrMaxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
-	addGeminiSpendFlags(ocrCmd, &ocrThinkingLevel, &ocrMaxOutputTokens)
+	addProviderSpendFlags(ocrCmd, &ocrThinkingLevel, &ocrMaxOutputTokens)
 	addReasoningFlag(ocrCmd, &ocrReasoningEffort)
 
 	err := ocrCmd.MarkFlagRequired("image")

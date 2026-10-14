@@ -90,7 +90,7 @@ func init() {
 	layoutCmd.Flags().StringVar(&layoutResponsePath, "response-output", "", "Also write the raw model response to this file")
 	layoutCmd.Flags().BoolVar(&layoutDebug, "debug", false, "Print provider debug output when supported")
 	layoutCmd.Flags().StringVar(&layoutMaxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
-	addGeminiSpendFlags(layoutCmd, &layoutThinkingLevel, &layoutMaxOutputTokens)
+	addProviderSpendFlags(layoutCmd, &layoutThinkingLevel, &layoutMaxOutputTokens)
 	addReasoningFlag(layoutCmd, &layoutReasoningEffort)
 
 	for _, flag := range []string{"image"} {
@@ -266,8 +266,8 @@ func (c *legacyClient) Extract(ctx context.Context, request providers.Request) (
 	return providers.Result{Text: text, Usage: usage, EffectiveModel: request.Model}, err
 }
 
-// addGeminiSpendFlags registers the Gemini thinking and output budget flags.
-func addGeminiSpendFlags(command *cobra.Command, thinkingLevel *string, maxOutputTokens *int) {
+// addProviderSpendFlags registers output budgets and Gemini thinking controls.
+func addProviderSpendFlags(command *cobra.Command, thinkingLevel *string, maxOutputTokens *int) {
 	command.Flags().StringVar(thinkingLevel, "gemini-thinking-level", "", "Gemini thinking level: minimal, low, medium, high (Gemini 4 rejects minimal; empty uses the model default)")
 	command.Flags().IntVar(maxOutputTokens, "max-output-tokens", 0, "Output budget for OpenAI, Claude or Gemini (0 uses the provider default)")
 	command.Flags().IntVar(maxOutputTokens, "gemini-max-output-tokens", 0, "Gemini output budget covering thinking and response tokens (0 uses the model default)")
@@ -278,7 +278,7 @@ func validateGeminiSpendFlags(thinkingLevel string, maxOutputTokens int) error {
 		return fmt.Errorf("invalid --gemini-thinking-level value %q: use minimal, low, medium, or high", thinkingLevel)
 	}
 	if maxOutputTokens < 0 {
-		return fmt.Errorf("invalid --gemini-max-output-tokens value %d: must not be negative", maxOutputTokens)
+		return fmt.Errorf("invalid output token budget %d: must not be negative", maxOutputTokens)
 	}
 	return nil
 }

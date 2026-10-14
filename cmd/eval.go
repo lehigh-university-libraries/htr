@@ -68,8 +68,9 @@ type EvalResult struct {
 	Insertions            int     `json:"insertions"`
 	IgnoredCharsCount     int     `json:"ignored_chars_count"`
 	InputTokens           int     `json:"input_tokens,omitempty"`
-	OutputTokens          int     `json:"output_tokens,omitempty"`
-	ThoughtTokens         int     `json:"thought_tokens,omitempty"`
+	// OutputTokens includes billed thinking; ThoughtTokens is a breakdown.
+	OutputTokens  int `json:"output_tokens,omitempty"`
+	ThoughtTokens int `json:"thought_tokens,omitempty"`
 }
 
 type EvalSummary struct {
@@ -113,7 +114,7 @@ HTR automatically skips the corresponding LLM output when calculating accuracy m
 
 Examples:
   # Mark unknown characters with pipe
-  htr eval --provider openai --model gpt-4o --prompt "Extract text" --csv data.csv --ignore '|'
+  htr eval --provider openai --model gpt-6.1-sol --prompt "Extract text" --csv data.csv --ignore '|'
 
   # Use multiple ignore patterns
   htr eval --provider gemini --model gemini-4-argon --prompt "Extract text" --csv data.csv --ignore '|' --ignore ','
@@ -252,7 +253,7 @@ func init() {
 	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
 	evalCmd.Flags().StringVar(&maxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	evalCmd.Flags().BoolVar(&maxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
-	addGeminiSpendFlags(evalCmd, &thinkingLevel, &maxOutputTokens)
+	addProviderSpendFlags(evalCmd, &thinkingLevel, &maxOutputTokens)
 	addReasoningFlag(evalCmd, &reasoningEffort)
 
 	evalCmd.MarkFlagsRequiredTogether("csv", "prompt")

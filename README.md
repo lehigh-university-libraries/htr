@@ -130,7 +130,7 @@ htr ocr \
 htr ocr \
   --image https://example.org/page.jpg \
   --provider ollama \
-  --model mistral-small3.2:24b \
+  --model gemma4:e4b \
   --prompt "Extract all handwritten and printed text. Return only the text."
 ```
 
@@ -173,7 +173,7 @@ htr eval \
 ```bash
 htr eval \
   --provider ollama \
-  --model mistral-small3.2:24b \
+  --model gemma4:e4b \
   --prompt "Extract all text from this image" \
   --temperature 0.0 \
   --csv fixtures/images.csv \
@@ -277,7 +277,7 @@ Create hOCR XML files from images using custom word detection and LLM transcript
 
 ```bash
 # Create hOCR XML from an image (prints to stdout)
-htr create --image path/to/image.jpg --provider ollama --model llava
+htr create --image path/to/image.jpg --provider ollama --model gemma4:e4b
 
 # Save output to a file
 htr create --image path/to/image.jpg --provider openai --model gpt-6.1-sol -o output.hocr
