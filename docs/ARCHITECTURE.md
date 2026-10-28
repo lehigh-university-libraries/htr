@@ -36,6 +36,9 @@ contract and extension checklist.
   - Also includes `summary`, `csv`, `backfill`, and `cost` commands
 - `eval-external.go`: Evaluation command for external model transcriptions
 - `create.go`: Command for creating hOCR XML from images using custom word detection and LLM transcription
+- `layout.go`: Command that fills a blank PageXML/hOCR template via `pkg/layout`;
+  also holds the adapter that exposes a registered CLI provider as a
+  `providers.Client`
 
 **Evaluation System**
 - Supports CSV-based batch evaluation of images against ground truth transcripts
@@ -49,6 +52,15 @@ contract and extension checklist.
 - Calculates average tokens per document (input and output separately)
 - Projects costs for large-scale transcription based on user-provided pricing
 - Supports different pricing models (input vs output token pricing)
+
+**Layout Templates (`pkg/layout/`)**
+- `layout.Fill` sends an image plus a blank PageXML/hOCR template to any
+  `providers.Client` and returns the filled template
+- The model's document is parsed only for text: targets are matched by ID and
+  text is spliced into the original template bytes using decoder offsets, so
+  namespaces, prefixes, coordinates, and unrelated markup round-trip exactly
+- Targets are words, or lines that have no words; template elements with no
+  ID get temporary `htr-N` IDs in the prompt only
 
 **HOCR Support (`pkg/hocr/`)**
 - Models for parsing OCR response structures with bounding boxes
@@ -122,3 +134,24 @@ func (c *Client) Extract(ctx context.Context, request providers.Request) (provid
 3. Apply user-provided pricing (per million tokens) for input and output
 4. Compute per-document cost and project total cost for N documents
 5. Display detailed breakdown of token statistics and cost estimates
+
+## Geometry-aware OCR and layout evaluation
+
+`pkg/ocrpage` owns the provider-neutral page, geometry, interchange readers and
+writers, IIIF selectors and versioned htr JSON. `pkg/segeval` evaluates pages
+without I/O using registered document profiles. `pkg/segment` declares provider
+capabilities independently of the text-only `providers.Client` contract.
+`pkg/pipeline` composes segmentation and bounded crop recognition.
+
+Local providers are `kraken`, `ppdoclayout` and `layout+kraken`; cloud parsers are
+`azure-layout` and `textract`. `pkg/segment/remote` implements v2 and optional v1
+fallback. `pkg/mistral` and the generic OpenAI-compatible adapter produce text.
+The complete command, profile, environment and result contracts are documented
+in [SEGEVAL.md](SEGEVAL.md); selection gates remain in [ROADMAP.md](ROADMAP.md).
+
+New environment settings are `KRAKEN_SEGMENTATION_MODEL`,
+`PADDLE_LAYOUT_MODEL_DIR`, `HTR_REMOTE_SEGMENT_URL`, optional `HTR_REMOTE_TOKEN`,
+`OPENAI_COMPATIBLE_API_KEY` and `MISTRAL_API_KEY`. Azure retains `AZURE_OCR_*`;
+Textract uses the AWS SDK credential/profile chain and region configuration.
+No library constructor reads these settings, except the SDK's explicitly chosen
+standard credential-chain constructor. CLI adapters own environment access.

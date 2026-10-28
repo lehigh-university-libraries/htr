@@ -121,6 +121,12 @@ func outputResult(hocrXML string) error {
 
 func getDefaultModel(providerName string) string {
 	switch providerName {
+	case "mistral-ocr":
+		return "mistral-ocr-latest"
+	case "azure-layout":
+		return "prebuilt-layout"
+	case "textract":
+		return "analyze-document"
 	case "openai":
 		if model := os.Getenv("OPENAI_MODEL"); model != "" {
 			return model

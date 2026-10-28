@@ -22,14 +22,19 @@ import (
 	"github.com/lehigh-university-libraries/htr/pkg/claude"
 	"github.com/lehigh-university-libraries/htr/pkg/gemini"
 	htrmetrics "github.com/lehigh-university-libraries/htr/pkg/metrics"
+	"github.com/lehigh-university-libraries/htr/pkg/mistral"
 	"github.com/lehigh-university-libraries/htr/pkg/ollama"
 	"github.com/lehigh-university-libraries/htr/pkg/openai"
 	"github.com/lehigh-university-libraries/htr/pkg/providers"
+	"github.com/lehigh-university-libraries/htr/pkg/segment/kraken"
 	"github.com/spf13/cobra"
 	yaml "go.yaml.in/yaml/v3"
 )
 
 type EvalConfig struct {
+	Endpoint       string        `json:"endpoint,omitempty" yaml:"endpoint,omitempty"`
+	APIKeyEnv      string        `json:"-" yaml:"-"`
+	Normalize      string        `json:"normalize,omitempty" yaml:"normalize,omitempty"`
 	Provider       string        `json:"provider"`
 	Model          string        `json:"model"`
 	Prompt         string        `json:"prompt"`
@@ -50,6 +55,7 @@ type EvalConfig struct {
 }
 
 type EvalResult struct {
+	Pages                 int     `json:"pages,omitempty" yaml:"pages,omitempty"`
 	Identifier            string  `json:"identifier"`
 	ImagePath             string  `json:"image_path"`
 	TranscriptPath        string  `json:"transcript_path"`
@@ -173,7 +179,8 @@ This command reads an evaluation file containing token usage data and calculates
 - Average input and output tokens per document
 - Estimated cost for a given number of documents
 
-Requires --input-price and --output-price flags (cost per million tokens).
+Use --input-price and --output-price for token billing, or --page-price for
+page-billed OCR results.
 Optionally specify --doc-count to estimate cost for a specific number of documents.`,
 	RunE: runCost,
 	Args: cobra.ExactArgs(1),
@@ -197,6 +204,10 @@ var (
 	thinkingLevel         string
 	maxOutputTokens       int
 	reasoningEffort       string
+	evalNormalize         string
+	evalEndpoint          string
+	evalAPIKeyEnv         string
+	backfillNormalize     string
 
 	// from https://ai.google.dev/gemini-api/docs/media-resolution#available_resolution_values
 	allowedMediaResolutions = []string{
@@ -214,6 +225,7 @@ var (
 
 	// Cost command flags
 	costInputPrice  float64
+	costPagePrice   float64
 	costOutputPrice float64
 	costDocCount    int
 
@@ -226,6 +238,11 @@ func init() {
 	// Initialize provider registry
 	providerRegistry = providers.NewRegistry()
 	providerRegistry.Register(openai.New())
+	providerRegistry.Register(openai.NewCompatible())
+	providerRegistry.Register(mistral.New())
+	providerRegistry.Register(&kraken.Provider{})
+	providerRegistry.Register(groundedProvider{"azure-layout"})
+	providerRegistry.Register(groundedProvider{"textract"})
 	providerRegistry.Register(azure.New())
 	providerRegistry.Register(claude.New())
 	providerRegistry.Register(gemini.New())
@@ -238,7 +255,7 @@ func init() {
 	RootCmd.AddCommand(costCmd)
 
 	// Eval command flags
-	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider to use: openai, azure, claude, gemini, ollama")
+	evalCmd.Flags().StringVar(&evalProvider, "provider", "openai", "Provider: openai, openai-compatible, azure, azure-layout, textract, mistral-ocr, kraken, claude, gemini, ollama")
 	evalCmd.Flags().StringVarP(&evalModel, "model", "m", "", "Model to use (uses the selected provider default)")
 	evalCmd.Flags().StringVarP(&evalPrompt, "prompt", "p", "", "Prompt to send to the provider")
 	evalCmd.Flags().Float64VarP(&evalTemperature, "temperature", "t", 0.0, "Temperature for API")
@@ -251,6 +268,9 @@ func init() {
 	evalCmd.Flags().StringSliceVar(&ignorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
 
 	evalCmd.Flags().BoolVar(&singleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
+	evalCmd.Flags().StringVar(&evalNormalize, "normalize", "none", "Hypothesis normalization: none or markdown")
+	evalCmd.Flags().StringVar(&evalEndpoint, "endpoint", "", "Exact OpenAI-compatible chat-completions endpoint")
+	evalCmd.Flags().StringVar(&evalAPIKeyEnv, "api-key-env", "OPENAI_COMPATIBLE_API_KEY", "Environment variable holding the compatible API credential")
 	evalCmd.Flags().StringVar(&maxResolution, "gemini-max-resolution", "MEDIA_RESOLUTION_UNSPECIFIED", "Max resolution for Gemini models (e.g., MEDIA_RESOLUTION_HIGH)")
 	evalCmd.Flags().BoolVar(&maxResolutionFallback, "gemini-max-resolution-fallback", false, "Automatically retry with lower resolution if MAX_TOKENS error occurs")
 	addProviderSpendFlags(evalCmd, &thinkingLevel, &maxOutputTokens)
@@ -263,13 +283,16 @@ func init() {
 	backfillCmd.Flags().StringSliceVar(&backfillIgnorePatterns, "ignore", []string{}, "Override ignore patterns for all evaluations (e.g., --ignore '|' --ignore ',')")
 	backfillCmd.Flags().BoolVar(&backfillSingleLine, "single-line", false, "Override single-line flag for all evaluations")
 	backfillCmd.Flags().BoolVar(&backfillOverride, "override", false, "Force override of saved flags (use CLI flags for all evaluations)")
+	backfillCmd.Flags().StringVar(&backfillNormalize, "normalize", "none", "Override hypothesis normalization: none or markdown")
 
 	// Cost command flags
 	costCmd.Flags().Float64Var(&costInputPrice, "input-price", 0.0, "Cost per million input tokens (e.g., 1.25 for $1.25/1M)")
 	costCmd.Flags().Float64Var(&costOutputPrice, "output-price", 0.0, "Cost per million output tokens (e.g., 10.0 for $10.00/1M)")
 	costCmd.Flags().IntVar(&costDocCount, "doc-count", 1000, "Number of documents to estimate cost for")
-	_ = costCmd.MarkFlagRequired("input-price")
-	_ = costCmd.MarkFlagRequired("output-price")
+	costCmd.Flags().Float64Var(&costPagePrice, "page-price", 0, "Cost per OCR page (instead of token prices)")
+	costCmd.MarkFlagsOneRequired("input-price", "page-price")
+	costCmd.MarkFlagsRequiredTogether("input-price", "output-price")
+	costCmd.MarkFlagsMutuallyExclusive("page-price", "input-price")
 
 	// CSV command flags
 	csvCmd.Flags().Float64Var(&csvInputPrice, "input-price", 0.0, "Cost per million input tokens (optional)")
@@ -289,6 +312,9 @@ func runEval(cmd *cobra.Command, args []string) error {
 		fmt.Printf("Loaded configuration from %s\n", evalConfigPath)
 	} else {
 		config = EvalConfig{
+			Endpoint:       evalEndpoint,
+			APIKeyEnv:      evalAPIKeyEnv,
+			Normalize:      evalNormalize,
 			Provider:       evalProvider,
 			Model:          evalModel,
 			Prompt:         evalPrompt,
@@ -307,6 +333,17 @@ func runEval(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Credentials are selected by this invocation, never by replayed YAML.
+	config.APIKeyEnv = evalAPIKeyEnv
+	if cmd.Flags().Changed("normalize") {
+		config.Normalize = evalNormalize
+	}
+	if config.Provider == "mistral-ocr" && config.Normalize == "none" && !cmd.Flags().Changed("normalize") && evalConfigPath == "" {
+		config.Normalize = "markdown"
+	}
+	if err := validateNormalization(config.Normalize); err != nil {
+		return err
+	}
 	if config.Model == "" {
 		config.Model = getDefaultModel(config.Provider)
 	}
@@ -358,6 +395,11 @@ func runSummary(cmd *cobra.Command, args []string) error {
 		if err != nil {
 			return fmt.Errorf("failed to list eval files: %w", err)
 		}
+		segFiles, err := segmentationFiles()
+		if err != nil {
+			return err
+		}
+		files = append(files, segFiles...)
 
 		if len(files) == 0 {
 			fmt.Println("No evaluation files found in evals/ directory.")
@@ -366,7 +408,7 @@ func runSummary(cmd *cobra.Command, args []string) error {
 
 		fmt.Println("Available evaluation files:")
 		for _, file := range files {
-			fmt.Printf("  %s\n", filepath.Base(file))
+			fmt.Printf("  %s\n", file)
 		}
 		fmt.Println("\nUse: htr summary <filename>")
 		return nil
@@ -389,6 +431,22 @@ func runSummary(cmd *cobra.Command, args []string) error {
 	}
 
 	var summary EvalSummary
+	var kind struct {
+		Config struct {
+			Kind string `yaml:"kind"`
+		} `yaml:"config"`
+	}
+	if err := yaml.Unmarshal(data, &kind); err != nil {
+		return err
+	}
+	if kind.Config.Kind == "segmentation" {
+		s, err := loadSegSummary(evalFile)
+		if err != nil {
+			return err
+		}
+		printSegSummary(cmd.OutOrStdout(), s)
+		return nil
+	}
 	if err := yaml.Unmarshal(data, &summary); err != nil {
 		return fmt.Errorf("failed to parse eval file: %w", err)
 	}
@@ -410,6 +468,12 @@ func runSummary(cmd *cobra.Command, args []string) error {
 }
 
 func runCSV(cmd *cobra.Command, args []string) error {
+	if csvKind == "segmentation" {
+		return segmentationCSV(cmd.OutOrStdout())
+	}
+	if csvKind != "transcription" {
+		return fmt.Errorf("invalid --kind %q", csvKind)
+	}
 	evalsDir := "evals"
 
 	// Find all YAML files
@@ -462,7 +526,7 @@ func runCSV(cmd *cobra.Command, args []string) error {
 				// Calculate on the fly using ground truth from TranscriptPath
 				// Use the original flags from the evaluation config
 				if groundTruth, err := readTextFile(result.TranscriptPath); err == nil {
-					metrics := CalculateAccuracyMetrics(groundTruth, result.ProviderResponse, ignorePatterns, singleLine)
+					metrics := CalculateAccuracyMetrics(groundTruth, result.ProviderResponse, ignorePatterns, singleLine, summary.Config.Normalize)
 					charAcc = metrics.CharacterAccuracy
 				}
 			}
@@ -561,6 +625,15 @@ func runCSV(cmd *cobra.Command, args []string) error {
 }
 
 func runBackfill(cmd *cobra.Command, args []string) error {
+	if err := validateNormalization(backfillNormalize); err != nil {
+		return err
+	}
+	if backfillKind == "segmentation" {
+		return backfillSegmentation(cmd)
+	}
+	if backfillKind != "transcription" {
+		return fmt.Errorf("unknown result kind %q", backfillKind)
+	}
 	evalsDir := "evals"
 
 	// Find all YAML files
@@ -638,6 +711,10 @@ func runBackfill(cmd *cobra.Command, args []string) error {
 
 		// Recalculate metrics for all results
 		needsUpdate := false
+		if cmd.Flags().Changed("normalize") && summary.Config.Normalize != backfillNormalize {
+			summary.Config.Normalize = backfillNormalize
+			needsUpdate = true
+		}
 		for i := range summary.Results {
 			if summary.Results[i].ProviderResponse == "" {
 				continue
@@ -646,18 +723,24 @@ func runBackfill(cmd *cobra.Command, args []string) error {
 			// Read ground truth from stored path
 			groundTruth, err := readTextFile(summary.Results[i].TranscriptPath)
 			if err != nil {
+				if cmd.Flags().Changed("normalize") {
+					return fmt.Errorf("cannot change normalization without ground truth: %w", err)
+				}
 				fmt.Printf("Warning: failed to read transcript %s: %v\n", summary.Results[i].TranscriptPath, err)
 				continue
 			}
 
 			// Recalculate all metrics
-			metrics := CalculateAccuracyMetrics(groundTruth, summary.Results[i].ProviderResponse, ignorePatterns, singleLine)
+			normalize := summary.Config.Normalize
+			if cmd.Flags().Changed("normalize") {
+				normalize = backfillNormalize
+			}
+			metrics := CalculateAccuracyMetrics(groundTruth, summary.Results[i].ProviderResponse, ignorePatterns, singleLine, normalize)
 
-			// Check if we need to update any metrics
-			if summary.Results[i].CharacterAccuracy != metrics.CharacterAccuracy ||
-				summary.Results[i].WordSimilarity != metrics.WordSimilarity {
-				summary.Results[i].CharacterAccuracy = metrics.CharacterAccuracy
-				summary.Results[i].WordSimilarity = metrics.WordSimilarity
+			updated := summary.Results[i]
+			copyAccuracyMetrics(&updated, metrics)
+			if updated != summary.Results[i] {
+				summary.Results[i] = updated
 				needsUpdate = true
 			}
 		}
@@ -803,9 +886,10 @@ func processRow(row []string, config EvalConfig) (EvalResult, error) {
 		return EvalResult{}, fmt.Errorf("provider API call failed: %w", err)
 	}
 
-	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse, ignorePatterns, singleLine)
+	metrics := CalculateAccuracyMetrics(groundTruth, providerResponse, config.IgnorePatterns, config.SingleLine, config.Normalize)
 
 	result := EvalResult{
+		Pages:                 usage.Pages,
 		Identifier:            filepath.Base(imagePath),
 		ImagePath:             imagePath,
 		TranscriptPath:        transcriptPath,
@@ -892,6 +976,8 @@ func extractTextWithProvider(config EvalConfig, imagePath, imageBase64 string) (
 
 	// Convert EvalConfig to providers.Config
 	providerConfig := providers.Config{
+		BaseURL:               config.Endpoint,
+		APIKeyEnv:             config.APIKeyEnv,
 		Provider:              config.Provider,
 		Model:                 config.Model,
 		Prompt:                config.Prompt,
@@ -985,8 +1071,9 @@ func calculateSimilarity(s1, s2 string) float64 {
 	return htrmetrics.Similarity(s1, s2)
 }
 
-func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string, singleLine bool) EvalResult {
+func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []string, singleLine bool, normalize string) EvalResult {
 	result := htrmetrics.Evaluate(original, transcribed, htrmetrics.Options{
+		Normalize:      normalize,
 		IgnorePatterns: ignorePatterns,
 		SingleLine:     singleLine,
 	})
@@ -1007,6 +1094,9 @@ func CalculateAccuracyMetrics(original, transcribed string, ignorePatterns []str
 }
 
 func runCost(cmd *cobra.Command, args []string) error {
+	if costPagePrice < 0 || costDocCount < 0 {
+		return fmt.Errorf("cost and document count must be nonnegative")
+	}
 	evalsDir := "evals"
 	evalFile := args[0]
 
@@ -1028,6 +1118,21 @@ func runCost(cmd *cobra.Command, args []string) error {
 	var summary EvalSummary
 	if err := yaml.Unmarshal(data, &summary); err != nil {
 		return fmt.Errorf("failed to parse eval file: %w", err)
+	}
+	if cmd.Flags().Changed("page-price") {
+		pages, docs := 0, 0
+		for _, r := range summary.Results {
+			if r.Pages > 0 {
+				pages += r.Pages
+				docs++
+			}
+		}
+		if docs == 0 {
+			return fmt.Errorf("no page usage data found in evaluation file")
+		}
+		average := float64(pages) / float64(docs)
+		fmt.Fprintf(cmd.OutOrStdout(), "Average pages per document: %.2f\nCost per document: $%.6f\nEstimated cost for %d documents: $%.2f\n", average, average*costPagePrice, costDocCount, average*costPagePrice*float64(costDocCount))
+		return nil
 	}
 
 	// Calculate average tokens per document

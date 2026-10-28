@@ -1,0 +1,96 @@
+{
+  "height": 100,
+  "items": [
+    {
+      "body": [
+        {
+          "purpose": "transcribing",
+          "type": "TextualBody",
+          "value": "été 水\nsecond line"
+        },
+        {
+          "purpose": "classifying",
+          "type": "TextualBody",
+          "value": "text"
+        }
+      ],
+      "id": "r1",
+      "motivation": "supplementing",
+      "target": {
+        "selector": [
+          {
+            "conformsTo": "http://www.w3.org/TR/media-frags/",
+            "type": "FragmentSelector",
+            "value": "xywh=10,10,100,60"
+          },
+          {
+            "type": "SvgSelector",
+            "value": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\"\u003e\u003cpolygon points=\"10,10 110,10 110,70 10,70\"/\u003e\u003c/svg\u003e"
+          }
+        ],
+        "source": "",
+        "type": "SpecificResource"
+      },
+      "textGranularity": "block",
+      "type": "Annotation"
+    },
+    {
+      "body": [
+        {
+          "purpose": "transcribing",
+          "type": "TextualBody",
+          "value": "été 水"
+        }
+      ],
+      "id": "l1",
+      "motivation": "supplementing",
+      "target": {
+        "selector": [
+          {
+            "conformsTo": "http://www.w3.org/TR/media-frags/",
+            "type": "FragmentSelector",
+            "value": "xywh=10,10,100,20"
+          },
+          {
+            "type": "SvgSelector",
+            "value": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\"\u003e\u003cpolygon points=\"10,10 110,10 110,30 10,30\"/\u003e\u003cpolyline class=\"baseline\" points=\"10,25 110,25\"/\u003e\u003c/svg\u003e"
+          }
+        ],
+        "source": "",
+        "type": "SpecificResource"
+      },
+      "textGranularity": "line",
+      "type": "Annotation"
+    },
+    {
+      "body": [
+        {
+          "purpose": "transcribing",
+          "type": "TextualBody",
+          "value": "second line"
+        }
+      ],
+      "id": "l2",
+      "motivation": "supplementing",
+      "target": {
+        "selector": [
+          {
+            "conformsTo": "http://www.w3.org/TR/media-frags/",
+            "type": "FragmentSelector",
+            "value": "xywh=10,50,100,20"
+          },
+          {
+            "type": "SvgSelector",
+            "value": "\u003csvg xmlns=\"http://www.w3.org/2000/svg\"\u003e\u003cpolygon points=\"10,50 110,50 110,70 10,70\"/\u003e\u003cpolyline class=\"baseline\" points=\"10,65 110,65\"/\u003e\u003c/svg\u003e"
+          }
+        ],
+        "source": "",
+        "type": "SpecificResource"
+      },
+      "textGranularity": "line",
+      "type": "Annotation"
+    }
+  ],
+  "type": "AnnotationPage",
+  "width": 200
+}

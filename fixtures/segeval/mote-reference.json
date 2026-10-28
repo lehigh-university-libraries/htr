@@ -1,0 +1,89 @@
+{
+  "reference": "mote_error _core_bbox.bbox_mote_components",
+  "source": "https://github.com/THE-3TC/mote_error/tree/a74ebfac8bc3f3a13355e893a1fad5da482996d3",
+  "width": 200,
+  "height": 200,
+  "cases": [
+    {
+      "name": "identity",
+      "groundTruth": [
+        [
+          0,
+          0,
+          10,
+          10
+        ]
+      ],
+      "hypothesis": [
+        [
+          0,
+          0,
+          10,
+          10
+        ]
+      ],
+      "missing": 0.0,
+      "overlap": 0.0,
+      "trespass": 0.0,
+      "excess": 0.0
+    },
+    {
+      "name": "duplicate",
+      "groundTruth": [
+        [
+          0,
+          0,
+          10,
+          10
+        ]
+      ],
+      "hypothesis": [
+        [
+          0,
+          0,
+          10,
+          10
+        ],
+        [
+          0,
+          0,
+          10,
+          10
+        ]
+      ],
+      "missing": 0.0,
+      "overlap": 1.0,
+      "trespass": 0.0,
+      "excess": 0.0
+    },
+    {
+      "name": "crossing",
+      "groundTruth": [
+        [
+          0,
+          0,
+          10,
+          10
+        ],
+        [
+          20,
+          0,
+          10,
+          10
+        ]
+      ],
+      "hypothesis": [
+        [
+          0,
+          0,
+          30,
+          10
+        ]
+      ],
+      "missing": 0.0,
+      "overlap": 0.0,
+      "trespass": 0.5,
+      "excess": 0.002512562814070352
+    }
+  ]
+}

@@ -62,6 +62,7 @@ var (
 	evalExternalRows           []int
 	evalExternalIgnorePatterns []string
 	evalExternalSingleLine     bool
+	evalExternalNormalize      string
 )
 
 func init() {
@@ -73,6 +74,7 @@ func init() {
 	evalExternalCmd.Flags().IntSliceVar(&evalExternalRows, "rows", []int{}, "A list of row numbers to process")
 	evalExternalCmd.Flags().StringSliceVar(&evalExternalIgnorePatterns, "ignore", []string{}, "Characters or strings to ignore in ground truth (e.g., --ignore '|' --ignore ',')")
 	evalExternalCmd.Flags().BoolVar(&evalExternalSingleLine, "single-line", false, "Convert ground truth and transcripts to single line (remove newlines, carriage returns, tabs, and normalize spaces)")
+	evalExternalCmd.Flags().StringVar(&evalExternalNormalize, "normalize", "none", "Hypothesis normalization: none or markdown")
 
 	if err := evalExternalCmd.MarkFlagRequired("csv"); err != nil {
 		panic(err)
@@ -83,6 +85,9 @@ func init() {
 }
 
 func runEvalExternal(cmd *cobra.Command, args []string) error {
+	if err := validateNormalization(evalExternalNormalize); err != nil {
+		return err
+	}
 	config := ExternalEvalConfig{
 		ModelName: evalExternalModelName,
 		CSVPath:   evalExternalCSVPath,
@@ -105,13 +110,16 @@ func runEvalExternal(cmd *cobra.Command, args []string) error {
 	// Create a summary that's compatible with existing eval format
 	// We'll use an EvalConfig that indicates this is an external evaluation
 	evalConfig := EvalConfig{
-		Provider:    "external",
-		Model:       config.ModelName,
-		Prompt:      "Evaluated from external source",
-		Temperature: 0.0,
-		CSVPath:     config.CSVPath,
-		TestRows:    config.TestRows,
-		Timestamp:   config.Timestamp,
+		Normalize:      evalExternalNormalize,
+		IgnorePatterns: evalExternalIgnorePatterns,
+		SingleLine:     evalExternalSingleLine,
+		Provider:       "external",
+		Model:          config.ModelName,
+		Prompt:         "Evaluated from external source",
+		Temperature:    0.0,
+		CSVPath:        config.CSVPath,
+		TestRows:       config.TestRows,
+		Timestamp:      config.Timestamp,
 	}
 
 	summary := EvalSummary{
@@ -211,7 +219,7 @@ func processExternalEvalRow(row []string) (EvalResult, error) {
 	}
 
 	// Calculate metrics
-	metrics := CalculateAccuracyMetrics(groundTruth, externalTranscription, evalExternalIgnorePatterns, evalExternalSingleLine)
+	metrics := CalculateAccuracyMetrics(groundTruth, externalTranscription, evalExternalIgnorePatterns, evalExternalSingleLine, evalExternalNormalize)
 
 	result := EvalResult{
 		Identifier:            filepath.Base(transcriptPath),

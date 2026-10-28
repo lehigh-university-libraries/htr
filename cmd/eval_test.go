@@ -280,7 +280,7 @@ func TestCalculateAccuracyMetricsWithIgnore(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, tt.ignorePatterns, false)
+			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, tt.ignorePatterns, false, "none")
 
 			if result.IgnoredCharsCount != tt.expectedIgnoredCount {
 				t.Errorf("IgnoredCharsCount = %d, want %d\n  description: %s",
@@ -467,7 +467,7 @@ func TestCalculateAccuracyMetricsWithSingleLine(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, []string{}, tt.singleLine)
+			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, []string{}, tt.singleLine, "none")
 
 			if result.CorrectWords != tt.expectedCorrectWords {
 				t.Errorf("CorrectWords = %d, want %d\n  description: %s",
@@ -601,7 +601,7 @@ func TestCalculateAccuracyMetricsWithSingleLineNormalization(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, []string{}, tt.singleLine)
+			result := CalculateAccuracyMetrics(tt.groundTruth, tt.transcription, []string{}, tt.singleLine, "none")
 
 			if result.CorrectWords != tt.expectedCorrectWords {
 				t.Errorf("CorrectWords = %d, want %d\n  description: %s",

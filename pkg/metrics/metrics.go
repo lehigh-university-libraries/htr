@@ -10,6 +10,9 @@ import (
 
 // Options controls transformations applied before evaluating a transcription.
 type Options struct {
+	// Normalize accepts "markdown" to remove hypothesis presentation markup.
+	// Empty or "none" retains historical behavior.
+	Normalize string
 	// IgnorePatterns mark unknown ground-truth characters or words. A pattern
 	// surrounded by whitespace skips one hypothesis word; an inline pattern
 	// skips one hypothesis rune.
@@ -48,6 +51,9 @@ type WordEdits struct {
 
 // Evaluate compares a ground-truth string with a transcription.
 func Evaluate(original, transcribed string, options Options) Result {
+	if options.Normalize == "markdown" {
+		transcribed = NormalizeMarkdown(transcribed)
+	}
 	if options.SingleLine {
 		original = NormalizeSingleLine(original)
 		transcribed = NormalizeSingleLine(transcribed)

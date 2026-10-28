@@ -51,19 +51,6 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	if config.Model == "" {
 		config.Model = DefaultModel
 	}
-	// Older eval files used gpt-4o even though Azure ignored that model field.
-	legacy := config.Model == "read-v3.2" || config.Model == "gpt-4o"
-	endpoint := os.Getenv("AZURE_OCR_ENDPOINT")
-	readURL, err := httpclient.AppendPathSegment(endpoint, "/documentintelligence/documentModels/", config.Model, ":analyze")
-	if legacy {
-		readURL, err = httpclient.AppendPath(endpoint, "/vision/v3.2/read/analyze")
-	}
-	if err != nil {
-		return "", providers.UsageInfo{}, err
-	}
-	if !legacy {
-		readURL += "?api-version=2024-11-30"
-	}
 	if base64.StdEncoding.DecodedLen(len(imageBase64)) > 50<<20 {
 		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
@@ -71,87 +58,111 @@ func (p *Provider) ExtractText(ctx context.Context, config providers.Config, ima
 	if err != nil || len(imageData) == 0 || len(imageData) > 50<<20 {
 		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
-	timeout := config.Timeout
+	raw, err := analyzeImage(ctx, os.Getenv("AZURE_OCR_ENDPOINT"), os.Getenv("AZURE_OCR_API_KEY"), config.Model, imageData, config.Timeout, p.client, p.pollInterval)
+	if err != nil {
+		return "", providers.UsageInfo{}, err
+	}
+	var result map[string]interface{}
+	if err := json.Unmarshal(raw, &result); err != nil {
+		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, 0, false, nil)
+	}
+	return extractText(result), providers.UsageInfo{}, nil
+}
+
+func analyzeImage(ctx context.Context, endpoint, key, model string, imageData []byte, timeout time.Duration, injected *http.Client, pollInterval time.Duration) ([]byte, error) {
+	// Older eval files used gpt-4o even though Azure ignored that model field.
+	legacy := model == "read-v3.2" || model == "gpt-4o"
+
+	readURL, err := httpclient.AppendPathSegment(endpoint, "/documentintelligence/documentModels/", model, ":analyze")
+	if legacy {
+		readURL, err = httpclient.AppendPath(endpoint, "/vision/v3.2/read/analyze")
+	}
+	if err != nil {
+		return nil, err
+	}
+	if !legacy {
+		readURL += "?api-version=2024-11-30"
+	}
 	if timeout <= 0 {
 		timeout = 15 * time.Minute
 	}
 	ctx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
-	client := httpclient.Secure(p.client, timeout)
+	client := httpclient.Secure(injected, timeout)
 	request, err := http.NewRequestWithContext(ctx, http.MethodPost, readURL, bytes.NewReader(imageData))
 	if err != nil {
-		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
+		return nil, providers.NewError(providers.ErrorInvalidRequest, 0, false, nil)
 	}
 	request.Header.Set("Content-Type", "application/octet-stream")
-	auth := httpclient.StaticHeader("Ocp-Apim-Subscription-Key", os.Getenv("AZURE_OCR_API_KEY"))
+	auth := httpclient.StaticHeader("Ocp-Apim-Subscription-Key", key)
 	if err := auth.Authorize(ctx, request); err != nil {
-		return "", providers.UsageInfo{}, err
+		return nil, err
 	}
 	response, err := client.Do(request)
 	if err != nil {
-		return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, err)
+		return nil, providers.ErrorForRequest(ctx, err)
 	}
 	_, readErr := httpclient.ReadAll(response.Body, 16<<20)
 	closeErr := response.Body.Close()
 	if readErr != nil {
-		return "", providers.UsageInfo{}, readErr
+		return nil, readErr
 	}
 	if closeErr != nil {
-		return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, closeErr)
+		return nil, providers.ErrorForRequest(ctx, closeErr)
 	}
 	if response.StatusCode != http.StatusAccepted {
-		return "", providers.UsageInfo{}, providers.ErrorForStatus(response.StatusCode)
+		return nil, providers.ErrorForStatus(response.StatusCode)
 	}
 	operation, err := url.Parse(response.Header.Get("Operation-Location"))
 	// Polling URLs are untrusted: never send the resource key to another origin.
 	if err != nil || operation.User != nil || operation.Fragment != "" || operation.Scheme != request.URL.Scheme || !strings.EqualFold(operation.Host, request.URL.Host) || operation.Path == "" {
-		return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+		return nil, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
 	}
-	interval := p.pollInterval
+	interval := pollInterval
 	if interval <= 0 {
 		interval = time.Second
 	}
 	for {
 		poll, err := http.NewRequestWithContext(ctx, http.MethodGet, operation.String(), nil)
 		if err != nil {
-			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, 0, false, nil)
+			return nil, providers.NewError(providers.ErrorInvalidResponse, 0, false, nil)
 		}
 		if err := auth.Authorize(ctx, poll); err != nil {
-			return "", providers.UsageInfo{}, err
+			return nil, err
 		}
 		response, err := client.Do(poll)
 		if err != nil {
-			return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, err)
+			return nil, providers.ErrorForRequest(ctx, err)
 		}
 		body, readErr := httpclient.ReadAll(response.Body, 16<<20)
 		closeErr := response.Body.Close()
 		if readErr != nil {
-			return "", providers.UsageInfo{}, readErr
+			return nil, readErr
 		}
 		if closeErr != nil {
-			return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, closeErr)
+			return nil, providers.ErrorForRequest(ctx, closeErr)
 		}
 		if response.StatusCode != http.StatusOK {
-			return "", providers.UsageInfo{}, providers.ErrorForStatus(response.StatusCode)
+			return nil, providers.ErrorForStatus(response.StatusCode)
 		}
 		var result map[string]interface{}
 		if err := json.Unmarshal(body, &result); err != nil {
-			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+			return nil, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
 		}
 		switch result["status"] {
 		case "succeeded":
-			return extractText(result), providers.UsageInfo{}, nil
+			return body, nil
 		case "failed", "canceled":
-			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+			return nil, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
 		case "running", "notStarted":
 		default:
-			return "", providers.UsageInfo{}, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
+			return nil, providers.NewError(providers.ErrorInvalidResponse, response.StatusCode, false, nil)
 		}
 		timer := time.NewTimer(interval)
 		select {
 		case <-ctx.Done():
 			timer.Stop()
-			return "", providers.UsageInfo{}, providers.ErrorForRequest(ctx, ctx.Err())
+			return nil, providers.ErrorForRequest(ctx, ctx.Err())
 		case <-timer.C:
 		}
 	}

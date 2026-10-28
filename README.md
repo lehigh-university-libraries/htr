@@ -718,3 +718,16 @@ Sources for the defaults and wire compatibility:
 [Gemini models](https://ai.google.dev/gemini-api/docs/models),
 [Ollama Gemma 4](https://ollama.com/library/gemma4),
 [Azure Document Intelligence](https://learn.microsoft.com/en-us/azure/ai-services/document-intelligence/whats-new).
+
+## Layout conversion and segmentation evaluation
+
+Use `htr convert`, `htr segment`, `htr segeval`, and `htr segeval-external` to
+convert and compare OCR layouts. The [segmentation guide](docs/SEGEVAL.md) covers
+formats, document profiles, provider configuration, crop recognition, and
+saved-result backfill. [ROADMAP.md](docs/ROADMAP.md) records provider selection
+criteria, benchmark evidence, and future work.
+
+Transcription evaluation also supports `mistral-ocr` (`MISTRAL_API_KEY`),
+`openai-compatible` (`--endpoint`, `--api-key-env`), `azure-layout`, and `textract`.
+Use `--normalize markdown` with markdown output. For open-model handwriting
+comparisons, the roadmap recommends evaluating Qwen3-VL 8B via `ollama`.

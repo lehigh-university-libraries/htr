@@ -1,0 +1,80 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/lehigh-university-libraries/htr/pkg/ocrpage/htrpage.schema.json",
+  "title": "HTR page v1",
+  "type": "object",
+  "required": ["htrPage", "width", "height", "regions"],
+  "properties": {
+    "htrPage": {"const": 1},
+    "width": {"type": "integer", "minimum": 0, "maximum": 1000000},
+    "height": {"type": "integer", "minimum": 0, "maximum": 1000000},
+    "regions": {"type": ["array", "null"], "items": {"$ref": "#/$defs/region"}},
+    "source": {"enum": ["hocr", "pagexml", "alto", "iiif", "kraken", "htrjson", "txt"]},
+    "provenance": {
+      "type": "object",
+      "properties": {"provider": {"type": "string"}, "model": {"type": "string"}, "created": {"type": "string"}},
+      "additionalProperties": false
+    }
+  },
+  "additionalProperties": false,
+  "$defs": {
+    "coordinate": {"type": "integer", "minimum": 0, "maximum": 1000000},
+    "confidence": {"type": "number", "minimum": 0, "maximum": 1},
+    "point": {
+      "type": "object", "required": ["x", "y"],
+      "properties": {"x": {"$ref": "#/$defs/coordinate"}, "y": {"$ref": "#/$defs/coordinate"}},
+      "additionalProperties": false
+    },
+    "points": {"type": "array", "items": {"$ref": "#/$defs/point"}},
+    "rect": {
+      "type": "object", "required": ["x1", "y1", "x2", "y2"],
+      "properties": {"x1": {"$ref": "#/$defs/coordinate"}, "y1": {"$ref": "#/$defs/coordinate"}, "x2": {"$ref": "#/$defs/coordinate"}, "y2": {"$ref": "#/$defs/coordinate"}},
+      "additionalProperties": false
+    },
+    "word": {
+      "type": "object", "required": ["box"],
+      "properties": {"id": {"type": "string"}, "text": {"type": "string"}, "box": {"$ref": "#/$defs/rect"}, "polygon": {"$ref": "#/$defs/points"}, "confidence": {"$ref": "#/$defs/confidence"}},
+      "additionalProperties": false
+    },
+    "line": {
+      "type": "object", "required": ["box"],
+      "properties": {
+        "id": {"type": "string"}, "text": {"type": "string"}, "box": {"$ref": "#/$defs/rect"},
+        "polygon": {"$ref": "#/$defs/points"}, "baseline": {"$ref": "#/$defs/points"}, "baselineDerived": {"type": "boolean"},
+        "words": {"type": "array", "items": {"$ref": "#/$defs/word"}}, "handwritten": {"type": "boolean"}, "confidence": {"$ref": "#/$defs/confidence"}
+      }, "additionalProperties": false
+    },
+    "cell": {
+      "type": "object", "required": ["row", "col", "rowSpan", "colSpan", "box"],
+      "properties": {
+        "row": {"type": "integer", "minimum": 0}, "col": {"type": "integer", "minimum": 0},
+        "rowSpan": {"type": "integer", "minimum": 1}, "colSpan": {"type": "integer", "minimum": 1},
+        "box": {"$ref": "#/$defs/rect"}, "lineIDs": {"type": "array", "items": {"type": "string"}}
+      }, "additionalProperties": false
+    },
+    "table": {
+      "type": "object", "required": ["rows", "cols", "cells"],
+      "properties": {
+        "rows": {"type": "integer", "minimum": 0}, "cols": {"type": "integer", "minimum": 0},
+        "cells": {"type": ["array", "null"], "items": {"$ref": "#/$defs/cell"}}
+      }, "additionalProperties": false
+    },
+    "field": {
+      "type": "object", "required": ["keyLineIDs", "valueLineIDs"],
+      "properties": {
+        "keyLineIDs": {"type": ["array", "null"], "items": {"type": "string"}},
+        "valueLineIDs": {"type": ["array", "null"], "items": {"type": "string"}}
+      }, "additionalProperties": false
+    },
+    "region": {
+      "type": "object", "required": ["type", "box"],
+      "properties": {
+        "id": {"type": "string"},
+        "type": {"enum": ["text", "heading", "caption", "header", "footer", "page-number", "marginalia", "footnote", "list", "drop-capital", "signature", "table", "field", "image", "math", "separator", "advert", "noise", "unknown"]},
+        "sourceType": {"type": "string"}, "box": {"$ref": "#/$defs/rect"}, "polygon": {"$ref": "#/$defs/points"},
+        "lines": {"type": "array", "items": {"$ref": "#/$defs/line"}}, "implicit": {"type": "boolean"},
+        "table": {"$ref": "#/$defs/table"}, "field": {"$ref": "#/$defs/field"}, "confidence": {"$ref": "#/$defs/confidence"}
+      }, "additionalProperties": false
+    }
+  }
+}

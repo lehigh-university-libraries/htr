@@ -44,6 +44,7 @@ type Config struct {
 	MaxResolution         string
 	MaxResolutionFallback bool
 	BaseURL               string
+	APIKeyEnv             string
 	Audience              string
 	// Ollama-only request options; zero/nil values preserve server defaults.
 	NumCtx int
@@ -58,6 +59,8 @@ type Config struct {
 
 // UsageInfo represents token usage information from a provider
 type UsageInfo struct {
+	// Pages counts page-billed OCR requests.
+	Pages int
 	// ThoughtTokens are billed output tokens in addition to candidate OutputTokens.
 	ThoughtTokens int
 	InputTokens   int

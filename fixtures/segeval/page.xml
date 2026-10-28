@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PcGts xmlns="http://schema.primaresearch.org/PAGE/gts/pagecontent/2019-07-15">
+<Page imageWidth="200" imageHeight="100" imageFilename="synthetic.png">
+<TextRegion id="r1" type="text"><Coords points="10,10 110,10 110,70 10,70"/>
+<TextLine id="l1"><Coords points="10,10 110,10 110,30 10,30"/><Baseline points="10,25 110,25"/><TextEquiv><Unicode>été 水</Unicode></TextEquiv></TextLine>
+<TextLine id="l2"><Coords points="10,50 110,50 110,70 10,70"/><Baseline points="10,65 110,65"/><TextEquiv><Unicode>second line</Unicode></TextEquiv></TextLine>
+</TextRegion></Page></PcGts>
