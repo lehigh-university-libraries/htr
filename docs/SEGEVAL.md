@@ -9,7 +9,7 @@ htr segeval-external --gt fixtures/segeval/page.xml \
   --segmentation fixtures/segeval/page.kraken.json --profile letter --name example
 htr summary evals/segmentation/example.yaml
 htr csv --kind segmentation
-htr backfill
+htr backfill --kind segmentation
 ```
 
 ## Input and output
@@ -59,9 +59,13 @@ CSV profiles. `--level region|line|word` overrides the profile's level.
 
 Raw native responses and canonical pages from provider evaluations are kept in
 separate files per run. YAML stores their paths, the complete profile used and
-all component scores. `backfill` evaluates the saved canonical page against the
-GT again; `backfill --profile-file weights.yaml` applies revised weights without
-calling a provider. External evaluations retain references to the input files,
+all component scores. Results are checkpointed after each row; failed rows retain
+an error and do not prevent subsequent rows from running or enter score averages.
+`backfill --kind segmentation` evaluates the saved canonical page against the
+GT again; adding `--profile-file weights.yaml` applies revised weights only to
+results with the same profile name, without calling a provider. Missing inputs
+produce warnings and leave those rows unchanged. Transcription backfill is
+independent. External evaluations retain references to the input files,
 so keep those files available for backfill.
 
 ## Profiles and scores
@@ -84,8 +88,11 @@ Components:
   false detections, and region misclassifications. Area and count scores are
   separate weighted harmonic means including reading order.
 - cBAD adaptive baseline precision/recall/F for `manuscript` and `letter`.
-  Every GT line must have a real baseline. Otherwise the report explicitly
+  Every GT line must have a real baseline and at least one hypothesis line must
+  have a baseline. Otherwise the report explicitly
   falls back to PRImA. Derived baselines are never accepted as baseline GT.
+  A hypothesis without any baselines reports `hypothesis has no baselines`;
+  partially missing hypothesis baselines still count against cBAD.
 - MOTe Missing, Overlap, Trespass and Total; Excess is separate. Overlapping GT
   pixels belong to the first GT element, matching the reference library.
 - Hungarian one-to-one IoU matching per overlap component, F1 at 0.5 and 0.75,
@@ -170,6 +177,11 @@ htr eval --provider openai-compatible --endpoint http://localhost:8000/v1/chat/c
 htr eval-external -c exported-text.csv -n candidate --normalize markdown
 ```
 
+Compatible endpoints require HTTPS except for loopback hosts. `--api-key-env`
+selects a credential only for the current invocation; its value is never loaded
+from or saved to evaluation YAML. Supply the flag again when replaying a run
+that uses a custom credential variable.
+
 `--normalize none|markdown` is saved for evaluation reruns, CSV summaries and
 backfill. Only hypothesis markup is stripped, so literal punctuation in GT is
 preserved. Markdown normalization covers headings, emphasis, inline/fenced code,
@@ -193,8 +205,10 @@ export, correction component reports, selector transforms and editable region
 types. Its bundle acceptance test builds this CLI and scores `pages.csv`
 without downloading images. Missing `.env` files do not prevent offline commands.
 
-The minor release and Scribe dependency pin remain a release step; local
-cross-repository verification uses a development Go workspace. Full isolated CI
-must pass against the published dependency before this integration is released.
+The shared module and CLI are published as v0.24.0. Scribe's integration in
+[PR #148](https://github.com/lehigh-university-libraries/scribe/pull/148) pins
+that version, and its ground-truth ZIP acceptance test passes against the
+published dependency without a development Go workspace. Full isolated CI and
+the required hosted jobs must pass before merging the Scribe integration.
 Self-hosted model containers, downstream CER calibration and table
 structure metrics remain out of scope as specified in the roadmap.

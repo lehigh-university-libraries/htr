@@ -1032,18 +1032,20 @@ AnnotationPage is revisioned in place. Explicit marks therefore create immutable
 `annotation_ground_truth` snapshots, with quota accounting and resource cleanup.
 Exports include both canonical IIIF and dimensioned htr GT JSON, original
 segmentation, transcripts, image URLs and a ready-to-score CSV. Interactive
-scoring is capped at 256 elements per side and two evaluations per process;
-larger pages explicitly request offline scoring. Schema migrations follow
+scoring is capped at 256 elements per side (32 for line-level pages with
+baselines), 2048 input/4096 sampled baseline points per side, and two evaluations
+per process; larger pages explicitly request offline scoring. Schema migrations follow
 Scribe's existing forward-only migration contract.
 
-Still pending before release:
+Release and integration status:
 
-- Add a minor release/tag after review, pin Scribe to it, and run its full
-  isolated CI against that dependency (step 15 and final integration gate).
-  Scribe's pre-release CI retry against v0.23.1 fails during lint because that
-  dependency lacks `pkg/ocrpage`. Do not treat local workspace tests as
-  completion of this gate. Run against the published dependency and compatible
-  lint toolchain after updating the pin.
+- htr v0.24.0 is published, including CLI binaries and checksums, and
+  [Scribe PR #148](https://github.com/lehigh-university-libraries/scribe/pull/148)
+  pins that version. Its ground-truth bundle acceptance test passes against
+  the published module without a development workspace. Full isolated CI and
+  the required hosted jobs remain the final integration gate. Scribe's pinned
+  lint importer uses the module's minimum compiler; application builds/tests
+  retain their existing runtime compiler pin.
 - Run calibration when enough real GT pages exist; it remains a follow-up as
   stated in §12. No live provider benchmark or accuracy claim is inferred from
   the synthetic acceptance tests.
