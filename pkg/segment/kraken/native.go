@@ -160,6 +160,7 @@ func ParseOCR(raw []byte, size image.Point) (ocrpage.Page, error) {
 		if len(text) > 0 {
 			line.Confidence /= float64(len(text))
 		}
+		unlocatedWord := false
 		for start := 0; start < len(text); {
 			if unicode.IsSpace(text[start]) {
 				start++
@@ -182,10 +183,17 @@ func ParseOCR(raw []byte, size image.Point) (ocrpage.Page, error) {
 			}
 			wordBox := ocrpage.BoundingBox(cutPoints).Intersect(box)
 			if wordBox.Area() <= 0 {
-				return ocrpage.Page{}, invalid()
+				unlocatedWord = true
+				start = end
+				continue
 			}
 			line.Words = append(line.Words, ocrpage.Word{Text: string(text[start:end]), Box: wordBox, Confidence: confidence / float64(end-start)})
 			start = end
+		}
+		if unlocatedWord {
+			// Keep the complete line text when a token has no usable cuts.
+			// Partial word geometry would make PlainText silently omit it.
+			line.Words = nil
 		}
 		if size.X == 0 {
 			width = max(width, box.X2)

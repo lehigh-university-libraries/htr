@@ -22,6 +22,18 @@ func TestKrakenOCRCharacterCutsAndReadingOrder(t *testing.T) {
 		t.Fatal("invalid cuts accepted")
 	}
 }
+
+func TestKrakenOCRPreservesLineWithDegenerateWordCuts(t *testing.T) {
+	raw := []byte(`{"entities":[{"id":"line","type":"line","text":"a ' b","boundary":[[0,0],[60,0],[60,30],[0,30]],"baseline":[[0,20],[60,20]],"cuts":[[[0,0],[10,0],[10,30],[0,30]],[],[[30,10],[30,10],[30,10],[30,10]],[],[[40,0],[60,0],[60,30],[40,30]]],"confidences":[0.9,0.9,0.9,0.9,0.9]}]}`)
+	page, err := ParseOCR(raw, image.Pt(60, 30))
+	if err != nil {
+		t.Fatal(err)
+	}
+	lines := page.Lines()
+	if len(lines) != 1 || lines[0].PlainText() != "a ' b" || len(lines[0].Words) != 0 || len(lines[0].Baseline) != 2 {
+		t.Fatalf("line with unlocated token = %+v", lines)
+	}
+}
 func parseLegacyOCR(raw []byte) ([]legacyLine, error) {
 	p, e := ParseOCR(raw, image.Point{})
 	var out []legacyLine
